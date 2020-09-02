@@ -64,6 +64,21 @@ namespace Microsoft.Azure.IIoT.Hub.Services {
                 return;
             }
 
+            try {
+
+                //  when handling third party OPC UA Pub/Sub Messages
+                //  the schemaType might not exist
+                if (_handlers.TryGetValue("application/x-network-message-uadp-v2", out var handler)) {
+                    await handler.HandleAsync(deviceId, moduleId?.ToString(), eventData,
+                        properties, checkpoint);
+                    _used.Enqueue(handler);
+                }
+
+                // Handled...
+                return;
+            }
+            catch { }
+
             if (_unknown != null) {
                 // From a device, but does not have any event schema or message schema
                 await _unknown.HandleAsync(eventData, properties);

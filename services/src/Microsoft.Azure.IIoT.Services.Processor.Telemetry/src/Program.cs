@@ -140,6 +140,9 @@ namespace Microsoft.Azure.IIoT.Services.Processor.Telemetry {
             builder.RegisterType<PubSubNetworkMessageJsonHandler>()
                 .AsImplementedInterfaces();
 
+            builder.RegisterType<PubSubNetworkMessageBinaryHandlerV2>()
+                .AsImplementedInterfaces();
+
             // ... and forward result to secondary eventhub
             builder.RegisterType<MonitoredItemSampleForwarder>()
                 .AsImplementedInterfaces();

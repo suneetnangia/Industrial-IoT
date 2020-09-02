@@ -406,7 +406,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
         /// <param name="ct"></param>
         /// <returns></returns>
         private async Task HandleInitAsync(ConnectionIdentifier id,
-        SessionWrapper wrapper, CancellationToken ct) {
+            SessionWrapper wrapper, CancellationToken ct) {
             try {
                 if (wrapper.Session != null) {
                     _logger.Warning("Session '{id}' still attached to wrapper in {state}",
