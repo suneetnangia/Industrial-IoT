@@ -77,7 +77,10 @@ namespace Microsoft.Azure.IIoT.Hub.Services {
                 // Handled...
                 return;
             }
-            catch { }
+            catch {
+                //  catch any exception so that the _unknown handler can
+                //  pick up the message not properly handled
+            }
 
             if (_unknown != null) {
                 // From a device, but does not have any event schema or message schema
