@@ -289,7 +289,7 @@
             "comments": "KeyVault for secrets and certificate store.",
             "type": "Microsoft.KeyVault/vaults",
             "name": "[parameters('keyVaultName')]",
-            "apiVersion": "2016-10-01",
+            "apiVersion": "2019-09-01",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
@@ -340,7 +340,7 @@
             "condition": "[not(empty(parameters('keyVaultPrincipalId')))]",
             "type": "Microsoft.KeyVault/vaults/accessPolicies",
             "name": "[concat(parameters('keyVaultName'), '/add')]",
-            "apiVersion": "2016-10-01",
+            "apiVersion": "2019-09-01",
             "tags": "[parameters('tags')]",
             "properties": {
                 "accessPolicies": [
