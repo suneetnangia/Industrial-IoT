@@ -329,7 +329,8 @@
                             ]
                         }
                     }
-                ]
+                ],
+                "enableRbacAuthorization": "true"
             },
             "dependsOn": [
                 "[variables('identityResourceId')]"
@@ -364,7 +365,8 @@
                             ]
                         }
                     }
-                ]
+                ],
+                "enableRbacAuthorization": "true"
             },
             "dependsOn": [
                 "[variables('keyVaultResourceId')]"
