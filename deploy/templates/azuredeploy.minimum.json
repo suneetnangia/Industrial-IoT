@@ -300,7 +300,8 @@
                 "sku": {
                     "name": "[parameters('keyVaultSkuName')]",
                     "family": "A"
-                }
+                },
+                "enableRbacAuthorization": "true"
             },
             "dependsOn": [
                 "[variables('identityResourceId')]"
