@@ -310,22 +310,6 @@
             ]
         },
         {
-            "comments": "Optional KeyVault principal access permissions for configuration secrets.",
-            "condition": "[not(empty(parameters('keyVaultPrincipalId')))]",
-            "type": "Microsoft.KeyVault/vaults/accessPolicies",
-            "name": "[concat(parameters('keyVaultName'), '/add')]",
-            "apiVersion": "2016-10-01",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "accessPolicies": [
-                ],
-                "enableRbacAuthorization": "true"
-            },
-            "dependsOn": [
-                "[variables('keyVaultResourceId')]"
-            ]
-        },
-        {
             "comments": "Azure IoT Hub",
             "apiVersion": "2019-03-22",
             "type": "Microsoft.Devices/Iothubs",
