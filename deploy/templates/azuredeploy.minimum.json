@@ -302,33 +302,6 @@
                     "family": "A"
                 },
                 "accessPolicies": [
-                    {
-                        "tenantId": "[reference(variables('identityResourceId'), '2018-11-30').tenantId]",
-                        "objectId": "[reference(variables('identityResourceId'), '2018-11-30').principalId]",
-                        "permissions": {
-                            "keys": [
-                                "get",
-                                "list",
-                                "sign",
-                                "unwrapKey",
-                                "wrapKey",
-                                "create"
-                            ],
-                            "secrets": [
-                                "get",
-                                "list",
-                                "set",
-                                "delete"
-                            ],
-                            "certificates": [
-                                "get",
-                                "list",
-                                "update",
-                                "create",
-                                "import"
-                            ]
-                        }
-                    }
                 ]
             },
             "dependsOn": [
@@ -344,26 +317,6 @@
             "tags": "[parameters('tags')]",
             "properties": {
                 "accessPolicies": [
-                    {
-                        "tenantId": "[subscription().tenantId]",
-                        "objectId": "[parameters('keyVaultPrincipalId')]",
-                        "permissions": {
-                            "keys": [
-                                "get",
-                                "list",
-                                "sign",
-                                "unwrapKey",
-                                "wrapKey",
-                                "create"
-                            ],
-                            "secrets": [
-                                "get",
-                                "list",
-                                "set",
-                                "delete"
-                            ]
-                        }
-                    }
                 ]
             },
             "dependsOn": [
