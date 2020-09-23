@@ -294,7 +294,8 @@ namespace Opc.Ua.PubSub {
                             if (metadataContext == null) {
                                 throw new Exception("MetadataContext not provided for decoding raw data");
                             }
-                            var metaDataType = metadataContext.GetDataSetMetaDataType(PublisherId, DataSetWriterId);
+                            var metaDataType = metadataContext.GetDataSetMetaDataType(PublisherId, DataSetWriterId,
+                                MetaDataVersion?.MajorVersion, MetaDataVersion.MinorVersion);
                             if (metaDataType == null) {
                                 throw new Exception("MetaData not available for decoding raw data");
                             }
@@ -345,7 +346,8 @@ namespace Opc.Ua.PubSub {
                             if (metadataContext == null) {
                                 throw new Exception("MetadataContext not provided for decoding raw data");
                             }
-                            var metaDataType = metadataContext.GetDataSetMetaDataType(PublisherId, DataSetWriterId);
+                            var metaDataType = metadataContext.GetDataSetMetaDataType(PublisherId, DataSetWriterId, 
+                                MetaDataVersion?.MajorVersion, MetaDataVersion.MinorVersion);
                             if (metaDataType == null) {
                                 throw new Exception("MetaData not available for decoding raw data");
                             }

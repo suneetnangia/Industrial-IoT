@@ -68,7 +68,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Subscriber.Handlers {
                         _chunks[id] = message;
                     }
 
-                    // handle the 
+                    // handle the chunks
                     var complete = true;
                     var totalSize = (uint)0;
                     var orderedChunks = _chunks[id].Chunks.OrderBy(c => c.ChunkOffset).ToArray();
@@ -114,11 +114,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Subscriber.Handlers {
                                     typeof(DiscoveryResponsePayload)) as DiscoveryResponsePayload;
                                 break;
                             default:
-                                throw new Exception("Invalid message network type.");
+                                throw new Exception("Invalid network message type");
                         }
                     }
                     catch (Exception ex) {
-                        _logger.Error(ex, "Subscriber binary network message handling failed - skip");
+                        _logger.Error(ex, "Skipping failed dataset message: PublisherId: {publisherId}",
+                            message.PublisherId);
                     }
 
                     finally {
@@ -130,6 +131,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Subscriber.Handlers {
                     case NetworkMessageType.DataSetMessagePayload:
                         break;
                     case NetworkMessageType.DiscoveryResponsePayload:
+
                         _metadataContext.AddOrUpdateDataSetMetaDataType(message);
 
                         foreach (var newType in message.DiscoveryResponsePayload.MetaData.StructureDataTypes) {
@@ -155,8 +157,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Subscriber.Handlers {
                                 _context.Factory.AddEncodeableType(newType.XmlEncodingId, complexType);
                             }
                         }
-
-
+                        _logger.Information("New metadata message processed: PublisherId: {publisherId} " +
+                                "DataSetWriterId:{dataSetWriterId} Version:{major}.{minor}",
+                            message.PublisherId, message.DiscoveryResponsePayload.DataSetWriterId, 
+                            message.DiscoveryResponsePayload.MetaData.ConfigurationVersion.MajorVersion,
+                            message.DiscoveryResponsePayload.MetaData.ConfigurationVersion.MinorVersion);
                         return;
                 }
 
@@ -195,10 +200,15 @@ namespace Microsoft.Azure.IIoT.OpcUa.Subscriber.Handlers {
                                     ? null : datapoint.Value?.ServerPicoseconds
                             };
                         }
+                        _logger.Information("New dataset message processed: PublisherId: {publisherId} " +
+                            "DataSetWriterId:{dataSetWriterId} Version:{version}",
+                            dataset.PublisherId, dataset.DataSetWriterId, dataset.MetaDataVersion);
                         await Task.WhenAll(_handlers.Select(h => h.HandleMessageAsync(dataset)));
                     }
                     else {
-                        _logger.Error("Subscriber binary network message handling failed - skip");
+                        _logger.Information("Skipping new dataset message due to empty payload: PublisherId: {publisherId} " +
+                            "DataSetWriterId:{dataSetWriterId} Version:{version}",
+                            dataset.PublisherId, dataset.DataSetWriterId, dataset.MetaDataVersion);
                     }
                 }
             }

@@ -18,7 +18,7 @@ namespace Opc.Ua.PubSub {
         /// Create default
         /// </summary>
         public MetadataContext() {
-            _metaDataMessages = new Dictionary<Tuple<string, ushort>, List<NetworkMessagePubSub>>();
+            _metaDataMessages = new Dictionary<Tuple<string, ushort, uint?, uint?>, NetworkMessagePubSub>();
         }
 
         /// <summary>
@@ -27,33 +27,37 @@ namespace Opc.Ua.PubSub {
         /// <param name="message"></param>
         public void AddOrUpdateDataSetMetaDataType(NetworkMessagePubSub message) {
 
-            var discoveryResponseId = new Tuple<string, ushort>(message.PublisherId, message.DiscoveryResponsePayload.DataSetWriterId);
-            if (_metaDataMessages.TryGetValue(discoveryResponseId, out var existing)) {
-                existing.Add(message);
-            }
-            else {
-                existing = new List<NetworkMessagePubSub>() { message };
-                _metaDataMessages[discoveryResponseId] = existing;
+            var metaDataId = new Tuple<string, ushort, uint?, uint?>(
+                message.PublisherId,
+                message.DiscoveryResponsePayload.DataSetWriterId,
+                message.DiscoveryResponsePayload?.MetaData?.ConfigurationVersion?.MajorVersion,
+                message.DiscoveryResponsePayload?.MetaData?.ConfigurationVersion?.MinorVersion);
+            if (!_metaDataMessages.TryGetValue(metaDataId, out var existing)) {
+                _metaDataMessages.TryAdd(metaDataId, message);
             }
         }
 
         /// <summary>
-        /// 
+        /// GetDataSetMetaDataType
         /// </summary>
         /// <param name="publisherId"></param>
         /// <param name="dataSetWriterId"></param>
+        /// <param name="majorVersion"></param>
+        /// <param name="minorVersion"></param>
         /// <returns></returns>
-        public DataSetMetaDataType GetDataSetMetaDataType(string publisherId, ushort dataSetWriterId) {
+        public DataSetMetaDataType GetDataSetMetaDataType(string publisherId, 
+            ushort dataSetWriterId, uint? majorVersion, uint? minorVersion) {
 
-            var metaDataId = new Tuple<string, ushort>(publisherId, dataSetWriterId);
-            if (_metaDataMessages.TryGetValue(metaDataId, out var metadataNetworkMessageList)) {
-                return metadataNetworkMessageList.First()!.DiscoveryResponsePayload.MetaData;
+            var metaDataId = new Tuple<string, ushort, uint?, uint?>(
+                publisherId, dataSetWriterId, majorVersion, minorVersion);
+            if (_metaDataMessages.TryGetValue(metaDataId, out var message)) {
+                return message?.DiscoveryResponsePayload.MetaData;
             }
 
             return null;
         }
 
-        private readonly Dictionary<Tuple<string, ushort>, List<NetworkMessagePubSub>> _metaDataMessages;
+        private readonly Dictionary<Tuple<string, ushort, uint?, uint?>, NetworkMessagePubSub> _metaDataMessages;
 
     }
 }
