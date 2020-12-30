@@ -1,0 +1,107 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "managedIdentityResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created managed identity with application developer permissions."
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created keyvault containing service and client configuration."
+            }
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "metadata": {
+                "description": "URI of Azure Key Vault."
+            }
+        },
+        "applicationName": {
+            "type": "string",
+            "defaultValue": "[concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "The name of the services endpoint. Leave empty for local development."
+            }
+        },
+        "helmSetupScriptsUrl": {
+            "type": "string",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
+            "metadata": {
+                "description": "The helm setup scripts url.  Default is official repository."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "helmInstallResourceName": "[concat('__aad', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "configurationResourceName": "auth.configuration",
+        "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Register the client and service applications in AAD.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('helmInstallResourceName')]",
+            "condition": "[not(empty(parameters('managedIdentityResourceId')))]",
+            "location": "[resourceGroup().location]",            
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[parameters('managedIdentityResourceId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[parameters('applicationName')]",
+                "azCliVersion": "2.9.1",
+                "timeout": "PT1H",
+                "primaryScriptURI": "[concat(parameters('helmSetupScriptsUrl'), '/helm-setup.sh')]",
+                "arguments": "[concat(
+                        ' --resource_group ', resourceGroup().name,
+                        ' --aks_cluster ', parameters('aksClusterName'),
+                        ' --load_balancer_ip ', reference(variables('aksClusterPublicIpResourceId')).ipAddress,
+                        ' --public_ip_dns_label ', reference(variables('aksClusterPublicIpResourceId')).dnsSettings.domainNameLabel,
+                        ' --helm_repo_url ', parameters('helmRepoUrl'),
+                        ' --helm_chart_version ', parameters('helmChartVersion'),
+                        ' --managed_identity_id ', parameters('managedIdentityResourceId'),
+                        ' --managed_identity_name ', reference(parameters('managedIdentityResourceId'), '2018-11-30').name,
+                        ' --managed_identity_client_id ', reference(parameters('managedIdentityResourceId'), '2018-11-30').clientId,
+                        ' --tenant_id ', reference(parameters('managedIdentityResourceId'), '2018-11-30').tenantId,
+                        ' --image_tag ', parameters('imagesTag'),
+                        ' --image_ns ', parameters('imagesNamespace'),
+                        ' --docker_server ', '\"', parameters('dockerServer'), '\"',
+                        ' --docker_user ', '\"', parameters('dockerUser'), '\"',
+                        ' --docker_password ', '\"', parameters('dockerPassword'), '\"',
+                        ' --key_vault_uri ', parameters('keyVaultUri'),
+                        ' --services_hostname ', reference(variables('aksClusterPublicIpResourceId')).dnsSettings.fqdn
+                    )]",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+            ]
+        }
+    ],
+    "outputs": {
+        "aksControlPlaneUrl": {
+            "type": "string",
+            "value": "[reference(variables('aksClusterResourceId')).fqdn]"
+        },
+        "serviceUrl": {
+            "type": "string",
+            "value": "[concat('https://', reference(variables('aksClusterPublicIpResourceId')).dnsSettings.fqdn)]"
+        }
+    }
+}

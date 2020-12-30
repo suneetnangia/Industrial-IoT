@@ -2,6 +2,26 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "iotHubConnString": {
+            "type": "string",
+            "metadata": {
+                "description": "The connection string for the IoT Hub in which the simulation devices are to be registered."
+            }
+        },
+        "iotHubHostName": {
+            "type": "string",
+            "defaultValue": "[concat('iothub-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The host name of Azure IoT Hub."
+            }
+        },
+        "iotHubLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "The location of the Azure IoT Hub instance - defaults to resource group location."
+            }
+        },
         "simulationProfile": {
             "type": "string",
             "defaultValue": "default",
@@ -11,6 +31,13 @@
             ],
             "metadata": {
                 "description": "The simulation profile to use."
+            }
+        },
+        "simulationScriptsUrl": {
+            "type": "string",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
+            "metadata": {
+                "description": "The simulation scripts url.  Default is official repository."
             }
         },
         "numberOfLinuxGateways": {
@@ -68,30 +95,30 @@
                 "description": "The administrator password for the edge simulation vms."
             }
         },
-        "branchName": {
+        "dpsName": {
             "type": "string",
-            "defaultValue": "master",
+            "defaultValue": "[concat('dps', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
             "metadata": {
-                "description": "The branch from which to deploy deploy services and application.  Default to master."
+                "description": "The name of the Azure Device Provisioning service created as part of this deployment."
             }
         },
-        "templateUrl": {
+        "dpsSku": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT",
+            "defaultValue": "S1",
+            "allowedValues": [
+                "S1"
+            ],
             "metadata": {
-                "description": "The artifacts url from which to pull all linked templates.  Default is official repository."
+                "description": "The Azure Device Provisioning service SKU to use."
             }
         },
-        "keyVaultName": {
-            "type": "string",
+        "dpsCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "minValue": 1,
+            "maxValue": 3,
             "metadata": {
-                "description": "A user created keyvault containing service and client configuration."
-            }
-        },
-        "managedIdentityResourceId": {
-            "type": "string",
-            "metadata": {
-                "description": "A user created managed identity to use for service to service access."
+                "description": "The Azure Device Provisioning service capacity."
             }
         },
         "dockerServer": {
@@ -129,6 +156,13 @@
                 "description": "Specifies the image version tag to use for all images."
             }
         },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -138,10 +172,32 @@
         }
     },
     "variables": {
-        "templateBaseUrl": "[if(empty(parameters('templateUrl')), deployment().properties.templateLink.uri, concat(parameters('templateUrl'), '/', parameters('branchName'), '/deploy/templates/'))]",
-        "simulationConfigurationResourceName": "simulation.configuration"
+        "dpsResourceId": "[resourceId('Microsoft.Devices/provisioningServices', parameters('dpsName'))]"
     },
     "resources": [
+        {
+            "comments": "Azure Device Provisioning service.",
+            "type": "Microsoft.Devices/provisioningServices",
+            "name": "[parameters('dpsName')]",
+            "apiVersion": "2018-01-22",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('dpsSku')]",
+                "capacity": "[parameters('dpsCapacity')]"
+            },
+            "properties": {
+                "iotHubs": [
+                    {
+                        "connectionString": "[parameters('iotHubConnString')]",
+                        "location": "[parameters('iotHubLocation')]",
+                        "name": "[parameters('ioTHubHostName')]"
+                    }
+                ]
+            },
+            "dependsOn": [
+            ]
+        },
         {
             "comments": "Deploy linux edge gateway and factory network simulation.",
             "type": "Microsoft.Resources/deployments",
@@ -189,11 +245,8 @@
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
                     },
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
+                    "simulationScriptsUrl": {
+                        "value": "[parameters('simulationScriptsUrl')]"
                     },
                     "edgeVmSize": {
                         "value": "[parameters('edgeVmSize')]"  
@@ -202,23 +255,10 @@
                         "value": "[parameters('simulationVmSize')]"  
                     },
                     "dpsIdScope": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
-                            },
-                            "secretName": "pcs-dps-idscope"
-                        }
+                        "value": "[reference(variables('dpsResourceId'), '2018-01-22').idScope]"
                     },
                     "dpsConnString": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
-                            },
-                            "secretName": "pcs-dps-connstring"
-                        }
-                    },
-                    "managedIdentityResourceId": {
-                        "value": "[parameters('managedIdentityResourceId')]"
+                        "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -226,10 +266,11 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.edge.json')]"
                 }
             },
             "dependsOn": [
+                "[variables('dpsResourceId')]"
             ]
         },
         {
@@ -279,11 +320,8 @@
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
                     },
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
+                    "simulationScriptsUrl": {
+                        "value": "[parameters('simulationScriptsUrl')]"
                     },
                     "edgeVmSize": {
                         "value": "[parameters('edgeVmSize')]"  
@@ -292,23 +330,10 @@
                         "value": "[parameters('simulationVmSize')]"  
                     },
                     "dpsIdScope": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
-                            },
-                            "secretName": "pcs-dps-idscope"
-                        }
+                        "value": "[reference(variables('dpsResourceId'), '2018-01-22').idScope]"
                     },
                     "dpsConnString": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
-                            },
-                            "secretName": "pcs-dps-connstring"
-                        }
-                    },
-                    "managedIdentityResourceId": {
-                        "value": "[parameters('managedIdentityResourceId')]"
+                        "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -316,46 +341,11 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.edge.json')]"
                 }
             },
             "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Save edge simulation user and password.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('simulationConfigurationResourceName')]",
-            "condition": "[and(not(empty(parameters('keyVaultName'))), or(not(equals(0, parameters('numberOfLinuxGateways'))), not(equals(0, parameters('numberOfWindowsGateways')))))]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "keyVaultName": {
-                        "value": "[parameters('keyVaultName')]"
-                    },
-                    "configuration": {
-                        "value": [
-                            {
-                                "key": "PCS_SIMULATION_USER",
-                                "value": "[parameters('edgeUserName')]"
-                            },
-                            {
-                                "key": "PCS_SIMULATION_PASSWORD",
-                                "value": "[parameters('edgePassword')]"
-                            }
-                        ]
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.configuration.json')]"
-                }
-            },
-            "dependsOn": [
+                "[variables('dpsResourceId')]"
             ]
         }
     ]

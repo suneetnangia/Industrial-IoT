@@ -1,0 +1,407 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "managedIdentityResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created managed identity to use for Azure service access."
+            }
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "metadata": {
+                "description": "URI of Azure Key Vault."
+            }
+        },
+        "nsgId": {
+            "type": "string",
+            "metadata": {
+                "description": "Network security group ID"
+            }
+        },
+        "subnetId": {
+            "type": "string",
+            "metadata": {
+                "description": "Virtual network subnet ID"
+            }
+        },
+        "networkInterfaceName": {
+            "type": "string",
+            "defaultValue": "jumpbox-networkInterface",
+            "metadata": {
+                "description": "Name of Network Interface resource for jumpbox"
+            }
+        },
+        "virtualMachineName": {
+            "type": "string",
+            "defaultValue": "jumpbox-vm",
+            "metadata": {
+                "description": "Name of Network Interface resource for jumpbox"
+            }
+        },
+        "virtualMachineSize": {
+            "type": "string",
+            "defaultValue": "Standard_B1ms",
+            "allowedValues": [
+                "Standard_B1ms",
+                "Standard_B2s",
+                "Standard_B2ms",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A4",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A7",
+                "Standard_A8",
+                "Standard_A9",
+                "Standard_A10",
+                "Standard_A11",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A8_v2",
+                "Standard_A2m_v2",
+                "Standard_A4m_v2",
+                "Standard_A8m_v2",
+                "Standard_D2",
+                "Standard_D3",
+                "Standard_D4",
+                "Standard_D11",
+                "Standard_D12",
+                "Standard_D13",
+                "Standard_D14",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2",
+                "Standard_D11_v2",
+                "Standard_D12_v2",
+                "Standard_D13_v2",
+                "Standard_D14_v2",
+                "Standard_D15_v2",
+                "Standard_G1",
+                "Standard_G2",
+                "Standard_G3",
+                "Standard_G4",
+                "Standard_G5",
+                "Standard_F2",
+                "Standard_F4",
+                "Standard_F8",
+                "Standard_F16"
+            ],
+            "metadata": {
+                "description": "The size of the VM to provision"
+            }
+        },
+        "virtualMachineUsername": {
+            "type": "string",
+            "defaultValue": "jumpboxuser",
+            "metadata": {
+                "description": "Username for the IoT Edge virtual machine"
+            }
+        },
+        "virtualMachinePassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password for the IoT Edge virtual machine"
+            }
+        },
+        "aksClusterName": {
+            "type": "string",
+            "defaultValue": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the Managed Cluster resource."
+            }
+        },
+        "publicIpName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('aksClusterName'), '-ip')]",
+            "metadata": {
+                "description": "Public Ip resource name."
+            }
+        },
+        "helmSetupScriptsUrl": {
+            "type": "string",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
+            "metadata": {
+                "description": "The helm setup scripts url.  Default is official repository."
+            }
+        },
+        "helmRepoUrl": {
+            "type": "string",
+            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "metadata": {
+                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+            }
+        },
+        "helmChartVersion": {
+            "type": "string",
+            "defaultValue": "0.3.1",
+            "metadata": {
+                "description": "Version of azure-industrial-iot Helm chart to use"
+            }
+        },
+        "dockerServer": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com",
+            "metadata": {
+                "description": "Specifies the endpoint of the Container Registry."
+            }
+        },
+        "dockerUser": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the user name to log into a private Container Registry."
+            }
+        },
+        "dockerPassword": {
+            "type": "secureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the password to use for a private Container Registry."
+            }
+        },
+        "imagesNamespace": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the namespace prefix for the images in the Container Registry."
+            }
+        },
+        "imagesTag": {
+            "type": "string",
+            "defaultValue": "2.7.199",
+            "metadata": {
+                "description": "Specifies the image version tag to use for all images."
+            }
+        },
+        "bastionSubnetAddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.1.1.0/26",
+            "metadata": {
+                "description": "Specifies the Bastion subnet IP prefix. This prefix must be within vnet IP prefix address space."
+            }
+        },
+        "bastionHostName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('aksClusterName'), 'Bastion')]",
+            "metadata": {
+                "description": "Specifies the name of the Azure Bastion resource."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "aksClusterAdminRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'aksRbacGuid')]",
+        "aksClusterAdminRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('aksClusterAdminRoleAssignmentName'))]",
+        "networkInterfaceId": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]",
+        "virtualMachineId": "[resourceId(resourceGroup().name, 'Microsoft.Compute/virtualMachines', parameters('virtualMachineName'))]",
+        "publicIpResourceId": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', parameters('publicIpName'))]",
+        "managedIdentityName": "[reference(variables('managedUdentityResourceId'), '2018-11-30').name]",
+        "managedIdentityClientId": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]",
+        "managedIdentityTenantId": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]"
+    },
+    "resources": [
+        {
+            "name": "[parameters('publicIpName')]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "2018-08-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "publicIpAllocationMethod": "Dynamic"
+            },
+            "sku": {
+                "name": "Basic"
+            },
+            "dependsOn": [
+            ]
+        },
+        {
+            "apiVersion": "2019-11-01",
+            "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+            "name": "[concat(parameters('existingLocalVirtualNetworkName'), '/peering-to-remote-vnet')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": false,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false,
+                "remoteVirtualNetwork": {
+                    "id": "[resourceId(parameters('existingRemoteVirtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks', parameters('existingRemoteVirtualNetworkName'))]"
+                }
+            }
+        },
+        {
+            "name": "[parameters('networkInterfaceName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2018-08-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "subnet": {
+                                "id": "[parameters('subnetId')]"
+                            },
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIpAddress": {
+                                "id": "[variables('publicIpResourceId')]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[parameters('nsgId')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('publicIpResourceId')]"
+            ]
+        },
+        {
+            "name": "[parameters('virtualMachineName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2018-06-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[parameters('virtualMachineSize')]"
+                },
+                "storageProfile": {
+                    "osDisk": {
+                        "createOption": "FromImage",
+                        "managedDisk": {
+                            "storageAccountType": "StandardSSD_LRS"
+                        }
+                    },
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[variables('networkInterfaceId')]"
+                        }
+                    ]
+                },
+                "osProfile": {
+                    "computerName": "[parameters('virtualMachineName')]",
+                    "adminUsername": "[parameters('virtualMachineUsername')]",
+                    "adminPassword": "[parameters('virtualMachinePassword')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('networkInterfaceId')]"
+            ]
+        },
+        {
+            "comments": "Assign admin permissions to VM at resource scope.",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "name": "[variables('aksClusterAdminRoleAssignmentName')]",
+            "apiVersion": "2020-04-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8')]",
+                "principalId": "[reference(variables('virtualMachineId'), '2017-12-01', 'Full').identity.principalId]",
+                "scope": "[resourceGroup().id]",
+                "principalType": "MSI"
+            },
+            "dependsOn": [
+                "[variables('virtualMachineId')]"
+            ]
+        },
+        {
+            "comments": "Setup the jumpbox and install the helm chart into the cluster",
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat(parameters('virtualMachineName'), '/scriptextensions_setup')]",
+            "apiVersion": "2019-03-01",
+            "tags": "[parameters('tags')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publisher": "Microsoft.Azure.Extensions",
+                "type": "CustomScript",
+                "typeHandlerVersion": "2.1",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "timestamp": 1000000
+                },
+                "protectedSettings": {
+                    "managedIdentity": {},
+                    "fileUris": [
+                        "[concat(parameters('helmSetupScriptsUrl'), '/jumpbox-setup.sh')]",
+                        "[concat(parameters('helmSetupScriptsUrl'), '/omsagent.yaml')]",
+                        "[concat(parameters('helmSetupScriptsUrl'), '/letsencrypt.yaml')]"
+                    ],
+                    "commandToExecute": "[concat(
+                        'sudo -H bash jumpbox-setup.sh',
+                        ' --resource_group ', resourceGroup().name,
+                        ' --aks_cluster ', parameters('aksClusterName'),
+                        ' --load_balancer_ip ', parameters('aksPublicIpAddress'),
+                        ' --public_ip_dns_label ', parameters('aksPublicIpDnsLabel'),
+                        ' --services_hostname ', parameters('aksHostName'),
+                        ' --helm_repo_url ', parameters('helmRepoUrl'),
+                        ' --helm_chart_version ', parameters('helmChartVersion'),
+                        ' --managed_identity_id ', parameters('managedIdentityResourceId'),
+                        ' --managed_identity_name ', variables('managedIdentityName'),
+                        ' --managed_identity_client_id ', variables('managedIdentityClientId'),
+                        ' --tenant_id ', variables('managedIdentityTenantId'),
+                        ' --image_tag ', parameters('imagesTag'),
+                        ' --image_ns ', parameters('imagesNamespace'),
+                        ' --docker_server ', '\"', parameters('dockerServer'), '\"',
+                        ' --docker_user ', '\"', parameters('dockerUser'), '\"',
+                        ' --docker_password ', '\"', parameters('dockerPassword'), '\"',
+                        ' --key_vault_uri ', parameters('keyVaultUri')
+                    )]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksClusterAdminRoleAssignmentId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "publicIpName": {
+            "type": "string",
+            "value": "[parameters('publicIpName')]"
+        },
+        "publicIpResourceId": {
+            "type": "string",
+            "value": "[variables('publicIpResourceId')]"
+        },
+        "networkInterfaceName": {
+            "type": "string",
+            "value": "[parameters('networkInterfaceName')]"
+        },
+        "networkInterfaceId": {
+            "type": "string",
+            "value": "[variables('networkInterfaceId')]"
+        },
+        "virtualMachineName": {
+            "type": "string",
+            "value": "[parameters('virtualMachineName')]"
+        },
+        "virtualMachineId": {
+            "type": "string",
+            "value": "[variables('virtualMachineId')]"
+        }
+    }
+}

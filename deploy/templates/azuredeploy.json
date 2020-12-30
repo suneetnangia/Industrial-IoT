@@ -2,17 +2,6 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "deploymentLevel": {
-            "type": "string",
-            "defaultValue": "Standard",
-            "allowedValues": [
-                "Standard",
-                "Minimum"
-            ],
-            "metadata": {
-                "description": "Specifies the level of resources that should be deployed (e.g. for a 'Minimum' deployment)."
-            }
-        },
         "serviceAppId": {
             "type": "string",
             "defaultValue": "",
@@ -88,27 +77,6 @@
             "defaultValue": "[if(not(empty(parameters('siteName'))), concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), '')]",
             "metadata": {
                 "description": "The name of the services endpoint. Leave empty for local development."
-            }
-        },
-        "branchName": {
-            "type": "string",
-            "defaultValue": "master",
-            "metadata": {
-                "description": "The branch from which to deploy deploy services and application.  Default to master."
-            }
-        },
-        "repoUrl": {
-            "type": "string",
-            "defaultValue": "https://github.com/Azure/Industrial-IoT",
-            "metadata": {
-                "description": "The repository url from which to deploy services and application.  Default is official repository."
-            }
-        },
-        "templateUrl": {
-            "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT",
-            "metadata": {
-                "description": "The artifacts url from which to pull all linked templates.  Default is official repository."
             }
         },
         "simulationProfile": {
@@ -219,6 +187,27 @@
                 "description": "Specifies an Azure Active Directory tenant for authentication that is different from the one tied to the subscription."
             }
         },
+        "branchName": {
+            "type": "string",
+            "defaultValue": "master",
+            "metadata": {
+                "description": "The branch from which to deploy deploy services and application.  Default to master."
+            }
+        },
+        "repoUrl": {
+            "type": "string",
+            "defaultValue": "https://github.com/Azure/Industrial-IoT",
+            "metadata": {
+                "description": "The repository url from which to deploy services and application.  Default is official repository."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, concat('https://raw.githubusercontent.com/Azure/Industrial-IoT/', parameters('branchName'), '/deploy/templates/'))]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -228,23 +217,19 @@
         }
     },
     "variables": {
-        "infrastructureDeploymentLevel": "[if(or(equals(parameters('deploymentLevel'), 'Standard'), variables('platformDeployment')), 'Standard', 'Minimum')]",
         "minimumInfrastructureResourceName": "infrastructure.minimum",
         "minimumInfrastructureResourceId": "[resourceId('Microsoft.Resources/deployments', variables('minimumInfrastructureResourceName'))]",
-        "standardInfrastructureResourceName": "infrastructure.standard",
-        "standardInfrastructureResourceId": "[resourceId('Microsoft.Resources/deployments', variables('standardInfrastructureResourceName'))]",
-        "standardInfrastructureDeployment": "[equals(variables('infrastructureDeploymentLevel'), 'Standard')]",
         "authConfigurationResourcName": "auth.configuration",
         "platformDeployment": "[not(and(empty(parameters('siteName')), empty(parameters('serviceSiteName'))))]",
         "platformResourcName": "platform",
         "platformResourceId": "[resourceId('Microsoft.Resources/deployments', variables('platformResourcName'))]",
-        "simulationDeployment": "[not(and(equals(0, parameters('numberOfLinuxGateways')), equals(0, parameters('numberOfWindowsGateways'))))]",
-        "simulationResourcName": "simulation",
-        "templateBaseUrl": "[if(empty(parameters('templateUrl')), deployment().properties.templateLink.uri, concat(parameters('templateUrl'), '/', parameters('branchName'), '/deploy/templates/'))]"
+        "simulationScriptsUrl": "[if(empty(parameters('repoUrl')), '', concat(parameters('repoUrl'), '/', parameters('branchName'), '/deploy/scripts'))]",
+        "simulationDeployment": "[and(not(and(equals(0, parameters('numberOfLinuxGateways')), equals(0, parameters('numberOfWindowsGateways')))), not(empty(variables('simulationScriptsUrl'))))]",
+        "simulationResourcName": "simulation"
     },
     "resources": [
         {
-            "comments": "Deploy minimum required Azure Infrastructure for Industrial IoT.",
+            "comments": "Deploy required Azure Infrastructure for Industrial IoT.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('minimumInfrastructureResourceName')]",
@@ -253,9 +238,6 @@
                 "parameters": {
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
-                    },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
                     },
                     "keyVaultPrincipalId": {
                         "value": "[parameters('keyVaultPrincipalId')]"
@@ -266,7 +248,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.minimum.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.minimum.json')]"
                 }
             }
         },
@@ -283,10 +265,6 @@
                     },
                     "configuration": {
                         "value": [
-                            {
-                                "key": "PCS_DEPLOYMENT_LEVEL",
-                                "value": "[variables('infrastructureDeploymentLevel')]"
-                            },
                             {
                                 "key": "PCS_AUTH_REQUIRED",
                                 "value": "[not(empty(parameters('serviceAppId')))]"
@@ -351,69 +329,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.configuration.json')]"
-                }
-            },
-            "dependsOn": [
-                "[variables('minimumInfrastructureResourceId')]"
-            ]
-        },
-        {
-            "comments": "Deploy Azure Infrastructure required by the full Industrial IoT Platform.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('standardInfrastructureResourceName')]",
-            "condition": "[variables('standardInfrastructureDeployment')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
-                    },
-                    "keyVaultName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
-                    },
-                    "dpsIotHubHostName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubHostName.value]"
-                    },
-                    "dpsIotHubLocation": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubLocation.value]"
-                    },
-                    "eventHubNamespaceName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.eventHubNamespaceName.value]"
-                    },
-                    "eventHubName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.eventHubName.value]"
-                    },
-                    "dpsIotHubConnectionString": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value)]"
-                            },
-                            "secretName": "pcs-iothub-connstring"
-                        }
-                    },
-                    "tsiStorageName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.storageName.value]"
-                    },
-                    "tsiStorageManagementKey": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value)]"
-                            },
-                            "secretName": "pcs-storage-key"
-                        }
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.standard.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.configuration.json')]"
                 }
             },
             "dependsOn": [
@@ -434,12 +350,6 @@
                     },
                     "serviceSiteName": {
                         "value": "[parameters('serviceSiteName')]"
-                    },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
-                    },
-                    "repoUrl": {
-                        "value": "[parameters('repoUrl')]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
@@ -483,7 +393,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.platform.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.platform.json')]"
                 }
             },
             "dependsOn": [
@@ -523,17 +433,25 @@
                     "edgePassword": {
                         "value": "[parameters('edgePassword')]"
                     },
-                    "branchName": {
-                        "value": "[parameters('branchName')]"
-                    },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
-                    "keyVaultName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
+                    "simulationScriptsUrl": {
+                        "value": "[variables('simulationScriptsUrl')]"
                     },
-                    "managedIdentityResourceId": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.managedIdentityResourceId.value]"
+                    "iotHubHostName": {
+                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubHostName.value]"
+                    },
+                    "iotHubLocation": {
+                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubLocation.value]"
+                    },
+                    "iotHubConnString": {
+                        "reference": {
+                            "keyVault": {
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value)]"
+                            },
+                            "secretName": "pcs-iothub-connstring"
+                        }
                     },
                     "dockerServer": {
                         "value": "[parameters('dockerServer')]"
@@ -556,11 +474,11 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(variables('templateBaseUrl'), 'azuredeploy.simulation.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.json')]"
                 }
             },
             "dependsOn": [
-                "[variables('standardInfrastructureResourceId')]"
+                "[variables('minimumInfrastructureResourceId')]"
             ]
         }
     ],
@@ -568,10 +486,6 @@
         "keyVaultUri": {
             "type": "string",
             "value": "[reference(variables('minimumInfrastructureResourceId'), '2017-05-10').outputs.keyVaultUri.value]"
-        },
-        "tsiUrl": {
-            "type": "string",
-            "value": "[if (variables('standardInfrastructureDeployment'), reference(variables('standardInfrastructureResourceId'), '2017-05-10').outputs.tsiUrl.value, '')]"
         },
         "tenantId": {
             "type": "string",

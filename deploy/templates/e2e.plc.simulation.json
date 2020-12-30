@@ -120,8 +120,7 @@
     },
     "variables": {
         "aciPlcName": "[concat(parameters('resourcesPrefix'), '-aci-', parameters('resourcesSuffix'), '-')]",
-        "vnetName": "[concat(parameters('resourcesPrefix'), '-vnet-', parameters('resourcesSuffix'))]",
-        "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+        "vnetName": "[concat(parameters('resourcesPrefix'), '-vnet-', parameters('resourcesSuffix'))]"
     },
     "resources": [
         {

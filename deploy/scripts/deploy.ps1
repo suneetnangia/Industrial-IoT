@@ -107,11 +107,11 @@ Function Select-Context() {
             }
         }
         if (Test-Path $contextFile) {
-            $profile = Import-AzContext -Path $contextFile
-            if (($null -ne $profile) `
-                    -and ($null -ne $profile.Context) `
+            $imported = Import-AzContext -Path $contextFile
+            if (($null -ne $imported) `
+                    -and ($null -ne $imported.Context) `
                     -and ($null -ne (Get-AzSubscription))) {
-                $context = $profile.Context
+                $context = $imported.Context
             }
         }
     }
