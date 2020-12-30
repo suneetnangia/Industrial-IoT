@@ -63,7 +63,7 @@ az aks install-cli
 az acr helm install-cli --client-version "3.3.4" -y
 
 # Login to az using managed identity
-az login --identity
+# already logged in # az login --identity
 
 # Get AKS admin credentials
 az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --admin
