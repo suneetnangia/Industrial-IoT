@@ -8,6 +8,7 @@
 #   3. Install Helm
 #   4. Install ingress-nginx/ingress-nginx Helm chart
 #   5. Install jetstack/cert-manager Helm chart
+#   6. Install aad-pod-identity Helm chart
 #   6. Install <repo>/azure-industrial-iot Helm chart
 #
 ################################################################################
@@ -56,10 +57,10 @@ done
 cd ~
 
 # Install kubectl
-sudo az aks install-cli
+az aks install-cli
 
 # Install Helm
-sudo az acr helm install-cli --client-version "3.3.4" -y
+az acr helm install-cli --client-version "3.3.4" -y
 
 # Login to az using managed identity
 az login --identity
