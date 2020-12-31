@@ -19,6 +19,7 @@ set -x
 CWD=$(pwd)
 
 RESOURCE_GROUP=
+NAMESPACE=azure-industrial-iot
 AKS_CLUSTER=
 ROLE=
 LOAD_BALANCER_IP=
@@ -35,6 +36,7 @@ SERVICES_HOSTNAME=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --namespace)                    NAMESPACE="$2" ;;
         --resource_group)               RESOURCE_GROUP="$2" ;;
         --aks_cluster)                  AKS_CLUSTER="$2" ;;
         --role)                         ROLE="$2" ;;
@@ -56,17 +58,21 @@ done
 # Go to home.
 cd ~
 
+# Install utilities
+apk update
+apk add gettext
+
 # Install kubectl
 az aks install-cli
 
 # Install Helm
 az acr helm install-cli --client-version "3.3.4" -y
 
-# Login to az using managed identity
-# already logged in # az login --identity
+# Install `kubectl` and connect to the AKS cluster
+az aks install-cli
 
 # Get AKS admin credentials
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --admin
+az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing --admin 
 
 # Configure omsagent
 kubectl apply -f "$CWD/omsagent.yaml"
@@ -119,14 +125,14 @@ if [[ $n -eq $iterations ]]; then
     exit 1
 fi
 
-# Create azure-industrial-iot namespace
-kubectl create namespace azure-industrial-iot
+# Create $NAMESPACE namespace
+kubectl create namespace $NAMESPACE
 
 # Install per-pod identities into the namespace
-helm install aad-pod-identity aad-pod-identity/aad-pod-identity --namespace azure-industrial-iot 
+helm install aad-pod-identity aad-pod-identity/aad-pod-identity --namespace $NAMESPACE
 
 # Install aiiot/azure-industrial-iot Helm chart
-helm install --atomic azure-industrial-iot aiiot/azure-industrial-iot --namespace azure-industrial-iot --version $HELM_CHART_VERSION --timeout 30m0s \
+helm install --atomic azure-industrial-iot aiiot/azure-industrial-iot --namespace $NAMESPACE --version $HELM_CHART_VERSION --timeout 30m0s \
     --set image.tag=$IMAGE_TAG \
     --set loadConfFromKeyVault=true \
     --set azure.tenantId=$TENANT_ID \
