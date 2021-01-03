@@ -385,6 +385,9 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "keyVaultName": {
+                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
