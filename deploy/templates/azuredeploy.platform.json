@@ -47,7 +47,7 @@
         },
         "platformInstallScriptsUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
             "metadata": {
                 "description": "The helm setup scripts url.  Default is official repository."
             }
@@ -246,11 +246,11 @@
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('platformInstallScriptsUrl'), '/helm-setup.sh')]",
+                "primaryScriptURI": "[concat(parameters('platformInstallScriptsUrl'), 'helm-setup.sh')]",
                 "arguments": "[concat(' --resource_group ', resourceGroup().name, ' --aks_cluster ', parameters('clusterName'), ' --load_balancer_ip ', reference(variables('platformPublicIpResourceId')).ipAddress, ' --public_ip_dns_label ', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, ' --helm_repo_url ', parameters('helmRepoUrl'), ' --helm_chart_version ', parameters('helmChartVersion'), ' --managed_identity_id ', parameters('platformManagedIdentityResourceId'), ' --managed_identity_name ', parameters('platformManagedIdentityName'), ' --managed_identity_client_id ', reference(parameters('platformManagedIdentityResourceId'), '2018-11-30').clientId, ' --tenant_id ', reference(parameters('platformManagedIdentityResourceId'), '2018-11-30').tenantId, ' --image_tag ', parameters('imagesTag'), ' --image_ns ', parameters('imagesNamespace'), ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', parameters('keyVaultUri'), ' --services_hostname ', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]",
                 "supportingScriptUris": [
-                    "[concat(parameters('platformInstallScriptsUrl'), '/omsagent.yaml')]",
-                    "[concat(parameters('platformInstallScriptsUrl'), '/letsencrypt.yaml')]"
+                    "[concat(parameters('platformInstallScriptsUrl'), 'omsagent.yaml')]",
+                    "[concat(parameters('platformInstallScriptsUrl'), 'letsencrypt.yaml')]"
                 ],
                 "timeout": "PT1H",
                 "cleanupPreference": "OnSuccess",

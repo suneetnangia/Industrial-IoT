@@ -22,7 +22,7 @@
         },
         "simulationScriptsUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
             "metadata": {
                 "description": "The artifacts url from which to pull the setup and simulation scripts.  Default is official repository."
             }
@@ -248,8 +248,8 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('simulationScriptsUrl'), '/dps-enroll.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), '/edge-setup.ps1')]"
+                    "[concat(parameters('simulationScriptsUrl'), 'dps-enroll.ps1')]",
+                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.ps1')]"
                 ]
             },
             "protectedSettings": {
@@ -280,9 +280,9 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('simulationScriptsUrl'), '/dps-enroll.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), '/edge-setup.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), '/edge-setup.sh')]"
+                    "[concat(parameters('simulationScriptsUrl'), 'dps-enroll.ps1')]",
+                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.ps1')]",
+                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.sh')]"
                 ]
             },
             "protectedSettings": {
@@ -472,8 +472,8 @@
                                 "autoUpgradeMinorVersion": true,
                                 "settings": {
                                     "fileUris": [
-                                        "[concat(parameters('simulationScriptsUrl'), '/simulation.sh')]",
-                                        "[concat(parameters('simulationScriptsUrl'), '/', parameters('simulationProfile'), '.yml')]"
+                                        "[concat(parameters('simulationScriptsUrl'), 'simulation.sh')]",
+                                        "[concat(parameters('simulationScriptsUrl'), parameters('simulationProfile'), '.yml')]"
                                     ]
                                 },
                                 "protectedSettings": {

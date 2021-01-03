@@ -207,14 +207,14 @@
         },
         "templateUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/templates/",
             "metadata": {
                 "description": "The url from which to deploy services and application.  Default is official repository."
             }
         },
         "scriptsUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/scripts/",
             "metadata": {
                 "description": "The url from which to deploy services and application.  Default is official repository."
             }
@@ -251,9 +251,6 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
