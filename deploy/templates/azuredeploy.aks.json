@@ -358,6 +358,10 @@
             "type": "string",
             "value": "[parameters('clusterName')]"
         },
+        "clusterResourceId": {
+            "type": "string",
+            "value": "[variables('clusterResourceId')]"
+        },
         "clusterAdminIdentityResourceId": {
             "type": "string",
             "value": "[variables('clusterAdminIdentityResourceId')]"

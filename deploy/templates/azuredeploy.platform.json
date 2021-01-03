@@ -2,13 +2,13 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "managedIdentityResourceId": {
+        "platformManagedIdentityResourceId": {
             "type": "string",
             "metadata": {
                 "description": "A user created managed identity for the platform instance to use to access azure services."
             }
         },
-        "managedIdentityName": {
+        "platformManagedIdentityName": {
             "type": "string",
             "metadata": {
                 "description": "The name of the managed identity the platform instance uses to access azure services."
@@ -43,132 +43,6 @@
             "defaultValue": "[concat('aip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
             "metadata": {
                 "description": "The name of the services endpoint to register."
-            }
-        },
-        "platformPublicIpName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('serviceSiteName'), '-ip')]",
-            "metadata": {
-                "description": "Public Ip resource name."
-            }
-        },
-        "platformPublicIpSku": {
-            "type": "string",
-            "allowedValues": [
-                "Basic",
-                "Standard"
-            ],
-            "defaultValue": "Standard",
-            "metadata": {
-                "description": "Public IP Sku to use"
-            }
-        },
-        "platformPublicIpAllocationMethod": {
-            "type": "string",
-            "allowedValues": [
-                "Dynamic",
-                "Static"
-            ],
-            "defaultValue": "Static",
-            "metadata": {
-                "description": "Allocation method for the public IP Address."
-            }
-        },
-        "platformPublicIpDomainNameLabel": {
-            "type": "string",
-            "defaultValue": "[parameters('serviceSiteName')]",
-            "metadata": {
-                "description": "Public Ip domain label."
-            }
-        },
-        "serviceBusEndpointSuffix": {
-            "type": "string",
-            "defaultValue": "servicebus.windows.net",
-            "allowedValues": [
-                "servicebus.windows.net",
-                "servicebus.chinacloudapi.cn"
-            ],
-            "metadata": {
-                "description": "Suffix added to Service Bus endpoint"
-            }
-        },
-        "eventHubNamespaceName": {
-            "type": "string",
-            "defaultValue": "[concat('eventhubnamespace-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
-            "metadata": {
-                "description": "The name of the Event Hub namespace created as part of the deployment."
-            }
-        },
-        "eventHubName": {
-            "type": "string",
-            "defaultValue": "[concat('eventhub-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
-            "metadata": {
-                "description": "The name of the Event Hub created as part of the deployment."
-            }
-        },
-        "eventHubRetentionInDays": {
-            "type": "int",
-            "defaultValue": 2,
-            "metadata": {
-                "description": "The event hub message retention in days."
-            }
-        },
-        "eventHubPartitionCount": {
-            "type": "int",
-            "defaultValue": 4,
-            "metadata": {
-                "description": "The event hub partition count."
-            }
-        },
-        "eventHubSkuTier": {
-            "type": "string",
-            "defaultValue": "Standard",
-            "allowedValues": [
-                "Basic",
-                "Standard"
-            ],
-            "metadata": {
-                "description": "The Azure Event Hub SKU Tier."
-            }
-        },
-        "eventHubSkuCapacity": {
-            "type": "int",
-            "defaultValue": 1,
-            "metadata": {
-                "description": "The Azure Event Hub SKU Capacity to use."
-            }
-        },
-        "logAnalyticsWorkspaceSku": {
-            "type": "string",
-            "allowedValues": [
-                "Standalone",
-                "PerNode",
-                "PerGB2018"
-            ],
-            "defaultValue": "PerGB2018",
-            "metadata": {
-                "description": "Specifies the service tier of the Azure Log Analytics workspace."
-            }
-        },
-        "logAnalyticsWorkspaceName": {
-            "type": "string",
-            "defaultValue": "[concat('logs-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 10))]",
-            "metadata": {
-                "description": "Specifies the name of the Azure Log Analytics workspace created as part of this deployment."
-            }
-        },
-        "appInsightsName": {
-            "type": "string",
-            "defaultValue": "[concat('appinsights-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
-            "metadata": {
-                "description": "Specifies the name of Azure Application Insights instance created as part of this deployment."
-            }
-        },
-        "workbookId": {
-            "type": "string",
-            "defaultValue": "[newGuid()]",
-            "metadata": {
-                "description": "The unique guid for this workbook instance"
             }
         },
         "platformInstallScriptsUrl": {
@@ -227,6 +101,42 @@
                 "description": "Specifies the image version tag to use for all images."
             }
         },
+        "platformPublicIpName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('serviceSiteName'), '-ip')]",
+            "metadata": {
+                "description": "Public Ip resource name."
+            }
+        },
+        "platformPublicIpSku": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "Standard"
+            ],
+            "defaultValue": "Standard",
+            "metadata": {
+                "description": "Public IP Sku to use"
+            }
+        },
+        "platformPublicIpAllocationMethod": {
+            "type": "string",
+            "allowedValues": [
+                "Dynamic",
+                "Static"
+            ],
+            "defaultValue": "Static",
+            "metadata": {
+                "description": "Allocation method for the public IP Address."
+            }
+        },
+        "platformPublicIpDomainNameLabel": {
+            "type": "string",
+            "defaultValue": "[parameters('serviceSiteName')]",
+            "metadata": {
+                "description": "Public Ip domain label."
+            }
+        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
@@ -243,132 +153,14 @@
         }
     },
     "variables": {
-        "eventHubKeyName": "RootManageSharedAccessKey",
-        "eventHubKeyResourceId": "[resourceId('Microsoft.EventHub/namespaces/AuthorizationRules', parameters('eventHubNamespaceName'), variables('eventHubKeyName'))]",
-        "eventHubNamespaceResourceId": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]",
-        "eventHubResourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
-        "eventHubUxConsumerGroup": "telemetryux",
-        "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
-        "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
-        "workbookConfigurationResourceName": "workbook.configuration",
-        "platformPublicIpResourceId": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', parameters('platformPublicIpName'))]",
+        "roleAssignmentdeploymentScriptName": "[guid(subscription().subscriptionId, resourceGroup().id, parameters('serviceSiteName'), 'deploymentScriptRbacGuid')]",
+        "roleAssignmentdeploymentScriptId":  "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentdeploymentScriptName'))]",
         "platformInstallResourceName": "[concat('__install', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "platformPublicIpResourceId": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', parameters('platformPublicIpName'))]",
         "configurationResourceName": "platform.configuration",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
     },
     "resources": [
-        {
-            "comments": "Azure Event Hub Namespace for Device Telemetry events",
-            "type": "Microsoft.EventHub/namespaces",
-            "apiVersion": "2017-04-01",
-            "name": "[parameters('eventHubNamespaceName')]",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "sku": {
-                "name": "[parameters('eventHubSkuTier')]",
-                "tier": "[parameters('eventHubSkuTier')]",
-                "capacity": "[parameters('eventHubSkuCapacity')]"
-            },
-            "properties": {
-                "isAutoInflateEnabled": false,
-                "maximumThroughputUnits": 0
-            },
-            "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Azure Event Hub for processed Device Telemetry",
-            "type": "Microsoft.EventHub/namespaces/eventhubs",
-            "name": "[concat(parameters('eventHubNamespaceName'), '/', parameters('eventHubName'))]",
-            "apiVersion": "2017-04-01",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "messageRetentionInDays": "[parameters('eventHubRetentionInDays')]",
-                "partitionCount": "[parameters('eventHubPartitionCount')]",
-                "status": "Active"
-            },
-            "dependsOn": [
-                "[variables('eventHubNamespaceResourceId')]"
-            ]
-        },
-        {
-            "comments": "Consumer Group for UX and API telemetry consumers",
-            "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
-            "apiVersion": "2017-04-01",
-            "name": "[concat(parameters('eventHubNamespaceName'), '/', parameters('eventHubName'), '/', variables('eventHubUxConsumerGroup'))]",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "userMetadata": "UX Telemetry Consumer Group"
-            },
-            "dependsOn": [
-                "[variables('eventHubResourceId')]"
-            ]
-        },
-        {
-            "comments": "Log Analytics instance for the platform.",
-            "type": "Microsoft.OperationalInsights/workspaces",
-            "name": "[parameters('logAnalyticsWorkspaceName')]",
-            "apiVersion": "2015-11-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "sku": {
-                    "Name": "[parameters('logAnalyticsWorkspaceSku')]"
-                },
-                "features": {
-                    "searchVersion": 1
-                }
-            },
-            "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Application insights instance for the platform services.",
-            "type": "Microsoft.Insights/components",
-            "name": "[parameters('appInsightsName')]",
-            "apiVersion": "2015-05-01",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "kind": "web",
-            "properties": {
-                "Application_Type": "web",
-                "ApplicationId": "[parameters('appInsightsName')]"
-            },
-            "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Create services metrics monitoring workbook",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('workbookConfigurationResourceName')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "appInsightsId": {
-                        "value": "[variables('appinsightsResourceId')]"
-                    },
-                    "workbookSourceId": {
-                        "value": "[variables('logAnalyticsWorkspaceResourceId')]"
-                    },
-                    "workbookId": {
-                        "value": "[parameters('workbookId')]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.workbook.json')]"
-                }
-            },
-            "dependsOn": [
-                "[variables('logAnalyticsWorkspaceResourceId')]",
-                "[variables('appInsightsResourceId')]"
-            ]
-        },
         {
             "comments": "Public IP address of the services endpoint.",
             "type": "Microsoft.Network/publicIpAddresses",
@@ -401,40 +193,8 @@
                     "configuration": {
                         "value": [
                             {
-                                "key": "PCS_EVENTHUB_CONNSTRING",
-                                "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.', parameters('serviceBusEndpointSuffix'), '/;SharedAccessKeyName=', variables('eventHubKeyName'), ';SharedAccessKey=', listkeys(variables('eventHubKeyResourceId'), '2017-04-01').primaryKey, ';')]"
-                            },
-                            {
-                                "key": "PCS_EVENTHUB_NAME",
-                                "value": "[parameters('eventHubName')]"
-                            },
-                            {
-                                "key": "PCS_WORKSPACE_NAME",
-                                "value": "[parameters('logAnalyticsWorkspaceName')]"
-                            },
-                            {
-                                "key": "PCS_WORKSPACE_ID",
-                                "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2017-03-15-preview').customerId]"
-                            },
-                            {
-                                "key": "PCS_WORKSPACE_KEY",
-                                "value": "[listKeys(variables('logAnalyticsWorkspaceResourceId'), '2015-11-01-preview').primarySharedKey]"
-                            },
-                            {
-                                "key": "PCS_APPINSIGHTS_INSTRUMENTATIONKEY",
-                                "value": "[reference(variables('appinsightsResourceId'), '2015-05-01').InstrumentationKey]"
-                            },
-                            {
                                 "key": "PCS_SERVICE_NAME",
                                 "value": "[concat('https://', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]"
-                            },
-                            {
-                                "key": "PCS_SUBSCRIPTION_ID",
-                                "value": "[subscription().subscriptionId]"
-                            },
-                            {
-                                "key": "PCS_RESOURCE_GROUP",
-                                "value": "[resourceGroup().name]"
                             }
                         ]
                     },
@@ -448,18 +208,32 @@
                 }
             },
             "dependsOn": [
-                "[variables('appinsightsResourceId')]",
-                "[variables('eventHubResourceId')]",
-                "[variables('logAnalyticsWorkspaceResourceId')]",
                 "[variables('platformPublicIpResourceId')]"
             ]
         },
         {
-            "comments": "Install the platform into the cluster and set up monitoring and TLS termination under the Cluster MSI.",
+            "comments": "Assign storage and container permissions to admin managed service identity at resource group scope.",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "name": "[variables('roleAssignmentdeploymentScriptName')]",
+            "apiVersion": "2020-04-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference(parameters('clusterAdminIdentityResourceId'), '2018-11-30').principalId]",
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
+            },
+            "dependsOn": [
+                "[parameters('clusterAdminIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Install the platform into the cluster and set up monitoring and TLS termination under the admin identity.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('platformInstallResourceName')]",
-            "condition": "[and(not(empty(parameters('clusterAdminIdentityResourceId'))), not(empty(parameters('clusterName'))), not(empty(parameters('platformInstallScriptsUrl'))), not(empty(parameters('helmChartVersion'))))]",
+            "condition": "[and(not(empty(parameters('clusterName'))), not(empty(parameters('platformInstallScriptsUrl'))), not(empty(parameters('helmChartVersion'))))]",
             "location": "[resourceGroup().location]",            
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
@@ -471,20 +245,21 @@
             },
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
-                "azCliVersion": "2.9.1",
-                "timeout": "PT1H",
+                "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('platformInstallScriptsUrl'), '/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', resourceGroup().name, ' --aks_cluster ', parameters('clusterName'), ' --load_balancer_ip ', reference(variables('platformPublicIpResourceId')).ipAddress, ' --public_ip_dns_label ', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, ' --helm_repo_url ', parameters('helmRepoUrl'), ' --helm_chart_version ', parameters('helmChartVersion'), ' --managed_identity_id ', parameters('managedIdentityResourceId'), ' --managed_identity_name ', parameters('managedIdentityName'), ' --managed_identity_client_id ', reference(parameters('managedIdentityResourceId'), '2018-11-30').clientId, ' --tenant_id ', reference(parameters('managedIdentityResourceId'), '2018-11-30').tenantId, ' --image_tag ', parameters('imagesTag'), ' --image_ns ', parameters('imagesNamespace'), ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', parameters('keyVaultUri'), ' --services_hostname ', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]",
+                "arguments": "[concat(' --resource_group ', resourceGroup().name, ' --aks_cluster ', parameters('clusterName'), ' --load_balancer_ip ', reference(variables('platformPublicIpResourceId')).ipAddress, ' --public_ip_dns_label ', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, ' --helm_repo_url ', parameters('helmRepoUrl'), ' --helm_chart_version ', parameters('helmChartVersion'), ' --managed_identity_id ', parameters('platformManagedIdentityResourceId'), ' --managed_identity_name ', parameters('platformManagedIdentityName'), ' --managed_identity_client_id ', reference(parameters('platformManagedIdentityResourceId'), '2018-11-30').clientId, ' --tenant_id ', reference(parameters('platformManagedIdentityResourceId'), '2018-11-30').tenantId, ' --image_tag ', parameters('imagesTag'), ' --image_ns ', parameters('imagesNamespace'), ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', parameters('keyVaultUri'), ' --services_hostname ', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]",
                 "supportingScriptUris": [
                     "[concat(parameters('platformInstallScriptsUrl'), '/omsagent.yaml')]",
                     "[concat(parameters('platformInstallScriptsUrl'), '/letsencrypt.yaml')]"
                 ],
+                "timeout": "PT1H",
                 "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
                 "[variables('configurationResourceId')]",
-                "[variables('platformPublicIpResourceId')]"
+                "[variables('platformPublicIpResourceId')]",
+                "[variables('roleAssignmentdeploymentScriptId')]"
             ]
         }
     ],

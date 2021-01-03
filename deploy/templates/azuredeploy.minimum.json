@@ -174,6 +174,32 @@
                 "description": "The KeyVault SKU to use."
             }
         },
+        "logAnalyticsWorkspaceSku": {
+            "type": "string",
+            "allowedValues": [
+                "Standalone",
+                "PerNode",
+                "PerGB2018"
+            ],
+            "defaultValue": "PerGB2018",
+            "metadata": {
+                "description": "Specifies the service tier of the Azure Log Analytics workspace."
+            }
+        },
+        "logAnalyticsWorkspaceName": {
+            "type": "string",
+            "defaultValue": "[concat('logs-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 10))]",
+            "metadata": {
+                "description": "Specifies the name of the Azure Log Analytics workspace created as part of this deployment."
+            }
+        },
+        "appInsightsName": {
+            "type": "string",
+            "defaultValue": "[concat('appinsights-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "Specifies the name of Azure Application Insights instance created as part of this deployment."
+            }
+        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
@@ -204,6 +230,9 @@
         "managedUdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
         "storageResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageName'))]",
         "keyVaultResourceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+        "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+        "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+        "workbookConfigurationResourceName": "workbook.configuration",
         "configurationResourceName": "infrastructure.configuration"
     },
     "resources": [
@@ -301,7 +330,40 @@
             ]
         },
         {
-            "comments": "Azure IoT Hub",
+            "comments": "Log Analytics instance for platform and services.",
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "name": "[parameters('logAnalyticsWorkspaceName')]",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "sku": {
+                    "Name": "[parameters('logAnalyticsWorkspaceSku')]"
+                },
+                "features": {
+                    "searchVersion": 1
+                }
+            },
+            "dependsOn": [
+            ]
+        },
+        {
+            "comments": "Application insights instance for the platform.",
+            "type": "Microsoft.Insights/components",
+            "name": "[parameters('appInsightsName')]",
+            "apiVersion": "2015-05-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "web",
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[parameters('appInsightsName')]"
+            },
+            "dependsOn": [
+            ]
+        },
+        {
+            "comments": "Azure IoT Hub used by the platform",
             "apiVersion": "2019-03-22",
             "type": "Microsoft.Devices/Iothubs",
             "name": "[parameters('iotHubName')]",
@@ -508,7 +570,35 @@
             ]
         },
         {
-            "comments": "Save minimum infrastructure configuration in keyVault.",
+            "comments": "Monitoring workbook as dashboard for the platform and services",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('workbookConfigurationResourceName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "appInsightsId": {
+                        "value": "[variables('appinsightsResourceId')]"
+                    },
+                    "workbookSourceId": {
+                        "value": "[variables('logAnalyticsWorkspaceResourceId')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.workbook.json')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('logAnalyticsWorkspaceResourceId')]",
+                "[variables('appInsightsResourceId')]"
+            ]
+        },
+        {
+            "comments": "Save configuration in keyVault.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('configurationResourceName')]",
@@ -565,6 +655,30 @@
                                 "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))).vaultUri]"
                             },
                             {
+                                "key": "PCS_WORKSPACE_NAME",
+                                "value": "[parameters('logAnalyticsWorkspaceName')]"
+                            },
+                            {
+                                "key": "PCS_WORKSPACE_ID",
+                                "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2017-03-15-preview').customerId]"
+                            },
+                            {
+                                "key": "PCS_WORKSPACE_KEY",
+                                "value": "[listKeys(variables('logAnalyticsWorkspaceResourceId'), '2015-11-01-preview').primarySharedKey]"
+                            },
+                            {
+                                "key": "PCS_APPINSIGHTS_INSTRUMENTATIONKEY",
+                                "value": "[reference(variables('appinsightsResourceId'), '2015-05-01').InstrumentationKey]"
+                            },
+                            {
+                                "key": "PCS_SUBSCRIPTION_ID",
+                                "value": "[subscription().subscriptionId]"
+                            },
+                            {
+                                "key": "PCS_RESOURCE_GROUP",
+                                "value": "[resourceGroup().name]"
+                            },
+                            {
                                 "key": "PCS_MSI_APPID",
                                 "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]"
                             },
@@ -584,8 +698,10 @@
                 }
             },
             "dependsOn": [
-                "[variables('serviceBusNamespaceResourceId')]",
+                "[variables('appinsightsResourceId')]",
+                "[variables('logAnalyticsWorkspaceResourceId')]",
                 "[variables('cosmosDbResourceId')]",
+                "[variables('serviceBusNamespaceResourceId')]",
                 "[variables('iotHubResourceId')]",
                 "[variables('storageResourceId')]",
                 "[variables('keyVaultResourceId')]"
@@ -600,6 +716,10 @@
         "keyVaultName": {
             "type": "string",
             "value": "[parameters('keyVaultName')]"
+        },
+        "managedIdentityResourceName": {
+            "type": "string",
+            "value": "[parameters('managedIdentityName')]"
         },
         "managedIdentityResourceId": {
             "type": "string",

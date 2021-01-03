@@ -8,6 +8,12 @@
                 "description": "The id of the Application Insights resource"
             }
         },
+        "workbookSourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "The id of resource instance to which the workbook will be associated"
+            }
+        },
         "workbookDisplayName": {
             "type": "string",
             "defaultValue": "Industrial Iot Monitoring",
@@ -22,14 +28,9 @@
                 "description": "The gallery that the workbook will been shown under. Supported values include workbook, tsg, etc. Usually, this is 'workbook'"
             }
         },
-        "workbookSourceId": {
-            "type": "string",
-            "metadata": {
-                "description": "The id of resource instance to which the workbook will be associated"
-            }
-        },
         "workbookId": {
             "type": "string",
+            "defaultValue": "[guid('workbook-id', parameters('workbookSourceId'))]",
             "metadata": {
                 "description": "The unique guid for this workbook instance"
             }
