@@ -1,19 +1,49 @@
-1) Get accesstoken:
-az account get-access-token --resource "https://graph.windows.net/"
+#!/bin/bash -ex
 
-2) Assign accessToken to variable
-accessToken=<your access token>
+roleTemplateId=cf1c38e5-3621-4004-a7cb-879624dced7c # Application developer role
+# roleTemplateId=158c047a-c907-4556-b7ef-446551a6b5f7 # Cloud application admin role
+name=
+resourcegroup=
 
-3) Confirm access to graph.windows.net:
-curl 'https://graph.windows.net/mytenant.onmicrosoft.com/users?api-version=1.6' -H "Authorization: Bearer $accessToken"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --name)                  name="$2" ;;
+        --roleTemplateId)        roleTemplateId="$2" ;;
+        --resourcegroup)         resourcegroup="$2" ;;
+    esac
+    shift
+done
 
-4) Assign object ID of service principal to variable objectID
-objectID=<object ID>
+if [[ -z "$resourcegroup" ]]; then
+    echo "Parameter is empty or missing: --resourcegroup"
+    exit 1
+fi
 
-5) Give permissions of 'Directory.Read.All' to the service prinicpal:
-curl "https://graph.windows.net/mytenantonmicrosoft.com/servicePrincipals/$objectID/appRoleAssignments?api-version=1.6" -X POST -d '{"id":"5778995a-e1bf-45b8-affa-663a9f3f4d04","principalId":"$objectID","resourceId":"5e20606e-f80c-4695-9147-97a1fb962853"}' -H "Content-Type: application/json" -H "Authorization: Bearer $accessToken"
+if [[ -z "$name" ]]; then
+    echo "Parameter is empty or missing: --name"
+    exit 1
+fi
 
-6) Test on VM:
-curl 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&amp;resource=https://graph.windows.net' -H Metadata:true
-accessToken=<accessToken>
-curl 'https://graph.windows.net/mytenant.onmicrosoft.com/users?api-version=1.6' -H "Authorization: Bearer $accessToken"
+if [[ -z "$roleTemplateId" ]]; then
+    echo "Parameter is empty or missing: --roleTemplateId"
+    exit 1
+fi
+
+# get access token for graph api
+accessToken=$(az account get-access-token --resource-type ms-graph --query "accessToken" -o tsv)
+accessToken=${accessToken//[[:space:]]}
+
+# create or update identity
+objectId=$(az identity create -g $resourcegroup -n $name --query "principalId" -o tsv)
+objectId=${objectId//[[:space:]]}
+
+# delete existing identity member if it exists
+curl https://graph.microsoft.com/v1.0/directoryRoles/roleTemplateId=$roleTemplateId/members/$objectId/\$ref -X DELETE -H "Authorization: Bearer $accessToken"
+# add identity as member of directory role
+curl https://graph.microsoft.com/v1.0/directoryRoles/roleTemplateId=$roleTemplateId/members/\$ref -X POST -d '{"@odata.id":"https://graph.microsoft.com/v1.0/directoryObjects/'"$objectId"'"}' -H "Content-Type: application/json" -H "Authorization: Bearer $accessToken"
+# return identity resource id to use in deployment
+id=$(az identity show -g $resourcegroup -n $name --query "id" -o tsv)
+echo ${id//[[:space:]]}
+
+
+
