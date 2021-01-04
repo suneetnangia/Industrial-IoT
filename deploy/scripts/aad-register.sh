@@ -11,13 +11,14 @@ register_service(){
     echo "Registering application '$applicationName' in AAD tenant..."
     objectId=$(az ad app create --display-name $applicationName --homepage "https://localhost" --query objectId -o tsv | tr -d '\r')
     pw=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})
-    tenantId=$(az ad app credential reset --id $objectId --append --password $pw --query tenant -o tsv | tr -d '\r')
     tenantName=$(az ad app show --id $objectId --query publisherDomain -o tsv | tr -d '\r')
     az ad app update --id $objectId --identifier-uris https://$tenantName/$applicationName \
         --set publicClient=false \
         --set knownClientApplications='["04b07795-8ddb-461a-bbee-02f9e1bf7b46", "872cd9fa-d31f-45e0-9eab-6e460a02d1f1"]'
+    echo "Application '$objectId' registered in AAD tenant."
+    az ad app credential reset --id $objectId --append --password $pw -o none
     az ad app show --id $objectId \
-        --query "{serviceAppId:appId, serviceAppSecret:'$pw', serviceAudience:identifierUris[0], tenantId:'$tenantId'}" -o json \
+        --query "{serviceAppId:appId, servicePrincipalId:objectId, serviceAppSecret:'$pw', serviceAudience:identifierUris[0]}" -o json \
         | tee $AZ_SCRIPTS_OUTPUT_PATH
 }
 
@@ -27,7 +28,7 @@ unregister_service(){
     echo "Unregistering application '$applicationName' from AAD tenant..."
     for objectId in $(az ad app list --display-name $applicationName --query [].objectId -o tsv | tr -d '\r'); do
         az ad app delete --id $objectId
-        echo "Application '$objectId' unregistered from AAD tenant..."
+        echo "Application '$objectId' unregistered from AAD tenant."
     done
 }
 

@@ -13,37 +13,21 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
-
-if [[ -z "$resourcegroup" ]]; then
-    echo "Parameter is empty or missing: --resourcegroup"
-    exit 1
-fi
-
-if [[ -z "$name" ]]; then
-    echo "Parameter is empty or missing: --name"
-    exit 1
-fi
-
-if [[ -z "$roleTemplateId" ]]; then
-    echo "Parameter is empty or missing: --roleTemplateId"
-    exit 1
-fi
+if [[ -z "$resourcegroup" ]]; then echo "Parameter is empty or missing: --resourcegroup"; exit 1; fi
+if [[ -z "$name" ]]; then echo "Parameter is empty or missing: --name"; exit 1; fi
+if [[ -z "$roleTemplateId" ]]; then echo "Parameter is empty or missing: --roleTemplateId"; exit 1; fi
 
 # get access token for graph api
-accessToken=$(az account get-access-token --resource-type ms-graph --query "accessToken" -o tsv)
-accessToken=${accessToken//[[:space:]]}
-
+accessToken=$(az account get-access-token --resource-type ms-graph --query "accessToken" -o tsv | tr -d '\r')
 # create or update identity
-objectId=$(az identity create -g $resourcegroup -n $name --query "principalId" -o tsv)
-objectId=${objectId//[[:space:]]}
-
+objectId=$(az identity create -g $resourcegroup -n $name --query "principalId" -o tsv | tr -d '\r')
 # delete existing identity member if it exists
 curl https://graph.microsoft.com/v1.0/directoryRoles/roleTemplateId=$roleTemplateId/members/$objectId/\$ref -X DELETE -H "Authorization: Bearer $accessToken"
 # add identity as member of directory role
 curl https://graph.microsoft.com/v1.0/directoryRoles/roleTemplateId=$roleTemplateId/members/\$ref -X POST -d '{"@odata.id":"https://graph.microsoft.com/v1.0/directoryObjects/'"$objectId"'"}' -H "Content-Type: application/json" -H "Authorization: Bearer $accessToken"
 # return identity resource id to use in deployment
-id=$(az identity show -g $resourcegroup -n $name --query "id" -o tsv)
-echo ${id//[[:space:]]}
+az identity show -g $resourcegroup -n $name --query "id" -o tsv | tr -d '\r'
+
 
 
 
