@@ -25,8 +25,8 @@ register_service(){
         tenantName=$(az ad app create --display-name "__delete_me_$1" --query publisherDomain -o tsv | tr -d '\r')
     fi
     objectId=$(az ad app create --display-name $1 --password $pw --identifier-uris https://$tenantName/$1 --homepage "https://localhost" --query objectId -o tsv | tr -d '\r')
-    az ad app update --id $objectId --set publicClient=false 
     az ad app update --id $objectId --set knownClientApplications='["04b07795-8ddb-461a-bbee-02f9e1bf7b46", "872cd9fa-d31f-45e0-9eab-6e460a02d1f1"]'
+    az ad app update --id $objectId --set publicClient=false 
     # az ad app credential reset --id $objectId --append --password $pw -o none
     echo "Application '$objectId' registered in AAD tenant."
     az ad app show --id $objectId --query "{serviceAppId:appId, servicePrincipalId:objectId, serviceAppSecret:'$pw', serviceAudience:identifierUris[0]}" -o json | tee $AZ_SCRIPTS_OUTPUT_PATH
