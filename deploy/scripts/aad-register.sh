@@ -46,7 +46,7 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
-
+if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then az login --identity; fi
 [ "$c" == "register-service" ] && { register_service; exit 0; }
 [ "$c" == "unregister-service" ] && { unregister_service; exit 0; }
 usage
