@@ -1,22 +1,10 @@
 #!/bin/bash -ex
 
-name=aad5
-resourcegroup=testgroup1
 
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --name)                  name="$2" ;;
-        --resourcegroup)         resourcegroup="$2" ;;
-    esac
-    shift
-done
-if [[ -z "$resourcegroup" ]]; then echo "Parameter is empty or missing: --resourcegroup"; exit 1; fi
-if [[ -z "$name" ]]; then echo "Parameter is empty or missing: --name"; exit 1; fi
-
-# create or update identity and get service principal object id
-objectId=$(az identity create -g $resourcegroup -n $name --query principalId -o tsv | tr -d '\r')
-# get graph API service principal id
-graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" --query [0].objectId -o tsv | tr -d '\r')
+usage(){
+    echo "Usage: $0 --name <applicationname> --resourcegroup <resourcegroup>"
+    exit 1
+}
 
 # Get role and assign to the managed identity service principal
 assign_app_role(){
@@ -29,6 +17,24 @@ assign_app_role(){
     fi
     echo "App role '$3' ($appRoleId) assigned to '$1' as '$roleAssignmentId'"
 }
+
+name=
+resourcegroup=
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --name)                  name="$2" ;;
+        --resourcegroup)         resourcegroup="$2" ;;
+    esac
+    shift
+done
+if [[ -z "$resourcegroup" ]]; then echo "Parameter is empty or missing: --resourcegroup"; usage; fi
+if [[ -z "$name" ]]; then echo "Parameter is empty or missing: --name"; usage; fi
+
+# create or update identity and get service principal object id
+objectId=$(az identity create -g $resourcegroup -n $name --query principalId -o tsv | tr -d '\r')
+# get graph API service principal id
+graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" --query [0].objectId -o tsv | tr -d '\r')
 
 assign_app_role $objectId $graphSpId Application.ReadWrite.All
 # ...
