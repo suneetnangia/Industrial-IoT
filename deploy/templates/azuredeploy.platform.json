@@ -45,13 +45,6 @@
                 "description": "The name of the services endpoint to register."
             }
         },
-        "platformInstallScriptsUrl": {
-            "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
-            "metadata": {
-                "description": "The helm setup scripts url.  Default is official repository."
-            }
-        },
         "helmRepoUrl": {
             "type": "string",
             "defaultValue": "https://microsoft.github.io/charts/repo",
@@ -135,6 +128,13 @@
             "defaultValue": "[parameters('serviceSiteName')]",
             "metadata": {
                 "description": "Public Ip domain label."
+            }
+        },
+        "platformInstallScriptsUrl": {
+            "type": "string",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
+            "metadata": {
+                "description": "The helm setup scripts url.  Default is official repository."
             }
         },
         "templateUrl": {
