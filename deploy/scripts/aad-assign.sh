@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-
+# Print usage
 usage(){
     echo "Usage: $0 --name <applicationname> --resourcegroup <resourcegroup>"
     exit 1
@@ -41,15 +41,17 @@ if [[ -z "$name" ]]; then echo "Parameter is empty or missing: --name"; usage; f
 
 # create or update identity and get service principal object id
 objectId=$(az identity create -g $resourcegroup -n $name --query principalId -o tsv | tr -d '\r')
-# get graph API service principal id
-graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" --query [0].objectId -o tsv | tr -d '\r')
 
+# Assign app roles on graph API so principal can invoke graph methods. We need the graph API principal id first.
+graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" --query [0].objectId -o tsv | tr -d '\r')
 assign_app_role $objectId $graphSpId Application.ReadWrite.All
 # ...
 
+# Assign principal to a directory role to give permissions to the directory.
+# Using the guid as the name can change or be different from tenant to tenant while the template id is the same.
+# Run az rest --method get --url https://graph.microsoft.com/v1.0/directoryRoles to get list of all role instances.
 assign_directory_role $objectId cf1c38e5-3621-4004-a7cb-879624dced7c # Application developer role
-#assign_directory_role $objectId 158c047a-c907-4556-b7ef-446551a6b5f7 # Cloud application admin role
-# ...
+# assign_directory_role $objectId 158c047a-c907-4556-b7ef-446551a6b5f7 # Cloud application admin role
 
 # return identity resource id to use in deployment
 az identity show -g $resourcegroup -n $name --query "id" -o tsv | tr -d '\r'
