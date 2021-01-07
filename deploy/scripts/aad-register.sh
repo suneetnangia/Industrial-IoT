@@ -44,11 +44,10 @@ register(){
 # Unregister applications from aad
 unregister(){
     if [[ -z "$1" ]] ; then echo "Parameter is empty or missing: --name"; usage; fi
-    for id in $(az ad app list --display-name $1-client --query [].objectId -o tsv | tr -d '\r'); do
-        az ad app delete --id $id; echo "Client Application '$id' unregistered from AAD tenant."
-    done
-    for id in $(az ad app list --display-name $1-service --query [].objectId -o tsv | tr -d '\r'); do
-        az ad app delete --id $id; echo "Service Application '$id' unregistered from AAD tenant."
+    for id in $(az ad app list --filter "startswith(displayname, '$1')" --query [].objectId -o tsv | tr -d '\r'); do
+        appName=$(az ad app show --id $id --query displayname -o tsv | tr -d '\r')
+        az ad app delete --id $id
+        echo "Application 'appName' ($id) unregistered from AAD tenant."
     done
 }
 
