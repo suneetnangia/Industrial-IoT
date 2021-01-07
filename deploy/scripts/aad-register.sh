@@ -10,7 +10,7 @@ register(){
     if [[ -z "$1" ]] ; then echo "Parameter is empty or missing: --name"; usage; fi
     echo "Registering client application '$1' in AAD tenant..."
     replyUrls="urn:ietf:wg:oauth:2.0:oob https://localhost http://localhost"
-    clientId=$(az ad app create --display-name $1-client true --reply-urls $replyUrls --query objectId -o tsv | tr -d '\r')
+    clientId=$(az ad app create --display-name $1-client --reply-urls $replyUrls --query objectId -o tsv | tr -d '\r')
     clientAppId=$(az ad app show --id $clientId --query appId -o tsv | tr -d '\r')
     echo "Client Application '$clientId' registered in AAD tenant."
 
