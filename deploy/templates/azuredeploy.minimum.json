@@ -2,13 +2,6 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "managedIdentityName": {
-            "type": "string",
-            "defaultValue": "[concat('msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-            "metadata": {
-                "description": "The name of the managed identity to create. If client principal was omitted a default identity will be provisioned to access resources."
-            }
-        },
         "storageName": {
             "type": "string",
             "defaultValue": "[concat('storage', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
@@ -149,13 +142,6 @@
                 "description": "The Azure IoT Hub default message retention in days."
             }
         },
-        "keyVaultPrincipalId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies a principal in your Azure Active Directory tenant to give access to the key vault for development."
-            }
-        },
         "keyVaultName": {
             "type": "string",
             "defaultValue": "[concat('keyvault-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
@@ -227,7 +213,6 @@
         "iothubOnboardingConsumerGroup": "onboarding",
         "iothubEventsConsumerGroup": "events",
         "iothubTestConsumerGroup": "test",
-        "managedUdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
         "storageResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageName'))]",
         "keyVaultResourceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
         "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
@@ -237,96 +222,24 @@
     },
     "resources": [
         {
-            "comments": "Managed identity to access azure resources.",
-            "name": "[parameters('managedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]"
-        },
-        {
             "comments": "KeyVault for secrets and certificate store.",
             "type": "Microsoft.KeyVault/vaults",
             "name": "[parameters('keyVaultName')]",
-            "apiVersion": "2016-10-01",
+            "apiVersion": "2019-09-01",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "enabledForDeployment": false,
                 "enabledForTemplateDeployment": true,
                 "enabledForVolumeEncryption": false,
-                "tenantId": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]",
+                "enableRbacAuthorization": true,
+                "tenantId": "[subscription().tenantId]",
                 "sku": {
                     "name": "[parameters('keyVaultSkuName')]",
                     "family": "A"
-                },
-                "accessPolicies": [
-                    {
-                        "tenantId": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]",
-                        "objectId": "[reference(variables('managedUdentityResourceId'), '2018-11-30').principalId]",
-                        "permissions": {
-                            "keys": [
-                                "get",
-                                "list",
-                                "sign",
-                                "unwrapKey",
-                                "wrapKey",
-                                "create"
-                            ],
-                            "secrets": [
-                                "get",
-                                "list",
-                                "set",
-                                "delete"
-                            ],
-                            "certificates": [
-                                "get",
-                                "list",
-                                "update",
-                                "create",
-                                "import"
-                            ]
-                        }
-                    }
-                ]
+                }
             },
             "dependsOn": [
-                "[variables('managedUdentityResourceId')]"
-            ]
-        },
-        {
-            "comments": "Optional KeyVault principal access permissions for configuration secrets.",
-            "condition": "[not(empty(parameters('keyVaultPrincipalId')))]",
-            "type": "Microsoft.KeyVault/vaults/accessPolicies",
-            "name": "[concat(parameters('keyVaultName'), '/add')]",
-            "apiVersion": "2016-10-01",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "accessPolicies": [
-                    {
-                        "tenantId": "[subscription().tenantId]",
-                        "objectId": "[parameters('keyVaultPrincipalId')]",
-                        "permissions": {
-                            "keys": [
-                                "get",
-                                "list",
-                                "sign",
-                                "unwrapKey",
-                                "wrapKey",
-                                "create"
-                            ],
-                            "secrets": [
-                                "get",
-                                "list",
-                                "set",
-                                "delete"
-                            ]
-                        }
-                    }
-                ]
-            },
-            "dependsOn": [
-                "[variables('keyVaultResourceId')]"
             ]
         },
         {
@@ -677,14 +590,6 @@
                             {
                                 "key": "PCS_RESOURCE_GROUP",
                                 "value": "[resourceGroup().name]"
-                            },
-                            {
-                                "key": "PCS_MSI_APPID",
-                                "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]"
-                            },
-                            {
-                                "key": "PCS_MSI_TENANT",
-                                "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]"
                             }
                         ]
                     },
@@ -716,26 +621,6 @@
         "keyVaultName": {
             "type": "string",
             "value": "[parameters('keyVaultName')]"
-        },
-        "managedIdentityResourceName": {
-            "type": "string",
-            "value": "[parameters('managedIdentityName')]"
-        },
-        "managedIdentityResourceId": {
-            "type": "string",
-            "value": "[variables('managedUdentityResourceId')]"
-        },
-        "managedIdentityClientId": {
-            "type": "string",
-            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]"
-        },
-        "managedIdentityPrincipalId": {
-            "type": "string",
-            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').principalId]"
-        },
-        "managedIdentityTenantId": {
-            "type": "string",
-            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]"
         },
         "storageName": {
             "type": "string",

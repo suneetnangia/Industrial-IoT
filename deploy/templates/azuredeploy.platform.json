@@ -38,6 +38,13 @@
                 "description": "The admin managed identity resource to access the cluster."
             }
         },
+        "managedIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "The name of the managed identity to create. If client principal was omitted a default identity will be provisioned to access resources."
+            }
+        },
         "serviceSiteName": {
             "type": "string",
             "defaultValue": "[concat('aip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
@@ -153,6 +160,7 @@
         }
     },
     "variables": {
+        "managedUdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
         "roleAssignmentdeploymentScriptName": "[guid(subscription().subscriptionId, resourceGroup().id, parameters('serviceSiteName'), 'deploymentScriptRbacGuid')]",
         "roleAssignmentdeploymentScriptId":  "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentdeploymentScriptName'))]",
         "platformInstallResourceName": "[concat('__install', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
@@ -161,6 +169,14 @@
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
     },
     "resources": [
+        {
+            "comments": "Managed identity to access azure resources.",
+            "name": "[parameters('managedIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
         {
             "comments": "Public IP address of the services endpoint.",
             "type": "Microsoft.Network/publicIpAddresses",
@@ -195,6 +211,30 @@
                             {
                                 "key": "PCS_SERVICE_NAME",
                                 "value": "[concat('https://', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]"
+                            },
+                            {
+                                "key": "PCS_MSI_APPID",
+                                "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]"
+                            },
+                            {
+                                "key": "PCS_MSI_TENANT",
+                                "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_SERVER",
+                                "value": "[parameters('dockerServer')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_USER",
+                                "value": "[parameters('dockerUser')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_PASSWORD",
+                                "value": "[parameters('dockerPassword')]"
+                            },
+                            {
+                                "key": "PCS_IMAGES_NAMESPACE",
+                                "value": "[parameters('imagesNamespace')]"
                             }
                         ]
                     },
@@ -266,6 +306,26 @@
         "serviceUrl": {
             "type": "string",
             "value": "[concat('https://', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]"
-        }
+        },
+        "managedIdentityResourceName": {
+            "type": "string",
+            "value": "[parameters('managedIdentityName')]"
+        },
+        "managedIdentityResourceId": {
+            "type": "string",
+            "value": "[variables('managedUdentityResourceId')]"
+        },
+        "managedIdentityClientId": {
+            "type": "string",
+            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').clientId]"
+        },
+        "managedIdentityPrincipalId": {
+            "type": "string",
+            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').principalId]"
+        },
+        "managedIdentityTenantId": {
+            "type": "string",
+            "value": "[reference(variables('managedUdentityResourceId'), '2018-11-30').tenantId]"
+        },
     }
 }

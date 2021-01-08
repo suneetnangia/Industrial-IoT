@@ -4,7 +4,7 @@
 set -e
 usage(){
     echo '
-Usage: $0 
+Usage: '"$0"'  
     --name                     Name of the identity or service principal
                                to create.
     --resourcegroup            Resource group if the identity is a managed

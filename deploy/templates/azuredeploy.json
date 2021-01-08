@@ -48,13 +48,6 @@
                 "description": "A client application identifier (GUID) in your Azure Active Directory tenant for public application such as CLI."
             }
         },
-        "keyVaultPrincipalId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies the object ID of a principal in your Azure Active Directory tenant to access keyvault."
-            }
-        },
         "authorityUri": {
             "type": "string",
             "defaultValue": "https://login.microsoftonline.com",
@@ -235,7 +228,6 @@
         "minimumInfrastructureResourceId": "[resourceId('Microsoft.Resources/deployments', variables('minimumInfrastructureResourceName'))]",
         "standardInfrastructureResourceName": "infrastructure.standard",
         "standardInfrastructureDeployment": "[equals(variables('infrastructureDeploymentLevel'), 'Standard')]",
-        "authConfigurationResourcName": "auth.configuration",
         "platformDeployment": "[not(and(empty(parameters('siteName')), empty(parameters('serviceSiteName'))))]",
         "platformResourcName": "platform",
         "platformResourceId": "[resourceId('Microsoft.Resources/deployments', variables('platformResourcName'))]",
@@ -272,9 +264,6 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
-                    "keyVaultPrincipalId": {
-                        "value": "[parameters('keyVaultPrincipalId')]"
-                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
@@ -284,94 +273,6 @@
                     "uri": "[concat(parameters('templateUrl'), 'azuredeploy.minimum.json')]"
                 }
             }
-        },
-        {
-            "comments": "Save auth configuration in keyVault.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('authConfigurationResourcName')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "keyVaultName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
-                    },
-                    "configuration": {
-                        "value": [
-                            {
-                                "key": "PCS_DEPLOYMENT_LEVEL",
-                                "value": "[variables('infrastructureDeploymentLevel')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_REQUIRED",
-                                "value": "[not(empty(parameters('serviceAppId')))]"
-                            },
-                            {
-                                "key": "PCS_AUTH_TENANT",
-                                "value": "[subscription().tenantId]"
-                            },
-                            {
-                                "key": "PCS_AUTH_INSTANCE",
-                                "value": "[parameters('authorityUri')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_CLIENT_APPID",
-                                "value": "[parameters('clientAppId')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_CLIENT_SECRET",
-                                "value": "[parameters('clientAppSecret')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_PUBLIC_CLIENT_APPID",
-                                "value": "[parameters('publicClientAppId')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_SERVICE_APPID",
-                                "value": "[parameters('serviceAppId')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_SERVICE_SECRET",
-                                "value": "[parameters('serviceAppSecret')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_AUDIENCE",
-                                "value": "[parameters('serviceAudience')]"
-                            },
-                            {
-                                "key": "PCS_AUTH_ISSUER",
-                                "value": "[parameters('trustedTokenIssuer')]"
-                            },
-                            {
-                                "key": "PCS_DOCKER_SERVER",
-                                "value": "[parameters('dockerServer')]"
-                            },
-                            {
-                                "key": "PCS_DOCKER_USER",
-                                "value": "[parameters('dockerUser')]"
-                            },
-                            {
-                                "key": "PCS_DOCKER_PASSWORD",
-                                "value": "[parameters('dockerPassword')]"
-                            },
-                            {
-                                "key": "PCS_IMAGES_NAMESPACE",
-                                "value": "[parameters('imagesNamespace')]"
-                            }
-                        ]
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.configuration.json')]"
-                }
-            },
-            "dependsOn": [
-                "[variables('minimumInfrastructureResourceId')]"
-            ]
         },
         {
             "comments": "Deploy Azure Infrastructure required by the full Industrial IoT Platform.",

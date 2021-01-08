@@ -5,7 +5,7 @@ if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then set -ex; else set -e; fi
 
 usage(){
     echo '
-Usage: $0 
+Usage: '"$0"' 
     --sp, --password, --tenant Logs into azure using service principal.
     --identity                 Logs into azure using managed identity.
 
