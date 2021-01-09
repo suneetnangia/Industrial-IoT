@@ -45,10 +45,10 @@ while [ "$#" -gt 0 ]; do
         --name)            applicationName="$2" ;;
         --keyvault)        keyVaultName="$2" ;;
         --subscription)    subscription="$2" ;;
-        --clean)           mode=clean ;;
-        --unregister)      mode=unregisteronly ;;
+        --clean)           mode="clean" ;;
+        --unregister)      mode="unregisteronly" ;;
+        --identity)        mode="unattended" ;;
         --config)          config="$2" ;;
-        --identity)        mode=unattended ;;
         --sp)              principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
@@ -100,7 +100,7 @@ fi
 
 # ---------- Register -----------------------------------------------------------
 # see https://docs.microsoft.com/en-us/graph/api/resources/application?view=graph-rest-1.0
-if [[ -z "$config" ]] ; then
+if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     if [[ -z "$applicationName" ]] ; then 
         echo "Parameter is empty or missing: --name"; usage
     fi

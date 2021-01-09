@@ -4,6 +4,7 @@
     "parameters": {
         "keyVaultName": {
             "type": "string",
+            "defaultValue": "keyvault-gqkolc",
             "metadata": {
                 "description": "A user created keyvault containing service configuration."
             }
@@ -17,7 +18,7 @@
         },
         "aadManagedIdentityResourceId": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "/subscriptions/9dd2b4d0-3dad-4aeb-85d8-c3addb78127a/resourcegroups/testgroup1/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aad2",
             "metadata": {
                 "description": "The managed resource identity under which the AAD applications are registered."
             }
@@ -60,10 +61,12 @@
     },
     "variables": {
         "deploymentManagedIdentityName": "[concat('deploy_aad_msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "deploymentManagedIdentityResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('deploymentManagedIdentityName'))]",
+        "deploymentManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentManagedIdentityName'))]",
         "deploymentManagedIdentityId": "[if(empty(parameters('aadManagedIdentityResourceId')), variables('deploymentManagedIdentityResourceId'), parameters('aadManagedIdentityResourceId'))]",
-        "roleAssignmentdeploymentScriptName": "[guid(parameters('aadManagedIdentityResourceId'), 'aadScriptRbacGuid')]",
-        "roleAssignmentdeploymentScriptId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentdeploymentScriptName'))]",
+        "roleAssignmentdeploymentScript1Name": "[guid(parameters('aadManagedIdentityResourceId'), 'aadScriptRbac1Guid')]",
+        "roleAssignmentdeploymentScript1Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentdeploymentScript1Name'))]",
+        "roleAssignmentdeploymentScript2Name": "[guid(parameters('aadManagedIdentityResourceId'), 'aadScriptRbac2Guid')]",
+        "roleAssignmentdeploymentScript2Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentdeploymentScript2Name'))]",
         "aadAppRegistrationResourceName": "[concat('deploy_aad', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
         "servicePrincipalAuthentication": "[and(not(empty(parameters('aadPrincipalPassword'))), not(empty(parameters('aadPrincipalId'))))]"
@@ -81,7 +84,7 @@
         {
             "comments": "Assign storage and container permissions to managed identity at resource group scope.",
             "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentdeploymentScriptName')]",
+            "name": "[variables('roleAssignmentdeploymentScript1Name')]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
@@ -98,7 +101,7 @@
         {
             "comments": "Assign keyvault secrets officer permissions to managed identity at resource group scope.",
             "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentdeploymentScriptName')]",
+            "name": "[variables('roleAssignmentdeploymentScript2Name')]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
@@ -129,7 +132,7 @@
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('platformInstallScriptsUrl'), 'aad-register.sh')]",
-                "arguments": "[concat(' register --name \"', parameters('applicationName'), '\" --subscription \"', subscription().id, '\" --keyvault \"', parameters('keyVaultName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(empty(parameters('aadManagedIdentityResourceId')), '', ' --identity'))]",
+                "arguments": "[concat(' register --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(empty(parameters('aadManagedIdentityResourceId')), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -138,14 +141,15 @@
                     },
                     {
                         "name": "config",
-                        "secureValue": "[replace(string(parameters('aadPreConfiguration')), '\"', '\\\"')]"
+                        "secureValue": "[if(empty(parameters('aadPreConfiguration')), '', replace(string(parameters('aadPreConfiguration')), '\"', '\\\"')]"
                     }
                 ],
                 "cleanupPreference": "OnExpiration",
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('roleAssignmentdeploymentScriptId')]"
+                "[variables('roleAssignmentdeploymentScript1Id')]", 
+                "[variables('roleAssignmentdeploymentScript2Id')]"
             ]
         }
     ],
