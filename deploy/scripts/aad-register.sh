@@ -60,15 +60,19 @@ done
 # ---------- Login --------------------------------------------------------------
 if [[ "$mode" == "unattended" ]] ; then
     mode=
-    az login --identity --allow-no-subscriptions
+    if ! az login --identity --allow-no-subscriptions; then
+        echo "Failed to log in with managed identity."
+        exit 1
+    fi
 elif [[ -n "$principalId" ]] && \
      [[ -n "$principalPassword" ]] && \
      [[ -n "$tenantId" ]]; then
-    az login --service-principal -u $principalId \
-        -p=$principalPassword -t $tenantId --allow-no-subscriptions
-elif [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    echo "az login"
-else
+    if ! az login --service-principal -u $principalId \
+        -p=$principalPassword -t $tenantId --allow-no-subscriptions; then
+        echo "Failed to log in with service principal."
+        exit 1
+    fi
+elif [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     echo "Must login with service principal or managed identity"
     exit 1
 fi
@@ -289,9 +293,27 @@ if [[ -n "$keyVaultName" ]] ; then
     if [[ -n "$subscription" ]] ; then
         az account set --subscription $subscription
     fi
+
+    # try get access to the keyvault
+    rg=$(az keyvault show --name $keyVaultName \
+        --query resourceGroup -o tsv | tr -d '\r')
+    if [[ -n "$rg" ]] ; then
+        rgid=$(az group show --name $rg --query id -o tsv | tr -d '\r')
+        user=$(az ad signed-in-user show --query "objectId" -o tsv | tr -d '\r')
+        if [[ -n "$user" ]] && [[ -n "$rgid" ]] ; then
+            az role assignment create --assignee-object-id $user \
+                --role b86a8fe4-44ce-4948-aee5-eccb2c155cd7 --scope $rgid
+        fi 
+    fi
     
-    az keyvault secret set --vault-name $keyVaultName \
-                   -n pcs-auth-required --value true
+    # there can be a delay in permissions or otherwise - retry
+    while ! az keyvault secret set --vault-name $keyVaultName \
+                     -n pcs-auth-required --value true 
+    do 
+        echo "... retry in 30 seconds..."
+        sleep 30s; 
+    done
+                   
     az keyvault secret set --vault-name $keyVaultName \
                      -n pcs-auth-tenant --value "$tenantId"
     az keyvault secret set --vault-name $keyVaultName \
