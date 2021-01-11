@@ -294,15 +294,17 @@ if [[ -n "$keyVaultName" ]] ; then
         az account set --subscription $subscription
     fi
 
-    # try get access to the keyvault
+    # try get current principal access to the keyvault
     rg=$(az keyvault show --name $keyVaultName \
         --query resourceGroup -o tsv | tr -d '\r')
     if [[ -n "$rg" ]] ; then
         rgid=$(az group show --name $rg --query id -o tsv | tr -d '\r')
         user=$(az ad signed-in-user show --query "objectId" -o tsv | tr -d '\r')
         if [[ -n "$user" ]] && [[ -n "$rgid" ]] ; then
-            az role assignment create --assignee-object-id $user \
-                --role b86a8fe4-44ce-4948-aee5-eccb2c155cd7 --scope $rgid
+            name=$(az role assignment create --assignee-object-id $user \
+                --role b86a8fe4-44ce-4948-aee5-eccb2c155cd7 --scope $rgid \
+                --query principalName -o tsv | tr -d '\r')
+            echo "Assigned secret officer role to $name ($user) ..."
         fi 
     fi
     
