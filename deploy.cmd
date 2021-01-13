@@ -14,20 +14,20 @@ set PWSH=powershell
 :check-az
 set test=
 for /f %%i in ('%PWSH% -Command "Get-Module -ListAvailable -Name Az.* | ForEach-Object Name"') do set test=%%i
-if not "%test%" == "" goto :check-ad
+if not "%test%" == "" goto :check-az-msi
 echo Installing Az...
 %PWSH% -Command "Install-Module -Name Az -AllowClobber -Scope CurrentUser"
-goto :check-ad
-:check-ad
+goto :check-az-msi
+:check-az-msi
 echo Az installed.
 set test=
-for /f %%i in ('%PWSH% -Command "Get-Module -ListAvailable -Name AzureAD | ForEach-Object Name"') do set test=%%i
+for /f %%i in ('%PWSH% -Command "Get-Module -ListAvailable -Name Az.ManagedServiceIdentity | ForEach-Object Name"') do set test=%%i
 if not "%test%" == "" goto :main
-echo Installing AzureAD
-%PWSH% -Command "Install-Module -Name AzureAD -AllowClobber -Scope CurrentUser"
+echo Installing Az.ManagedServiceIdentity...
+%PWSH% -Command "Install-Module -Name Az.ManagedServiceIdentity -AllowClobber -Scope CurrentUser"
 goto :main
 :main
-echo AzureAD installed.
+echo Az.ManagedServiceIdentity installed.
 set test=
 pushd %current-path%\deploy\scripts
 
