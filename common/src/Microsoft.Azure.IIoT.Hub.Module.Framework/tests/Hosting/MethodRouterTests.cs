@@ -501,9 +501,16 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                     _serializer.SerializeToBytes(buffer).ToArray())).Result;
 
             Assert.Equal(400, response.Status);
+#if DEBUG
             var ex = _serializer.Deserialize<ArgumentNullException>(
                 response.ResultAsJson);
-            Assert.Equal("request", ex.ParamName);
+                Assert.Equal("request", ex.ParamName);
+#else
+            Assert.Equal("{\"Message\":\"Value cannot be null. (Parameter 'request')\"}", response.ResultAsJson);
+#endif
+
+
+
         }
 
         [Fact]

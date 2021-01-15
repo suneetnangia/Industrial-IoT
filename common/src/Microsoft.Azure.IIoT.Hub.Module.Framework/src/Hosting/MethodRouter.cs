@@ -187,7 +187,11 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                         e = ex;
                     }
                 }
+#if DEBUG
+                _logger.Error(e, "Exception during method invocation.");
+#else
                 _logger.Verbose(e, "Exception during method invocation.");
+#endif
                 throw e;
             }
 
@@ -300,8 +304,15 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                         }
                         _logger.Verbose(ex, "Method call error");
                         ex = _ef.Filter(ex, out var status);
-                        throw new MethodCallStatusException(ex != null ?
-                           _serializer.SerializeToString(ex) : null, status);
+
+                        string responsePayload;
+#if DEBUG
+                        responsePayload = ex != null ? _serializer.SerializeToString(ex) : null;
+#else
+                        responsePayload = ex != null ? $"{{\"Message\":\"{ex.Message}\"}}" : null;
+#endif
+
+                        throw new MethodCallStatusException(responsePayload, status);
                     }
                     return _serializer.SerializeToBytes(tr.Result).ToArray();
                 });

@@ -227,6 +227,16 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
                 IsClosed = true;
             }
 
+            /// <inheritdoc />
+            public Task SetInputMessageHandlerAsync(string inputName, MessageHandler messageHandler, object userContext) {
+                throw new NotSupportedException("This method is only suppported in modules.");
+            }
+
+            /// <inheritdoc />
+            public Task SendEventAsync(string outputName, Message message) {
+                throw new NotSupportedException("This method is only suppported in modules.");
+            }
+
             private readonly Dictionary<string, (MethodCallback, object)> _methods =
                 new Dictionary<string, (MethodCallback, object)>();
             private readonly List<(DesiredPropertyUpdateCallback, object)> _properties =

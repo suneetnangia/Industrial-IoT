@@ -414,17 +414,27 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                 return ModuleClient.CreateFromConnectionString(cs.ToString(), ts);
             }
 
+            /// <inheritdoc />
+            public Task SetInputMessageHandlerAsync(string inputName, MessageHandler messageHandler, object userContext) {
+                return _client.SetInputMessageHandlerAsync(inputName, messageHandler, userContext);
+            }
+
+            /// <inheritdoc />
+            public Task SendEventAsync(string output, Message message) {
+                return _client.SendEventAsync(output, message);
+            }
+
             private readonly ModuleClient _client;
             private int _reconnectCounter;
             private static readonly Gauge kReconnectionStatus = Metrics
                 .CreateGauge("iiot_edge_reconnected", "reconnected count",
                     new GaugeConfiguration {
-                        LabelNames = new[] { "module", "device", "timestamp_utc"}
+                        LabelNames = new[] { "module", "device", "timestamp_utc" }
                     });
             private static readonly Gauge kDisconnectionStatus = Metrics
                 .CreateGauge("iiot_edge_disconnected", "reconnected count",
                     new GaugeConfiguration {
-                        LabelNames = new[] { "module", "device", "timestamp_utc"}
+                        LabelNames = new[] { "module", "device", "timestamp_utc" }
                     });
         }
 
@@ -442,7 +452,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
             /// Create client
             /// </summary>
             /// <param name="client"></param>
-            internal DeviceClientAdapter(DeviceClient client) {
+            public DeviceClientAdapter(DeviceClient client) {
                 _client = client ??
                     throw new ArgumentNullException(nameof(client));
             }
@@ -496,6 +506,16 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                     return;
                 }
                 await _client.SendEventAsync(message);
+            }
+
+            /// <inheritdoc />
+            public Task SetInputMessageHandlerAsync(string inputName, MessageHandler messageHandler, object userContext) {
+                throw new NotSupportedException("This method is only suppported in modules.");
+            }
+
+            /// <inheritdoc />
+            public Task SendEventAsync(string output, Message message) {
+                throw new NotSupportedException("This method is only suppported in modules.");
             }
 
             /// <inheritdoc />

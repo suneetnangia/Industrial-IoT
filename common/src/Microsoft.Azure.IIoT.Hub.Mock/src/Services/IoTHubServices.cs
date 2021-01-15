@@ -494,10 +494,12 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
             private readonly object _lock = new object();
         }
 
+#pragma warning disable RCS1138 // Add summary to documentation comment.
         /// <summary>
         /// File notification
         /// </summary>
         public class FileNotification {
+
             /// <summary/>
             public string DeviceId { get; set; }
             /// <summary/>
@@ -521,6 +523,7 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
             /// <summary/>
             public Message Message { get; set; }
         }
+#pragma warning restore RCS1138 // Add summary to documentation comment.
 
         private readonly SqlQuery _query;
         private readonly object _lock = new object();

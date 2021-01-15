@@ -30,6 +30,24 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
         Task SendEventBatchAsync(IEnumerable<Message> messages);
 
         /// <summary>
+        /// Registers a new delegate for the particular input. If a delegate is already associated
+        /// with the input, it will be replaced with the new delegate.
+        /// </summary>
+        /// <param name="inputName">The name of the input to associate with the delegate.</param>
+        /// <param name="messageHandler">The delegate to be used when a message is sent to the particular inputName.</param>
+        /// <param name="userContext">An generic parameter to be interpreted by the client code.</param>
+        /// <returns>The task containing the event</returns>
+        Task SetInputMessageHandlerAsync(string inputName, MessageHandler messageHandler, object userContext);
+
+        /// <summary>
+        /// Sends an event to device hub.
+        /// </summary>
+        /// <param name="outputName">The output target for sending the given message.</param>
+        /// <param name="message:">The message to send.</param>
+        /// <returns>The message containing the event</returns>
+        public Task SendEventAsync(string outputName, Message message);
+
+        /// <summary>
         /// Registers a new delegate that is called for a method that
         /// doesn't have a delegate registered for its name.
         /// If a default delegate is already registered it will replace
