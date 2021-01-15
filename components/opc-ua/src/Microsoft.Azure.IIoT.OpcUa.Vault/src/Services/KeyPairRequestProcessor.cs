@@ -64,7 +64,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Vault.Services {
             }
 
             // Validate subject name
-            var subjectList = Opc.Ua.Utils.ParseDistinguishedName(request.SubjectName);
+            var subjectList = Opc.Ua.X509Utils.ParseDistinguishedName(request.SubjectName);
             if (subjectList == null ||
                 subjectList.Count == 0) {
                 throw new ArgumentException("Invalid Subject", nameof(request.SubjectName));

@@ -25,7 +25,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Vault.Models {
         public static string GetFileNameOrDefault(this X509CertificateModel cert,
             string defaultName) {
             try {
-                var dn = Utils.ParseDistinguishedName(cert.Subject);
+                var dn = X509Utils.ParseDistinguishedName(cert.Subject);
                 var prefix = dn
                     .FirstOrDefault(x => x.StartsWith("CN=",
                     StringComparison.OrdinalIgnoreCase)).Substring(3);

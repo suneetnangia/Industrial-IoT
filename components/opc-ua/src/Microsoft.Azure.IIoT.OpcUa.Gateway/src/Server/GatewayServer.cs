@@ -1741,7 +1741,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Gateway.Server {
         }
 
         /// <inheritdoc/>
-        protected override UserTokenPolicyCollection GetUserTokenPolicies(
+        public override UserTokenPolicyCollection GetUserTokenPolicies(
             ApplicationConfiguration configuration, EndpointDescription description) {
             var policies = new UserTokenPolicyCollection();
 
@@ -2020,7 +2020,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Gateway.Server {
                 // the applicationUri in the client certificate.
                 //
                 var certificateApplicationUri =
-                Utils.GetApplicationUriFromCertificate(parsedClientCertificate);
+                X509Utils.GetApplicationUriFromCertificate(parsedClientCertificate);
                 if (!string.IsNullOrEmpty(certificateApplicationUri) &&
                     !string.IsNullOrEmpty(applicationUri) &&
                     certificateApplicationUri != applicationUri) {

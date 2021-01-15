@@ -20,7 +20,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Vault.Models {
         public static void Validate(this TrustGroupModel model) {
 
             // verify subject
-            var subjectList = Utils.ParseDistinguishedName(model.SubjectName);
+            var subjectList = X509Utils.ParseDistinguishedName(model.SubjectName);
             if (subjectList == null ||
                 subjectList.Count == 0) {
                 throw new ArgumentException(
