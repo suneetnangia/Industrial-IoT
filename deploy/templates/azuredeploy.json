@@ -2,85 +2,60 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "deploymentLevel": {
-            "type": "string",
-            "defaultValue": "Minimum",
-            "allowedValues": [
-                "Standard",
-                "Minimum"
-            ],
-            "metadata": {
-                "description": "Specifies the level of resources that should be deployed (e.g. for a 'Minimum' deployment)."
-            }
-        },
-        "serviceAppId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies the registered service application identifier (GUID) in your Azure Active Directory tenant."
-            }
-        },
-        "serviceAppSecret": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The registered service application secret used to authenticate the service principal."
-            }
-        },
-        "clientAppId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "A client application identifier (GUID) in your Azure Active Directory tenant for confidential web applications."
-            }
-        },
-        "clientAppSecret": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The registered client application secret for confidential web applications."
-            }
-        },
-        "publicClientAppId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "A client application identifier (GUID) in your Azure Active Directory tenant for public application such as CLI."
-            }
-        },
-        "authorityUri": {
-            "type": "string",
-            "defaultValue": "https://login.microsoftonline.com",
-            "metadata": {
-                "description": "Url of the Authority (example: https://login.microsoftonline.com)"
-            }
-        },
-        "serviceAudience": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Audience value to validate the token audience field against."
-            }
-        },
-        "trustedTokenIssuer": {
-            "type": "string",
-            "defaultValue": "[concat('https://sts.windows.net/', subscription().tenantId)]",
-            "metadata": {
-                "description": "Optional Issuer value to validate received tokens against."
-            }
-        },
-        "siteName": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The name of the application to create. Leave empty for local or services only development."
-            }
-        },
-        "serviceSiteName": {
+        "applicationName": {
             "type": "string",
             "defaultValue": "[concat('aip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
             "metadata": {
-                "description": "The name of the services endpoint to register."
+                "description": "The name of the deployment, application and platform endpoint to register."
+            }
+        },
+        "deployOptionalServices": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Whether to deploy optional services required by samples and preview features."
+            }
+        },
+        "aadPrincipalId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+        "aadPreConfiguration": {
+            "type": "secureObject",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
+            }
+        },
+        "aksClusterName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The name of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a simple cluster will be created."
+            }
+        },
+        "aksClusterAdminIdentityResourceId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The admin managed identity resource to access the cluster - if not provided a simple cluster will be created."
+            }
+        },
+        "deployPlatformComponents": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy Platform services into the cluster. Set to false to deploy dependencies for local development."
             }
         },
         "helmRepoUrl": {
@@ -97,6 +72,15 @@
                 "description": "Version of azure-industrial-iot Helm chart to use"
             }
         },
+        "numberOfSimulations": {
+            "type": "int",
+            "defaultValue": 1,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of simulations to deploy into each gateway network."
+            }
+        },
         "simulationProfile": {
             "type": "string",
             "defaultValue": "default",
@@ -110,7 +94,7 @@
         },
         "numberOfLinuxGateways": {
             "type": "int",
-            "defaultValue": 0,
+            "defaultValue": 1,
             "maxValue": 255,
             "minValue": 0,
             "metadata": {
@@ -119,20 +103,11 @@
         },
         "numberOfWindowsGateways": {
             "type": "int",
-            "defaultValue": 0,
-            "maxValue": 255,
-            "minValue": 0,
-            "metadata": {
-                "description": "Number of OPC UA Windows simulation gateways to deploy."
-            }
-        },
-        "numberOfSimulations": {
-            "type": "int",
             "defaultValue": 1,
             "maxValue": 255,
             "minValue": 0,
             "metadata": {
-                "description": "Number of simulations to deploy into each gateway network."
+                "description": "Number of OPC UA Windows simulation gateways to deploy."
             }
         },
         "edgeVmSize": {
@@ -200,16 +175,16 @@
         },
         "templateUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/templates/",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/",
             "metadata": {
-                "description": "The url from which to deploy services and application.  Default is official repository."
+                "description": "The location where all deployment templates reside.  Default is GitHub official repository."
             }
         },
         "scriptsUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/scripts/",
+            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
             "metadata": {
-                "description": "The url from which to deploy services and application.  Default is official repository."
+                "description": "The location where all deployment scripts reside.  Default is GitHub official repository."
             }
         },
         "tags": {
@@ -221,17 +196,17 @@
         }
     },
     "variables": {
-        "aksResourceName": "infrastructure.aks",
-        "aksInfrastructureResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksResourceName'))]",
-        "infrastructureDeploymentLevel": "[if(or(equals(parameters('deploymentLevel'), 'Standard'), variables('platformDeployment')), 'Standard', 'Minimum')]",
-        "minimumInfrastructureResourceName": "infrastructure.minimum",
-        "minimumInfrastructureResourceId": "[resourceId('Microsoft.Resources/deployments', variables('minimumInfrastructureResourceName'))]",
-        "standardInfrastructureResourceName": "infrastructure.standard",
-        "standardInfrastructureDeployment": "[equals(variables('infrastructureDeploymentLevel'), 'Standard')]",
-        "platformDeployment": "[not(and(empty(parameters('siteName')), empty(parameters('serviceSiteName'))))]",
+        "deployCluster": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('aksClusterAdminIdentityResourceId'))))]",
+        "aksClusterResourceName": "services.aks",
+        "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
+        "requiredServicesResourceName": "services",
+        "requiredServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('requiredServicesResourceName'))]",
+        "optionalServicesResourceName": "services.optional",
+        "optionalServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesResourceName'))]",
+        "aadAppRegistrationResourceName": "services.aad",
+        "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationResourceName'))]",
         "platformResourcName": "platform",
         "platformResourceId": "[resourceId('Microsoft.Resources/deployments', variables('platformResourcName'))]",
-        "simulationDeployment": "[not(and(equals(0, parameters('numberOfLinuxGateways')), equals(0, parameters('numberOfWindowsGateways'))))]",
         "simulationResourcName": "simulation"
     },
     "resources": [
@@ -239,7 +214,8 @@
             "comments": "Deploy AKS managed cluster for Industrial IoT platform hosting.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aksResourceName')]",
+            "name": "[variables('aksClusterResourceName')]",
+            "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -257,7 +233,7 @@
             "comments": "Deploy required Azure Infrastructure for the platform.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('minimumInfrastructureResourceName')]",
+            "name": "[variables('requiredServicesResourceName')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -278,8 +254,8 @@
             "comments": "Deploy Azure Infrastructure required by the full Industrial IoT Platform.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('standardInfrastructureResourceName')]",
-            "condition": "[variables('standardInfrastructureDeployment')]",
+            "name": "[variables('optionalServicesResourceName')]",
+            "condition": "[parameters('deployOptionalServices')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -287,7 +263,7 @@
                         "value": "[parameters('templateUrl')]"
                     },
                     "keyVaultName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -299,7 +275,47 @@
                 }
             },
             "dependsOn": [
-                "[variables('minimumInfrastructureResourceId')]"
+                "[variables('requiredServicesResourceId')]"
+            ]
+        },
+        {
+            "comments": "Register Azure AD applications for Industrial IoT Platform.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAppRegistrationResourceName')]",
+            "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
+                    },
+                    "applicationName": {
+                        "value": "[parameters('applicationName')]"
+                    },
+                    "aadPreConfiguration": {
+                        "value": "[parameters('aadPreConfiguration')]"
+                    },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "scriptsUrl": {
+                        "value": "[parameters('scriptsUrl')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aad.json')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('requiredServicesResourceId')]"
             ]
         },
         {
@@ -307,41 +323,35 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('platformResourcName')]",
-            "condition": "[variables('platformDeployment')]",
+            "condition": "[parameters('deployPlatformComponents')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
+                    "aksClusterName": {
+                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('aksClusterName'))]"
+                    },
+                    "aksClusterAdminIdentityResourceId": {
+                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminIdentityResourceId.value, parameters('aksClusterAdminIdentityResourceId'))]"
+                    },
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
+                    },
+                    "keyVaultUri": {
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultUri.value]"
+                    },
                     "helmChartVersion": {
                         "value": "[parameters('helmChartVersion')]"
                     },
                     "helmRepoUrl": {
                         "value": "[parameters('helmRepoUrl')]"
                     },
-                    "serviceSiteName": {
-                        "value": "[parameters('serviceSiteName')]"
+                    "applicationName": {
+                        "value": "[parameters('applicationName')]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
-                    "clusterName": {
-                        "value": "[reference(variables('aksInfrastructureResourceId')).outputs.clusterName.value]"
-                    },
-                    "clusterAdminIdentityResourceId": {
-                        "value": "[reference(variables('aksInfrastructureResourceId')).outputs.clusterAdminIdentityResourceId.value]"
-                    },
-                    "keyVaultName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value]"
-                    },
-                    "keyVaultUri": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultUri.value]"
-                    },
-                    "platformManagedIdentityResourceId": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.managedIdentityResourceId.value]"
-                    },
-                    "platformManagedIdentityName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.managedIdentityResourceName.value]"
-                    },
-                    "platformInstallScriptsUrl": {
+                    "scriptsUrl": {
                         "value": "[parameters('scriptsUrl')]"
                     },
                     "dockerServer": {
@@ -369,8 +379,10 @@
                 }
             },
             "dependsOn": [
-                "[variables('minimumInfrastructureResourceId')]",
-                "[variables('aksInfrastructureResourceId')]"
+                "[variables('aksClusterResourceId')]",
+                "[variables('requiredServicesResourceId')]",
+                "[variables('optionalServicesResourceId')]",
+                "[variables('aadAppRegistrationResourceId')]"
             ]
         },
         {
@@ -378,7 +390,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('simulationResourcName')]",
-            "condition": "[variables('simulationDeployment')]",
+            "condition": "[not(equals(0, parameters('numberOfSimulations')))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -413,15 +425,15 @@
                         "value": "[parameters('scriptsUrl')]"
                     },
                     "iotHubHostName": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubHostName.value]"
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubHostName.value]"
                     },
                     "iotHubLocation": {
-                        "value": "[reference(variables('minimumInfrastructureResourceId')).outputs.iotHubLocation.value]"
+                        "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubLocation.value]"
                     },
                     "iotHubConnString": {
                         "reference": {
                             "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('minimumInfrastructureResourceId')).outputs.keyVaultName.value)]"
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
                             },
                             "secretName": "pcs-iothub-connstring"
                         }
@@ -451,26 +463,30 @@
                 }
             },
             "dependsOn": [
-                "[variables('minimumInfrastructureResourceId')]"
+                "[variables('requiredServicesResourceId')]"
             ]
         }
     ],
     "outputs": {
         "keyVaultUri": {
             "type": "string",
-            "value": "[reference(variables('minimumInfrastructureResourceId'), '2017-05-10').outputs.keyVaultUri.value]"
+            "value": "[reference(variables('requiredServicesResourceId'), '2017-05-10').outputs.keyVaultUri.value]"
         },
         "tenantId": {
             "type": "string",
             "value": "[subscription().tenantId]"
         },
+        "clusterName": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('aksClusterName'))]"
+        },
         "serviceUrl": {
             "type": "string",
-            "value": "[if (variables('platformDeployment'), reference(variables('platformResourceId'), '2017-05-10').outputs.serviceUrl.value, '')]"
+            "value": "[if (parameters('deployPlatformComponents'), reference(variables('platformResourceId'), '2017-05-10').outputs.serviceUrl.value, '')]"
         },
         "appUrl": {
             "type": "string",
-            "value": "[if (variables('platformDeployment'), reference(variables('platformResourceId'), '2017-05-10').outputs.appUrl.value, '')]"
+            "value": "[if (parameters('deployPlatformComponents'), reference(variables('platformResourceId'), '2017-05-10').outputs.appUrl.value, '')]"
         }
     }
 }

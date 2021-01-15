@@ -12,28 +12,36 @@ Usage: '"$0"'
                                service principal.
     --location, -l             Location to create the group in if it does
                                not yet exist.
+    --subscription, -s         Subscription to create the resource group 
+                               and managed identity in.  If not set uses
+                               the default subscription for the account.
     --help                     Shows this help.
 '
     exit 1
 }
 
 name=
+subscription=
 resourcegroup=
 location=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --help)                usage ;;
         --name)                name="$2" ;;
         --resourcegroup)       resourcegroup="$2" ;;
+        --subscription)        subscription="$2" ;;
         --location)            location="$2" ;;
         -n)                    name="$2" ;;
         -g)                    resourcegroup="$2" ;;
+        -s)                    subscription=="$2" ;;
         -l)                    location="$2" ;;
     esac
     shift
 done
+# -------------------------------------------------------------------------------
 if [[ -z "$resourcegroup" ]]; then
-    # create or update identity and get service principal object id
+    # create or update a service principal and get object id
     IFS=$'\n'
     if [[ -n "$name" ]]; then 
         results=($(az ad sp create-for-rbac -n $name --role Contributor \
@@ -50,7 +58,9 @@ else
         echo "Parameter is empty or missing: --name" >&2
         usage
     fi
-    
+    if [[ -n "$subscription" ]]; then 
+        az account set -s $subscription
+    fi
     rg=$(az group show -g $resourcegroup \
         --query id -o tsv 2> /dev/null | tr -d '\r')
     if [[ -z "$rg" ]]; then 
@@ -76,7 +86,7 @@ assign_app_role(){
     appRoleId=$(az ad sp show --id $2 \
         --query "appRoles[?value=='$3'].id" -o tsv | tr -d '\r')
     if [[ -z "$appRoleId" ]]; then 
-        echo "App role '$3' does not exist in '$2'."
+        echo "Unexpected: App role '$3' does not exist in '$2'."
         exit 1
     fi
     roleAssignmentId=$(az rest --method get \
@@ -90,14 +100,29 @@ assign_app_role(){
                 "resourceId": "'"$2"'", 
                 "appRoleId": "'"$appRoleId"'" 
             }' --query id -o tsv | tr -d '\r')
+        if [[ -z "$roleAssignmentId" ]]; then 
+            echo ""
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            echo "Failed assigning role.  You likely do not have "
+            echo "the consent to assign roles to Microsoft Graph."
+            echo "The service principal cannot be used for Graph "
+            echo "operations.!"
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            echo ""
+        else
+            echo "Assigned role '$3' to '$1'." >&2
+        fi
     fi
-    echo "Assigned role '$3' to '$1'." >&2
 }
 
 # Assign app roles on graph API so principal can invoke graph methods. 
 # We need the graph API principal id first.
 graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" \
     --query [0].objectId -o tsv | tr -d '\r')
+if [[ -z "$resourcegroup" ]]; then 
+    echo "Unexpected: No Microsoft Graph service principal found."; exit 1
+fi
+
 assign_app_role $principalId $graphSpId Application.ReadWrite.All
 # ...
 
