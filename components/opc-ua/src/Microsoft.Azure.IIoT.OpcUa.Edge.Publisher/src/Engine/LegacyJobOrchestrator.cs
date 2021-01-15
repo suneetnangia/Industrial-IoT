@@ -4,10 +4,12 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
-    using Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models;
     using Microsoft.Azure.IIoT.Agent.Framework;
     using Microsoft.Azure.IIoT.Agent.Framework.Models;
+    using Microsoft.Azure.IIoT.Exceptions;
     using Microsoft.Azure.IIoT.Module;
+    using Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models;
+    using Microsoft.Azure.IIoT.OpcUa.Publisher.Models;
     using Serilog;
     using System;
     using System.Collections.Generic;
@@ -17,6 +19,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
     using System.Threading.Tasks;
     using System.Collections.Concurrent;
     using System.Linq;
+    using System.Text;
 
     /// <summary>
     /// Job orchestrator the represents the legacy publishednodes.json with legacy command line arguments as job.
@@ -44,7 +47,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
 
             _jobSerializer = jobSerializer ?? throw new ArgumentNullException(nameof(jobSerializer));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _identity = identity ?? throw new ArgumentNullException(nameof(identity));
+            _identity = identity ?? throw new ArgumentNullException(nameof(identity));			
+            _lock = new SemaphoreSlim(1,1);
 
             var directory = Path.GetDirectoryName(_legacyCliModel.PublishedNodesFile);
 
@@ -55,13 +59,14 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
             _availableJobs = new ConcurrentQueue<JobProcessingInstructionModel>();
             _assignedJobs = new ConcurrentDictionary<string, JobProcessingInstructionModel>();
 
+            RefreshJobFromFileAsync().GetAwaiter().GetResult();
+
             var file = Path.GetFileName(_legacyCliModel.PublishedNodesFile);
             _fileSystemWatcher = new FileSystemWatcher(directory, file);
             _fileSystemWatcher.Changed += _fileSystemWatcher_Changed;
-            _fileSystemWatcher.Created += _fileSystemWatcher_Changed;
-            _fileSystemWatcher.Renamed += _fileSystemWatcher_Changed;
+            _fileSystemWatcher.Created += _fileSystemWatcher_Created;
+            _fileSystemWatcher.Renamed += _fileSystemWatcher_Renamed;
             _fileSystemWatcher.EnableRaisingEvents = true;
-            RefreshJobFromFile();
         }
 
         /// <summary>
@@ -72,21 +77,26 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         /// <param name="request"></param>
         /// <param name="ct"></param>
         /// <returns></returns>
-        public Task<JobProcessingInstructionModel> GetAvailableJobAsync(string workerId, JobRequestModel request, CancellationToken ct = default) {
-            if (_assignedJobs.TryGetValue(workerId, out var job)) {
-                return Task.FromResult(job);
-            }
-            if (_availableJobs.Count > 0 && _availableJobs.TryDequeue(out job)) {
-                _assignedJobs.AddOrUpdate(workerId, job);
-                if (_availableJobs.Count == 0) {
-                    _updated = false;
-                }
-            }
-            else {
-                _updated = false;
-            }
+        public async Task<JobProcessingInstructionModel> GetAvailableJobAsync(string workerId, JobRequestModel request, CancellationToken ct = default) {
+            try {
+                await _lock.WaitAsync();
 
-            return Task.FromResult(job);
+                if (_availableJobs.Count > 0 && _availableJobs.TryDequeue(out var job)) {
+                    _assignedJobs.AddOrUpdate(workerId, job);
+                }
+                else {
+                    _assignedJobs.TryGetValue(workerId, out job);
+                }
+
+                return job;
+            }
+            catch(Exception e) {
+                _logger.Error(e, "Failed to get available job for worked {workedId}", workerId);
+                return null;
+            }
+            finally {
+                _lock.Release();
+            }
         }
 
         /// <summary>
@@ -97,103 +107,177 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         /// <param name="heartbeat"></param>
         /// <param name="ct"></param>
         /// <returns></returns>
-        public Task<HeartbeatResultModel> SendHeartbeatAsync(HeartbeatModel heartbeat, CancellationToken ct = default) {
-            HeartbeatResultModel heartbeatResultModel;
-
-            if (_updated && heartbeat.Job != null) {
-                if (_availableJobs.Count == 0) {
-                    _updated = false;
+        public async Task<HeartbeatResultModel> SendHeartbeatAsync(HeartbeatModel heartbeat, CancellationToken ct = default) {
+            try {
+                await _lock.WaitAsync();
+                _logger.Information("SendHeartbeatAsync for worker {worker}, job {jobId}... ",
+                    heartbeat?.Worker?.WorkerId,
+                    heartbeat?.Job?.JobId);
+                HeartbeatResultModel heartbeatResultModel;
+                if (heartbeat.Job != null) {
+                    if (_assignedJobs.TryGetValue(heartbeat.Worker.WorkerId, out var job)
+                        && job.Job.Id == heartbeat.Job.JobId) {
+                        heartbeatResultModel = new HeartbeatResultModel {
+                            HeartbeatInstruction = HeartbeatInstruction.Keep,
+                            LastActiveHeartbeat = DateTime.UtcNow,
+                            UpdatedJob = null,
+                        };
+                    }
+                    else {
+                        heartbeatResultModel = new HeartbeatResultModel {
+                            HeartbeatInstruction = HeartbeatInstruction.CancelProcessing,
+                            LastActiveHeartbeat = DateTime.UtcNow,
+                            UpdatedJob = job,
+                        };
+                    }
                 }
-
-                heartbeatResultModel = new HeartbeatResultModel {
-                    HeartbeatInstruction = HeartbeatInstruction.CancelProcessing,
-                    LastActiveHeartbeat = DateTime.UtcNow,
-                    UpdatedJob = _assignedJobs.TryGetValue(heartbeat.Worker.WorkerId, out var job) ? job : null
-                };
+                else {
+                    heartbeatResultModel = new HeartbeatResultModel {
+                        HeartbeatInstruction = HeartbeatInstruction.Keep,
+                        LastActiveHeartbeat = DateTime.UtcNow,
+                        UpdatedJob = null,
+                    };
+                }
+                _logger.Information("SendHeartbeatAsync updated worker {worker} with {heartbeatInstruction} instruction for job {jobId}.",
+                    heartbeat.Worker.WorkerId,
+                    heartbeatResultModel?.HeartbeatInstruction,
+                    heartbeatResultModel?.UpdatedJob?.Job.Id);
+                return heartbeatResultModel;
             }
-            else {
-                heartbeatResultModel = new HeartbeatResultModel {
-                    HeartbeatInstruction = HeartbeatInstruction.Keep,
-                    LastActiveHeartbeat = DateTime.UtcNow,
-                    UpdatedJob = null
-                };
+            finally {
+                _lock.Release();
             }
-
-            return Task.FromResult(heartbeatResultModel);
         }
 
         private void _fileSystemWatcher_Changed(object sender, FileSystemEventArgs e) {
-            RefreshJobFromFile();
+            _logger.Debug("File {publishedNodesFile} change trigger ...", _legacyCliModel.PublishedNodesFile);
+            RefreshJobFromFileAsync().GetAwaiter().GetResult();
         }
 
-        private static string GetChecksum(string file) {
-            using (var stream = File.OpenRead(file)) {
-                var sha = new SHA256Managed();
-                var checksum = sha.ComputeHash(stream);
-                return BitConverter.ToString(checksum).Replace("-", string.Empty);
+        private void _fileSystemWatcher_Created(object sender, FileSystemEventArgs e) {
+            _logger.Debug("File {publishedNodesFile} created trigger ...", _legacyCliModel.PublishedNodesFile);
+            RefreshJobFromFileAsync().GetAwaiter().GetResult();
+        }
+
+        private void _fileSystemWatcher_Renamed(object sender, FileSystemEventArgs e) {
+            _logger.Debug("File {publishedNodesFile} renamed trigger ...", _legacyCliModel.PublishedNodesFile);
+            RefreshJobFromFileAsync().GetAwaiter().GetResult();
+        }
+
+        private static string GetChecksum(string content) {
+            if (String.IsNullOrEmpty(content)) {
+                return null;
             }
+            var sha = new SHA256Managed();
+            var checksum = sha.ComputeHash(Encoding.UTF8.GetBytes(content));
+            return BitConverter.ToString(checksum).Replace("-", string.Empty);
         }
 
-        private void RefreshJobFromFile() {
-            var retryCount = 3;
+        private async Task RefreshJobFromFileAsync() {
+            var retryCount = 0;
             while (true) {
                 try {
-                    var currentFileHash = GetChecksum(_legacyCliModel.PublishedNodesFile);
-                    var availableJobs = new ConcurrentQueue<JobProcessingInstructionModel>();
-                    if (currentFileHash != _lastKnownFileHash) {
-                        _logger.Information("File {publishedNodesFile} has changed, reloading...", _legacyCliModel.PublishedNodesFile);
-                        _lastKnownFileHash = currentFileHash;
-                        using (var reader = new StreamReader(_legacyCliModel.PublishedNodesFile)) {
-                            var jobs = _publishedNodesJobConverter.Read(reader, _legacyCliModel);
-                            foreach (var job in jobs) {
-                                var jobId = $"Standalone_{_identity.DeviceId}_{_identity.ModuleId}";
-                                job.WriterGroup.DataSetWriters.ForEach(d => {
-                                    d.DataSet.ExtensionFields ??= new Dictionary<string, string>();
-                                    d.DataSet.ExtensionFields["PublisherId"] = jobId;
-                                    d.DataSet.ExtensionFields["DataSetWriterId"] = d.DataSetWriterId;
-                                });
-                                var endpoints = string.Join(", ",job.WriterGroup.DataSetWriters.Select(w => w.DataSet.DataSetSource.Connection.Endpoint.Url));
-                                _logger.Information($"Job {jobId} loaded. DataSetWriters endpoints: {endpoints}");
-                                var serializedJob = _jobSerializer.SerializeJobConfiguration(job, out var jobConfigurationType);
+                    _logger.Information(
+                        "File {publishedNodesFile} reload started with current lock count: {currentCount}...",
+                        _legacyCliModel.PublishedNodesFile,
+                        _lock.CurrentCount);
 
-                                availableJobs.Enqueue(
-                                    new JobProcessingInstructionModel {
-                                        Job = new JobInfoModel {
-                                            Demands = new List<DemandModel>(),
-                                            Id = jobId,
-                                            JobConfiguration = serializedJob,
-                                            JobConfigurationType = jobConfigurationType,
-                                            LifetimeData = new JobLifetimeDataModel(),
-                                            Name = jobId,
-                                            RedundancyConfig = new RedundancyConfigModel { DesiredActiveAgents = 1, DesiredPassiveAgents = 0 }
-                                        },
-                                        ProcessMode = ProcessMode.Active
+                    await _lock.WaitAsync();
+                    
+                    Task.Delay((int)Math.Pow(500, retryCount+1)).GetAwaiter().GetResult();
+                    var availableJobs = new ConcurrentQueue<JobProcessingInstructionModel>();
+                    using (var fileStream = new FileStream(_legacyCliModel.PublishedNodesFile, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+                        var content = fileStream.ReadAsString(Encoding.UTF8);
+                        var currentFileHash = GetChecksum(content);
+                        _logger.Information(
+                            "File {publishedNodesFile} has hash: {hash}, old being hash {oldHash}",
+                            _legacyCliModel.PublishedNodesFile, currentFileHash, _lastKnownFileHash);
+                        if (currentFileHash != _lastKnownFileHash) {
+                            _lastKnownFileHash = currentFileHash;
+                            _logger.Information("Processing new content: {content} ... ", content);
+                            if (!string.IsNullOrEmpty(content)) {
+                                IEnumerable<WriterGroupJobModel> jobs = null;
+                                try {
+                                    jobs = _publishedNodesJobConverter.Read(content, _legacyCliModel);
+                                }
+                                catch (IOException) {
+                                    throw; //pass it thru, to handle retries
+                                }
+                                catch (SerializerException ex) {
+                                    _logger.Information(ex, "Failed to deserialize {publishedNodesFile}, aborting reload...", _legacyCliModel.PublishedNodesFile);
+                                    _lastKnownFileHash = null;
+                                    return;
+                                }
+
+                                foreach (var job in jobs) {
+
+                                    var jobId = string.IsNullOrEmpty(job.WriterGroup.WriterGroupId)
+                                        ? $"Standalone_{_identity.DeviceId}_{Guid.NewGuid()} "
+                                        : job.WriterGroup.WriterGroupId;
+
+                                    job.WriterGroup.DataSetWriters.ForEach(d => {
+                                        d.DataSet.ExtensionFields ??= new Dictionary<string, string>();
+                                        d.DataSet.ExtensionFields["PublisherId"] = jobId;
+                                        d.DataSet.ExtensionFields["DataSetWriterId"] = d.DataSetWriterId;
                                     });
+                                    var endpoints = string.Join(", ", job.WriterGroup.DataSetWriters.Select(w => w.DataSet.DataSetSource.Connection.Endpoint.Url));
+                                    _logger.Information($"Job {jobId} loaded. DataSetWriters endpoints: {endpoints}");
+                                    var serializedJob = _jobSerializer.SerializeJobConfiguration(job, out var jobConfigurationType);
+
+                                    availableJobs.Enqueue(
+                                        new JobProcessingInstructionModel {
+                                            Job = new JobInfoModel {
+                                                Demands = new List<DemandModel>(),
+                                                Id = jobId,
+                                                JobConfiguration = serializedJob,
+                                                JobConfigurationType = jobConfigurationType,
+                                                LifetimeData = new JobLifetimeDataModel(),
+                                                Name = jobId,
+                                                RedundancyConfig = new RedundancyConfigModel { DesiredActiveAgents = 1, DesiredPassiveAgents = 0 }
+                                            },
+                                            ProcessMode = ProcessMode.Active
+                                        });
+                                }
+                            }
+                            if (_agentConfig.MaxWorkers < availableJobs.Count + _availableJobs.Count) {
+                                _agentConfig.MaxWorkers = availableJobs.Count + _availableJobs.Count;
+                            }
+
+                            _assignedJobs.Clear();
+                            foreach (var job in availableJobs) {
+                                _availableJobs.Enqueue(job);
                             }
                         }
-                        _agentConfig.MaxWorkers = availableJobs.Count;
-                        ThreadPool.GetMinThreads(out var workerThreads, out var asyncThreads);
-                        if (_agentConfig.MaxWorkers > workerThreads ||
-                            _agentConfig.MaxWorkers > asyncThreads) {
-                            var result = ThreadPool.SetMinThreads(_agentConfig.MaxWorkers.Value, _agentConfig.MaxWorkers.Value);
-                            _logger.Information("Thread pool changed to: worker {worker}, async {async} threads {succeeded}",
-                                _agentConfig.MaxWorkers.Value, _agentConfig.MaxWorkers.Value, result ? "succeeded" : "failed");
+                        else {
+                            _logger.Information("File {publishedNodesFile} has changed and content-hash is equal to last one, nothing to do", _legacyCliModel.PublishedNodesFile);
                         }
-                        _availableJobs = availableJobs;
-                        _assignedJobs.Clear();
-                        _updated = true;
                     }
                     break;
                 }
                 catch (IOException ex) {
-                    retryCount--;
-                    if (retryCount > 0) {
+                    retryCount++;
+                    if (retryCount < 4) {
                         _logger.Debug("Error while loading job from file, retrying...");
                     }
                     else {
                         _logger.Error(ex, "Error while loading job from file. Retry expired, giving up.");
                         break;
                     }
+                }
+                catch (SerializerException sx) {
+                    _logger.Error(sx, "SerializerException while loading job from file.");
+                    break;
+                }
+                catch (Exception e) {
+                    _logger.Error(e, "Error while reloading {PublishedNodesFile}", _legacyCliModel.PublishedNodesFile);
+                    _availableJobs.Clear();
+                    _assignedJobs.Clear();
+                }
+                finally {
+                    _logger.Information("File {publishedNodesFile} reload finalized with current lock count: {currentCount}.",
+                        _legacyCliModel.PublishedNodesFile,
+                        _lock.CurrentCount);
+                    _lock.Release();
                 }
             }
         }
@@ -206,9 +290,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         private readonly ILogger _logger;
 
         private readonly PublishedNodesJobConverter _publishedNodesJobConverter;
-        private ConcurrentQueue<JobProcessingInstructionModel> _availableJobs;
+        private readonly ConcurrentQueue<JobProcessingInstructionModel> _availableJobs;
         private readonly ConcurrentDictionary<string, JobProcessingInstructionModel> _assignedJobs;
         private string _lastKnownFileHash;
-        private bool _updated;
+        private readonly SemaphoreSlim _lock;
     }
 }

@@ -4,24 +4,14 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.Agent.Framework {
-    using System.Threading.Tasks;
-
     /// <summary>
     /// Worker supervisor
     /// </summary>
     public interface IWorkerSupervisor : IHostProcess {
 
         /// <summary>
-        /// Create worker
+        /// The amount of workers currently running
         /// </summary>
-        /// <returns></returns>
-        Task<IWorker> CreateWorker();
-
-        /// <summary>
-        /// Stop worker
-        /// </summary>
-        /// <param name="workerId"></param>
-        /// <returns></returns>
-        Task StopWorker(string workerId);
+        int NumberOfWorkers { get; }
     }
 }

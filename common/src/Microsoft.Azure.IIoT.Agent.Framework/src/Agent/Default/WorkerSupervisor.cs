@@ -9,8 +9,10 @@ namespace Microsoft.Azure.IIoT.Agent.Framework.Agent {
     using Autofac;
     using Serilog;
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using System.Timers;
     using Timer = System.Timers.Timer;
@@ -26,12 +28,18 @@ namespace Microsoft.Azure.IIoT.Agent.Framework.Agent {
         /// <param name="lifetimeScope"></param>
         /// <param name="agentConfigProvider"></param>
         /// <param name="logger"></param>
+        /// <param name="timerDelayInSeconds">The time the supervisor is waiting before ensure worker</param>
         public WorkerSupervisor(ILifetimeScope lifetimeScope,
-            IAgentConfigProvider agentConfigProvider, ILogger logger) {
+            IAgentConfigProvider agentConfigProvider, ILogger logger, int timerDelayInSeconds = 10) {
+
+            if (timerDelayInSeconds <= 0) {
+                timerDelayInSeconds = 10;
+            }
+
             _lifetimeScope = lifetimeScope;
             _agentConfigProvider = agentConfigProvider;
             _logger = logger;
-            _ensureWorkerRunningTimer = new Timer(TimeSpan.FromSeconds(10).TotalMilliseconds);
+            _ensureWorkerRunningTimer = new Timer(TimeSpan.FromSeconds(timerDelayInSeconds).TotalMilliseconds);
             _ensureWorkerRunningTimer.Elapsed += EnsureWorkerRunningTimer_ElapsedAsync;
         }
 
@@ -56,34 +64,43 @@ namespace Microsoft.Azure.IIoT.Agent.Framework.Agent {
         }
 
         /// <inheritdoc/>
-        public Task<IWorker> CreateWorker() {
+        public int NumberOfWorkers => _instances.Count;
+
+        /// <summary>
+        /// Create worker
+        /// </summary>
+        /// <returns></returns>
+        private Task<IWorker> CreateWorker() {
             var maxWorkers = _agentConfigProvider.Config?.MaxWorkers ?? kDefaultWorkers;
             if (_instances.Count >= maxWorkers) {
                 throw new MaxWorkersReachedException(maxWorkers);
             }
-
+            
             var childScope = _lifetimeScope.BeginLifetimeScope();
             var worker = childScope.Resolve<IWorker>(new NamedParameter("workerInstance", _instances.Count));
             _instances[worker] = childScope;
+            _logger.Information("Creating new worker with id {WorkerId}", worker.WorkerId);
+
             return Task.FromResult(worker);
         }
 
-        /// <inheritdoc/>
-        public async Task StopWorker(string workerId) {
-            if (!_instances.Keys.Any(w => w.WorkerId == workerId)) {
-                throw new WorkerNotFoundException(workerId);
-            }
-
-            var worker = _instances.Where(w => w.Key.WorkerId == workerId).Single();
-
+        /// <summary>
+        /// Stop a single worker
+        /// </summary>
+        /// <returns>awaitable task</returns>
+        private async Task StopWorker() {
+            // sort workers, so that a worker in state Stopped, Stopping or WaitingForJob will terminate first 
+            var worker = _instances.OrderBy(kvp => kvp.Key.Status).First();
+            var workerId = worker.Key.WorkerId;
+            _logger.Information("Stopping worker with id {WorkerId}", workerId);
+            _instances.TryRemove(worker.Key, out _);
             await worker.Key.StopAsync();
-            worker.Value.Dispose();
-            _instances.Remove(worker.Key);
+            worker.Value?.Dispose();
         }
 
         /// <inheritdoc/>
         public void Dispose() {
-            Try.Async(StopAsync).Wait();
+            Try.Async(StopAsync).GetAwaiter().GetResult();
             _ensureWorkerRunningTimer?.Dispose();
         }
 
@@ -107,32 +124,49 @@ namespace Microsoft.Azure.IIoT.Agent.Framework.Agent {
         /// </summary>
         /// <returns></returns>
         private async Task EnsureWorkersAsync() {
-            var workerStartTasks = new List<Task>();
 
-            while (true) {
-                var workers = _agentConfigProvider.Config?.MaxWorkers ?? kDefaultWorkers;
-                while (_instances.Count < workers) {
-                    _logger.Information("Creating new worker...");
-                    var worker = await CreateWorker();
-                }
+            if (_agentConfigProvider.Config?.MaxWorkers < 0) {
+                _logger.Error("MaxWorker can't be zero or negative! using default value {DefaultMaxWorkers}", kDefaultWorkers);
+                _agentConfigProvider.Config.MaxWorkers = kDefaultWorkers;
+            }
 
-                foreach (var stoppedWorker in _instances.Keys.Where(s => s.Status == WorkerStatus.Stopped)) {
-                    _logger.Information("Starting worker '{workerId}'...", stoppedWorker.WorkerId);
-                    workerStartTasks.Add(stoppedWorker.StartAsync());
-                }
-                await Task.WhenAll(workerStartTasks);
-                // the configuration might have been changed by workers execution
-                var newWorkers = _agentConfigProvider.Config?.MaxWorkers ?? kDefaultWorkers;
-                if (workers >= newWorkers) {
-                    break;
+            var workers = _agentConfigProvider.Config?.MaxWorkers ?? kDefaultWorkers;
+            var delta = workers - _instances.Count;
+
+            if (delta > 0) {
+                ThreadPool.GetMinThreads(out var workerThreads, out var asyncThreads);
+                if (workers > workerThreads || workers > asyncThreads) {
+                    var result = ThreadPool.SetMinThreads(workers, workers);
+                    _logger.Information("Thread pool changed to: worker {worker}, async {async} threads {succeeded}",
+                        workers, workers, result ? "succeeded" : "failed");
                 }
             }
+
+            // start new worker if necessary
+            while (delta > 0) {
+                var worker = await CreateWorker();
+                delta--;
+            }
+
+            // terminate running worker if necessary
+            while (delta < 0) {
+                await StopWorker();
+                delta++;
+            }
+
+            // restart stopped worker if necessary
+            var workerStartTasks = new List<Task>();
+            foreach (var stoppedWorker in _instances.Keys.Where(s => s.Status == WorkerStatus.Stopped)) {
+                _logger.Information("Starting worker '{workerId}'...", stoppedWorker.WorkerId);
+                workerStartTasks.Add(stoppedWorker.StartAsync());
+            }
+            await Task.WhenAll(workerStartTasks);
         }
 
         private const int kDefaultWorkers = 5; // TODO - single listener, dynamic workers.
         private readonly IAgentConfigProvider _agentConfigProvider;
         private readonly Timer _ensureWorkerRunningTimer;
-        private readonly Dictionary<IWorker, ILifetimeScope> _instances = new Dictionary<IWorker, ILifetimeScope>();
+        private readonly ConcurrentDictionary<IWorker, ILifetimeScope> _instances = new ConcurrentDictionary<IWorker, ILifetimeScope>();
         private readonly ILifetimeScope _lifetimeScope;
         private readonly ILogger _logger;
     }

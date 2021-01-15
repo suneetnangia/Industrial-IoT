@@ -15,7 +15,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
-    using System.IO;
     using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
@@ -44,21 +43,21 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
         /// <summary>
         /// Read monitored item job from reader
         /// </summary>
-        /// <param name="publishedNodesFile"></param>
+        /// <param name="content"></param>
         /// <param name="legacyCliModel">The legacy command line arguments</param>
         /// <returns></returns>
-        public IEnumerable<WriterGroupJobModel> Read(TextReader publishedNodesFile,
+        public IEnumerable<WriterGroupJobModel> Read(string content,
             LegacyCliModel legacyCliModel) {
             var sw = Stopwatch.StartNew();
-            _logger.Debug("Reading published nodes file ({elapsed}", sw.Elapsed);
-            var items = _serializer.Deserialize<List<PublishedNodesEntryModel>>(
-                publishedNodesFile);
+            _logger.Information("Deserializing published nodes file ({elapsed})", sw.Elapsed);
+            var items = _serializer.Deserialize<List<PublishedNodesEntryModel>>(content);
+
             _logger.Information(
                 "Read {count} items from published nodes file in {elapsed}",
                 items.Count, sw.Elapsed);
             sw.Restart();
             var jobs = ToWriterGroupJobs(items, legacyCliModel);
-            _logger.Information("Converted items to jobs in {elapsed}", sw.Elapsed);
+            _logger.Information("Converted {itemsCount} items to {jobsCount} jobs in {elapsed}", items.Count, jobs.Count(), sw.Elapsed);
             return jobs;
         }
 
@@ -74,7 +73,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                 return Enumerable.Empty<WriterGroupJobModel>();
             }
             try {
-                return items
+                var result = items
                     // Group by connection
                     .GroupBy(item => new ConnectionModel {
                         OperationTimeout = legacyCliModel.OperationTimeout,
@@ -114,10 +113,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                                     .Select(node => new PublishedDataSetVariableModel {
                                         // this is the monitored item id, not the nodeId!
                                         // Use the display name if any otherwise the nodeId
-                                        Id = string.IsNullOrEmpty(node.DataSetFieldId)
-                                            ? node.Id : node.DataSetFieldId,
+                                        Id = string.IsNullOrEmpty(node.DisplayName) ? 
+                                                string.IsNullOrEmpty(node.DataSetFieldId) ? node.Id : node.DataSetFieldId : node.DisplayName,
                                         PublishedVariableNodeId = node.Id,
-                                        PublishedVariableDisplayName = node.DataSetFieldId,
+                                        PublishedVariableDisplayName = string.IsNullOrEmpty(node.DisplayName) ? node.DataSetFieldId : node.DisplayName,
                                         SamplingInterval = node.OpcSamplingIntervalTimespan ??
                                             legacyCliModel.DefaultSamplingInterval,
                                         HeartbeatInterval = node.HeartbeatIntervalTimespan.HasValue ?
@@ -185,6 +184,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                             }
                         }
                     }).ToList();
+                return result;
             }
             catch (Exception ex){
                 _logger.Error(ex, "failed to convert the published nodes.");
@@ -208,9 +208,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                     }
                     if (scaleTestCount == 1) {
                         node.OpcPublishingInterval = item.DataSetPublishingInterval.HasValue ? item.DataSetPublishingInterval : node.OpcPublishingInterval;
-                        node.OpcPublishingIntervalTimespan = item.DataSetPublishingInterval.HasValue ?
-                                        TimeSpan.FromMilliseconds(item.DataSetPublishingInterval.Value)
-                                        : node.OpcPublishingIntervalTimespan;
                         yield return node;
                     }
                     else {
@@ -223,12 +220,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                                 ExpandedNodeId = node.ExpandedNodeId,
                                 HeartbeatIntervalTimespan = node.HeartbeatIntervalTimespan,
                                 OpcPublishingInterval = item.DataSetPublishingInterval.HasValue ? item.DataSetPublishingInterval : node.OpcPublishingInterval,
-                                OpcPublishingIntervalTimespan = item.DataSetPublishingInterval.HasValue ? 
-                                        TimeSpan.FromMilliseconds(item.DataSetPublishingInterval.Value)
-                                        : node.OpcPublishingIntervalTimespan,
                                 OpcSamplingInterval = node.OpcSamplingInterval,
-                                OpcSamplingIntervalTimespan = node.OpcSamplingIntervalTimespan,
-                                SkipFirst = node.SkipFirst
+                                SkipFirst = node.SkipFirst,
                             };
                         }
                     }
