@@ -125,8 +125,8 @@
             }
         },
         "edgeUserName": {
-            "type": "securestring",
-            "defaultValue": "",
+            "type": "string",
+            "defaultValue": "simulationuser",
             "metadata": {
                 "description": "A name for the simulation vm administrator user."
             }

@@ -83,7 +83,7 @@
         },
         "edgeUserName": {
             "type": "string",
-            "defaultValue": "sandboxuser",
+            "defaultValue": "simulationuser",
             "metadata": {
                 "description": "Admin user name for edge simulation vms."
             }
