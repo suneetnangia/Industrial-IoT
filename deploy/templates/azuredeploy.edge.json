@@ -51,7 +51,7 @@
         },
         "edgeUsername": {
             "type": "string",
-            "defaultValue": "",
+            "defaultValue": "simulationuser",
             "metadata": {
                 "description": "Username for the IoT Edge virtual machine."
             }

@@ -231,7 +231,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
               "resourceAppId": "'"$serviceAppId"'"
             } ]
         }'
-    # add service secret
+    # add webapp secret
     webappAppSecret=$(az rest --method post \
         --uri https://graph.microsoft.com/v1.0/applications/$webappId/addPassword \
         --headers Content-Type=application/json --body '{}' \
@@ -264,13 +264,14 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
                 ]
             }
         }'
-    echo "'$applicationName-service' updated..."
-        
+       
     # add service secret
     serviceAppSecret=$(az rest --method post \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId/addPassword \
         --headers Content-Type=application/json --body '{}' \
         --query secretText -o tsv | tr -d '\r')
+    echo "'$applicationName-service' updated..."
+
     serviceAudience=$(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
         --query "[identifierUris[0]]" -o tsv | tr -d '\r')

@@ -19,75 +19,58 @@
 
  .PARAMETER Location
     Location to create the resource group in if it does not yet exist.
+
+ .PARAMETER EnvironmentName
+    Azure cloud to use - defaults to Global cloud.
+
+ .PARAMETER TenantId
+    Tenant id to use.
+
+ .PARAMETER Context
+    An existing Azure connectivity context to use instead of connecting.
+    If provided, overrides the provided Subscription, environment name
+    or tenant id.
 #>
 
 param(
     [string] $Name = $null,
-    [string] $Subscription = $null,
     [string] $ResourceGroup = $null,
     [string] $Location = $null,
     [string] $EnvironmentName = "AzureCloud", 
-    [object] $DefaultProfile = $null
+    [string] $Subscription = $null,
+    [string] $TenantId = $null,
+    [object] $Context = $null
 )
 
 # -------------------------------------------------------------------------------
-& {
-    Import-Module Az 
-    Import-Module Microsoft.Graph 
-} *>$null
-
+Import-Module Az 
+Import-Module Microsoft.Graph.Authentication 
+Import-Module Microsoft.Graph.Applications 
+$script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
+Remove-Module pwsh-setup -ErrorAction SilentlyContinue
+Import-Module $(join-path $script:ScriptDir pwsh-setup.psm1)
 $ErrorActionPreference = "Stop"
 # -------------------------------------------------------------------------------
 
-$scripted=$($null -ne $script:DefaultProfile)
+$scripted=$($null -ne $script:Context)
 if (!$scripted) {
-    Connect-AzAccount -Environment $script:EnvironmentName 3>&1>$null
-    if ([string]::IsNullOrWhiteSpace($script:Subscription)) {
-        $subscriptions = Get-AzSubscription | Where-Object { $_.State -eq "Enabled" }
-
-        if ($subscriptions.Count -eq 0) {
-            throw "No active subscriptions found - exiting."
-        }
-        elseif ($subscriptions.Count -eq 1) {
-            $script:Subscription = $subscriptions[0].Id
-        }
-        else {
-            Write-Host "Please choose a subscription from this list (using its index):"
-            $script:index = 0
-            $subscriptions | Format-Table -AutoSize -Property `
-            @{Name = "Index"; Expression = { ($script:index++) } }, `
-            @{Name = "Subscription"; Expression = { $_.Name } }, `
-            @{Name = "Id"; Expression = { $_.SubscriptionId } }`
-            | Out-Host
-            while ($true) {
-                $option = Read-Host ">"
-                try {
-                    if ([int]$option -ge 1 -and [int]$option -le $subscriptions.Count) {
-                        break
-                    }
-                }
-                catch {
-                    Write-Warning "Invalid index '$($option)' provided."
-                }
-                Write-Host `
-            "Choose from the list using an index between 1 and $($subscriptions.Count)."
-            }
-            $script:Subscription = $subscriptions[$option - 1].Id
-        }
-    }
-    $script:DefaultProfile = (Get-AzSubscription -SubscriptionId $script:Subscription `
-        | Set-AzContext)
+    $script:Context = Connect-ToAzure -EnvironmentName $script:EnvironmentName `
+        -SubscriptionId $script:Subscription -TenantId $script:TenantId
 }
 
+$script:Subscription = $script:Context.Subscription.Id
+$script:TenantId = $script:Context.Tenant.Id
+$script:EnvironmentName = $script:Context.Environment.Name
+
 # get access token if profile provided
-$accessToken = Get-AzAccessToken -TenantId $script:DefaultProfile.Tenant.Id `
-    -DefaultProfile $script:DefaultProfile `
+$accessToken = Get-AzAccessToken -TenantId $script:TenantId `
+    -AzContext $script:Context `
     -ResourceUrl "https://graph.microsoft.com"
 if (!$accessToken) {
     throw "Failed to get access token for Microsoft Graph."
 }
-
-Connect-MgGraph -AccessToken $accessToken.Token -TenantId $accessToken.TenantId 1>$null
+$script:TenantId = $accessToken.TenantId
+Connect-MgGraph -AccessToken $accessToken.Token -TenantId $script:TenantId 1>$null
 
 # Get role with given name and assign it to the principal
 Function Add-AppRole() {
@@ -105,7 +88,8 @@ Function Add-AppRole() {
         throw "Unexpected: App role '$appRoleName' does not exist in '$($graphSp.Id)'."
     }
     # there is a delay to when the service principal is visible in the graph to assign to
-    for ($a = 1; !$(Get-MgServicePrincipal -ServicePrincipalId $principalId 2>$null); $a++) {
+    for ($a = 1; !$(Get-MgServicePrincipal -ServicePrincipalId $principalId `
+        -ErrorAction SilentlyContinue); $a++) {
         if ($a -gt 5) {
             throw "Timeout: Service principal did not replicate to graph in time."
         }
@@ -153,19 +137,19 @@ if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
             $script:Name = $newName
         }
         $app = Get-AzAdApplication -IdentifierUri $script:Name `
-            -DefaultProfile $script:DefaultProfile -ErrorAction SilentlyContinue
+            -AzContext $script:Context -ErrorAction SilentlyContinue
         if (!$app) {
             $app = New-AzADApplication -DisplayName $script:Name `
-                -IdentifierUris $script:Name -DefaultProfile $script:DefaultProfile
+                -IdentifierUris $script:Name -AzContext $script:Context
             if (!$app) {
                 throw "Failed to create service principal application $($script:Name)."
             }
         }
         $sp = Get-AzADServicePrincipal -ApplicationId $app.ApplicationId `
-            -DefaultProfile $script:DefaultProfile -ErrorAction SilentlyContinue
+            -AzContext $script:Context -ErrorAction SilentlyContinue
         if (!$sp) {
             $sp = New-AzADServicePrincipal -ApplicationId $app.ApplicationId `
-                -Role Contributor -DefaultProfile $script:DefaultProfile 
+                -Role Contributor -AzContext $script:Context 
             if (!$sp) {
                 throw "Failed to create service principal $($script:Name) for rbac."
             }
@@ -174,7 +158,7 @@ if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
         if (!$secret) {
             Write-Warning "Updating password for service principal $($script:Name)..."
             $secret = $(New-AzADSpCredential -ServicePrincipalObject $sp `
-                -DefaultProfile $script:DefaultProfile).Secret
+                -AzContext $script:Context).Secret
             if (!$secret) {
                 throw "Failed to assign secret to service principal $($script:Name)."
             }
@@ -185,32 +169,32 @@ if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
     $secret = [System.Net.NetworkCredential]::new("", $secret).Password
     $result.Add("aadPrincipalId", $script:Name)
     $result.Add("aadPrincipalSecret", $secret)
-    $result.Add("aadTenantId", $script:DefaultProfile.Tenant.Id)
+    $result.Add("aadTenantId", $script:Context.Tenant.Id)
 }
 else {
     if ([string]::IsNullOrWhiteSpace($script:Name)) {
         throw "You must supply a name for the identity to create using -Name parameter."
     }
     $rg = Get-AzResourceGroup -ResourceGroupName $script:ResourceGroup `
-        -DefaultProfile $script:DefaultProfile -ErrorAction SilentlyContinue
+        -AzContext $script:Context -ErrorAction SilentlyContinue
     if (!$rg) {
         if ([string]::IsNullOrWhiteSpace($script:Location)) {
             throw "You must supply a location for the identity using -Location parameter."
         }
         $rg = New-AzResourceGroup -ResourceGroupName $script:ResourceGroup `
             -Location $script:Location `
-            -DefaultProfile $script:DefaultProfile
+            -AzContext $script:Context
         if (!$rg) {
             throw "Failed to create a resource group for the identity."
         }
     }
     $msi = Get-AzUserAssignedIdentity -ResourceGroupName $rg.ResourceGroupName `
         -Name $script:Name `
-        -DefaultProfile $script:DefaultProfile -ErrorAction SilentlyContinue
+        -AzContext $script:Context -ErrorAction SilentlyContinue
     if (!$msi) {
         $msi = New-AzUserAssignedIdentity -ResourceGroupName $rg.ResourceGroupName `
             -Location $rg.Location -Name $script:Name `
-            -DefaultProfile $script:DefaultProfile
+            -AzContext $script:Context
     }
     Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $msi.PrincipalId
     $result.Add("aadPrincipalId", $msi.Id)

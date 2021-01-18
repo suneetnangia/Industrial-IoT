@@ -55,6 +55,20 @@ done
 
 # ==============================================================================
 
+echo "RESOURCE_GROUP=$RESOURCE_GROUP"
+echo "NAMESPACE=$NAMESPACE"
+echo "AKS_CLUSTER=$AKS_CLUSTER"
+echo "ROLE=$ROLE"
+echo "LOAD_BALANCER_IP=$LOAD_BALANCER_IP"
+echo "PUBLIC_IP_DNS_LABEL=$PUBLIC_IP_DNS_LABEL"
+echo "HELM_REPO_URL=$HELM_REPO_URL"
+echo "HELM_CHART_VERSION=$HELM_CHART_VERSION"
+echo "IMAGE_TAG=$IMAGE_TAG"
+echo "IMAGE_NS=$IMAGE_NS"
+echo "TENANT_ID=$TENANT_ID"
+echo "KEY_VAULT_URI=$KEY_VAULT_URI"
+echo "SERVICES_HOSTNAME=$SERVICES_HOSTNAME"
+
 # Go to home.
 cd ~
 
@@ -78,7 +92,7 @@ az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --ov
 kubectl apply -f "$CWD/omsagent.yaml"
 
 # Add Helm repos
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo add ingress-nginx https://charts.helm.sh/stable
 helm repo add jetstack https://charts.jetstack.io
 helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
 helm repo add aiiot $HELM_REPO_URL
