@@ -388,9 +388,6 @@
                     "simulationVmSize": {
                         "value": "[parameters('simulationVmSize')]"  
                     },
-                    "edgeUserName": {
-                        "value": "[reference(variables('aadAppRegistrationResourceId')).outputs.serviceAppId.value]"
-                    },
                     "edgePassword": {
                         "reference": {
                             "keyVault": {
@@ -398,9 +395,6 @@
                             },
                             "secretName": "pcs-auth-service-secret"
                         }
-                    },
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
                     },
                     "iotHubHostName": {
                         "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubHostName.value]"
@@ -430,6 +424,9 @@
                     },
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"

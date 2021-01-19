@@ -233,7 +233,7 @@
         "windowsOsProfile": {
             "computerName": "[variables('vmName')]",
             "adminUsername": "[parameters('edgeUsername')]",
-            "adminPassword": "[if(not(empty(parameters('edgePassword'))), parameters('edgePassword'), json('null'))]",
+            "adminPassword": "[parameters('edgePassword')]",
             "windowsConfiguration": {
                 "enableAutomaticUpdates": true,
                 "provisionVmAgent": true
@@ -269,7 +269,7 @@
         "linuxOsProfile": {
             "computerName": "[variables('vmName')]",
             "adminUsername": "[parameters('edgeUsername')]",
-            "adminPassword": "[if(not(empty(parameters('edgePassword'))), parameters('edgePassword'), json('null'))]"
+            "adminPassword": "[parameters('edgePassword')]"
         },
         "linuxVmExtension": {
             "publisher": "Microsoft.Azure.Extensions",

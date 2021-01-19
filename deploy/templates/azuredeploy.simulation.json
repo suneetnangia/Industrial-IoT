@@ -249,6 +249,9 @@
                     "dpsConnString": {
                         "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
                     },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
@@ -320,6 +323,9 @@
                     },
                     "dpsConnString": {
                         "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
