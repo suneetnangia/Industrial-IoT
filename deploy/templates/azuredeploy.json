@@ -389,12 +389,7 @@
                         "value": "[parameters('simulationVmSize')]"  
                     },
                     "edgeUserName": {
-                        "reference": {
-                            "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
-                            },
-                            "secretName": "pcs-auth-service-appid"
-                        }
+                        "value": "[reference(variables('aadAppRegistrationResourceId')).outputs.serviceAppId.value]"
                     },
                     "edgePassword": {
                         "reference": {
@@ -446,7 +441,8 @@
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesResourceId')]"
+                "[variables('requiredServicesResourceId')]",
+                "[variables('aadAppRegistrationResourceId')]"
             ]
         }
     ],

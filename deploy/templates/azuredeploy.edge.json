@@ -489,11 +489,5 @@
                 "[variables('vnetResourceId')]"
             ]
         }
-    ],
-    "outputs": {
-        "edgeUsername": {
-            "type": "string",
-            "value": "[parameters('edgeUsername')]"
-        }
-    }
+    ]
 }

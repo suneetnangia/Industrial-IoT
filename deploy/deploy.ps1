@@ -506,7 +506,7 @@ if ($script:dumpTemplateParameterJson) {
 }
 else {
     Write-Host "The following template parameters will be used:"
-    Write-Host $templateParameters
+    $templateParameters
 }
 
 # Update tags to show deploying
