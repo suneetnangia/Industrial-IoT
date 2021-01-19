@@ -16,13 +16,6 @@
                 "description": "Optional DNS prefix to use with hosted Kubernetes API server FQDN."
             }
         },
-        "kubernetesVersion": {
-            "defaultValue": "1.18.8",
-            "type": "string",
-            "metadata": {
-                "description": "The version of Kubernetes."
-            }
-        },
         "aksAgentOsDiskSizeGB": {
             "type": "int",
             "defaultValue": 0,
@@ -44,6 +37,52 @@
         "aksAgentVMSize": {
             "type": "string",
             "defaultValue": "Standard_DS2_v2",
+            "allowedValues": [
+                "Standard_B2s",
+                "Standard_B2ms",
+                "Standard_A2",
+                "Standard_A3",
+                "Standard_A4",
+                "Standard_A5",
+                "Standard_A6",
+                "Standard_A7",
+                "Standard_A8",
+                "Standard_A9",
+                "Standard_A10",
+                "Standard_A11",
+                "Standard_A2_v2",
+                "Standard_A4_v2",
+                "Standard_A8_v2",
+                "Standard_A2m_v2",
+                "Standard_A4m_v2",
+                "Standard_A8m_v2",
+                "Standard_D2",
+                "Standard_D3",
+                "Standard_D4",
+                "Standard_D11",
+                "Standard_D12",
+                "Standard_D13",
+                "Standard_D14",
+                "Standard_D2_v2",
+                "Standard_D3_v2",
+                "Standard_D4_v2",
+                "Standard_D5_v2",
+                "Standard_D11_v2",
+                "Standard_D12_v2",
+                "Standard_D13_v2",
+                "Standard_D14_v2",
+                "Standard_D15_v2",
+                "Standard_DS2_v2",
+                "Standard_G1",
+                "Standard_G2",
+                "Standard_G3",
+                "Standard_G4",
+                "Standard_G5",
+                "Standard_F2",
+                "Standard_F4",
+                "Standard_F8",
+                "Standard_F16"
+            ],
             "metadata": {
                 "description": "The size of the Virtual Machine."
             }
@@ -136,12 +175,13 @@
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "kubernetesSubnetName": "kubesubnet",
         "kubernetesSubnetId": "[concat(variables('clusterVnetResourceId'), '/subnets/', variables('kubernetesSubnetName'))]",
+        "aksAdminRole": "[resourceId('Microsoft.Authorization/roleAssignments', '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8')]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
         "aksManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksManagedIdentityName'))]",
-        "networkContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
+        "networkContributorRole": "[resourceId('Microsoft.Authorization/roleAssignments', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
         "networkContributorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignNetworkContributorRole')]",
         "networkContributorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('networkContributorRoleAssignmentName'))]",
-        "managedIdentityOperatorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'f1a07417-d97a-45cb-824c-7a7467783830')]",
+        "managedIdentityOperatorRole": "[resourceId('Microsoft.Authorization/roleAssignments', 'f1a07417-d97a-45cb-824c-7a7467783830')]",
         "managedIdentityOperatorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignManagedIdentityOperatorRole')]",
         "managedIdentityOperatorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('managedIdentityOperatorRoleAssignmentName'))]",
         "clusterAdminIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('clusterAdminManagedIdentityName'))]",
@@ -306,7 +346,6 @@
                 }
             },
             "properties": {
-                "kubernetesVersion": "[parameters('kubernetesVersion')]",
                 "enableRBAC": true,
                 "dnsPrefix": "[parameters('aksDnsPrefix')]",
                 "aadProfile": {
@@ -370,7 +409,7 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
-                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8')]",
+                "roleDefinitionId": "[variables('aksAdminRole')]",
                 "principalId": "[reference(variables('clusterAdminIdentityResourceId'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
@@ -381,25 +420,21 @@
         }
     ],
     "outputs": {
-        "clusterControlPlaneUrl": {
+        "aksControlPlaneUrl": {
             "type": "string",
             "value": "[reference(variables('aksResourceId')).fqdn]"
+        },
+        "aksResourceId": {
+            "type": "string",
+            "value": "[variables('aksResourceId')]"
         },
         "clusterName": {
             "type": "string",
             "value": "[parameters('clusterName')]"
         },
-        "clusterResourceId": {
-            "type": "string",
-            "value": "[variables('aksResourceId')]"
-        },
         "clusterAdminIdentityResourceId": {
             "type": "string",
             "value": "[variables('clusterAdminIdentityResourceId')]"
-        },
-        "clusterVnetResourceId": {
-            "type": "string",
-            "value": "[variables('clusterVnetResourceId')]"
         },
         "logAnalyticsWorkspaceResourceId": {
             "type": "string",

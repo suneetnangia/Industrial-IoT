@@ -60,7 +60,9 @@
         "roleAssignmentDeploymentScript2Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentDeploymentScript2Name'))]",
         "aadAppRegistrationResourceName": "[concat('deploy_aad', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
-        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]"
+        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]",
+        "storageReaderRole": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "keyVaultSecretOfficerRole": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]"
     },
     "resources": [
         {
@@ -80,7 +82,7 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
-                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "roleDefinitionId": "[variables('storageReaderRole')]",
                 "principalId": "[reference(variables('deploymentManagedIdentityId'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
@@ -97,7 +99,7 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
-                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
+                "roleDefinitionId": "[variables('keyVaultSecretOfficerRole')]",
                 "principalId": "[reference(variables('deploymentManagedIdentityId'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
