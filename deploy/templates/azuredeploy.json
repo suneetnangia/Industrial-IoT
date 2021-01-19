@@ -37,14 +37,14 @@
                 "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
             }
         },
-        "aksClusterName": {
+        "existingAksClusterName": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
                 "description": "The name of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a simple cluster will be created."
             }
         },
-        "aksClusterAdminIdentityResourceId": {
+        "existingAksClusterAdminIdentityId": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
@@ -175,7 +175,7 @@
         }
     },
     "variables": {
-        "deployCluster": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('aksClusterAdminIdentityResourceId'))))]",
+        "deployCluster": "[or(empty(parameters('existingAksClusterName')), empty(parameters('existingAksClusterAdminIdentityId')))]",
         "aksClusterResourceName": "services.aks",
         "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
         "requiredServicesResourceName": "services",
@@ -307,10 +307,10 @@
                 "mode": "Incremental",
                 "parameters": {
                     "aksClusterName": {
-                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('aksClusterName'))]"
+                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
                     },
                     "aksClusterAdminIdentityResourceId": {
-                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminIdentityResourceId.value, parameters('aksClusterAdminIdentityResourceId'))]"
+                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminIdentityResourceId.value, parameters('existingAksClusterAdminIdentityId'))]"
                     },
                     "keyVaultName": {
                         "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
@@ -327,9 +327,6 @@
                     "applicationName": {
                         "value": "[parameters('applicationName')]"
                     },
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
                     "dockerServer": {
                         "value": "[parameters('dockerServer')]"
                     },
@@ -344,6 +341,9 @@
                     },
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -454,7 +454,7 @@
         },
         "clusterName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('aksClusterName'))]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
         },
         "serviceUrl": {
             "type": "string",
