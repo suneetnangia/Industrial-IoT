@@ -39,6 +39,7 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
+
 # -------------------------------------------------------------------------------
 if [[ -z "$resourcegroup" ]]; then
     # create or update a service principal and get object id

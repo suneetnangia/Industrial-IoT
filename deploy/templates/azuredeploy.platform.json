@@ -124,13 +124,6 @@
                 "description": "Public Ip domain label."
             }
         },
-        "scriptsUrl": {
-            "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
-            "metadata": {
-                "description": "The helm setup scripts url.  Default is official repository."
-            }
-        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
@@ -221,7 +214,7 @@
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('helmChartsInstallScriptResourceName')]",
-            "condition": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('scriptsUrl'))), not(empty(parameters('helmChartVersion'))))]",
+            "condition": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('helmChartVersion'))))]",
             "location": "[resourceGroup().location]",            
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
@@ -234,11 +227,11 @@
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('scriptsUrl'), 'helm-setup.sh')]",
+                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
                 "arguments": "[concat(' --resource_group ', resourceGroup().name, ' --aks_cluster ', parameters('aksClusterName'), ' --load_balancer_ip ', reference(variables('platformPublicIpResourceId')).ipAddress, ' --public_ip_dns_label ', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, ' --helm_repo_url ', parameters('helmRepoUrl'), ' --helm_chart_version ', parameters('helmChartVersion'), ' --managed_identity_id ', variables('platformManagedIdentityResourceId'), ' --managed_identity_name ', parameters('platformManagedIdentityName'), ' --managed_identity_client_id ', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId, ' --tenant_id ', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId, ' --image_tag ', parameters('imagesTag'), ' --image_ns ', parameters('imagesNamespace'), ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', parameters('keyVaultUri'), ' --services_hostname ', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]",
                 "supportingScriptUris": [
-                    "[concat(parameters('scriptsUrl'), 'omsagent.yaml')]",
-                    "[concat(parameters('scriptsUrl'), 'letsencrypt.yaml')]"
+                    "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
+                    "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
                 ],
                 "timeout": "PT1H",
                 "cleanupPreference": "OnSuccess",
@@ -334,6 +327,6 @@
         "managedIdentityTenantId": {
             "type": "string",
             "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId]"
-        },
+        }
     }
 }

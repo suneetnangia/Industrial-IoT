@@ -35,11 +35,11 @@
                 "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
             }
         },
-        "scriptsUrl": {
+        "templateUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
             "metadata": {
-                "description": "The location where all deployment scripts reside.  Default is GitHub official repository."
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
         "tags": {
@@ -53,21 +53,21 @@
     "variables": {
         "deploymentManagedIdentityName": "[concat('deploy_aad_msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "deploymentManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentManagedIdentityName'))]",
-        "deploymentManagedIdentityId": "[if(variables('servicePrincipalOrPreConfiguration'), variables('deploymentManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
-        "roleAssignmentDeploymentScript1Name": "[guid(parameters('aadPrincipalPassword'), 'aadScriptRbac1Guid')]",
+        "deploymentManagedIdentityId": "[if(variables('createLocalManagedIdentity'), variables('deploymentManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
+        "roleAssignmentDeploymentScript1Name": "[guid(variables('deploymentManagedIdentityResourceId'), 'Storage')]",
         "roleAssignmentDeploymentScript1Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentDeploymentScript1Name'))]",
-        "roleAssignmentDeploymentScript2Name": "[guid(parameters('aadPrincipalId'), 'aadScriptRbac2Guid')]",
+        "roleAssignmentDeploymentScript2Name": "[guid(variables('deploymentManagedIdentityResourceId'), 'KeyVault')]",
         "roleAssignmentDeploymentScript2Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentDeploymentScript2Name'))]",
         "aadAppRegistrationResourceName": "[concat('deploy_aad', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
-        "servicePrincipalOrPreConfiguration": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]"
+        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]"
     },
     "resources": [
         {
             "comments": "Managed identity to access azure resources from deployment scripts if outside identity not provided.",
             "name": "[variables('deploymentManagedIdentityName')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "condition": "[variables('servicePrincipalOrPreConfiguration')]",
+            "condition": "[variables('createLocalManagedIdentity')]",
             "apiVersion": "2018-11-30",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]"
@@ -103,6 +103,7 @@
                 "principalType": "ServicePrincipal"
             },
             "dependsOn": [
+                 "[variables('roleAssignmentDeploymentScript1Id')]", 
                 "[variables('deploymentManagedIdentityResourceId')]"
             ]
         },
@@ -122,7 +123,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('scriptsUrl'), 'graph-setup.sh')]",
+                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh')]",
                 "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [

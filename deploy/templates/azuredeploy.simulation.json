@@ -33,13 +33,6 @@
                 "description": "The simulation profile to use."
             }
         },
-        "simulationScriptsUrl": {
-            "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts",
-            "metadata": {
-                "description": "The simulation scripts url.  Default is official repository."
-            }
-        },
         "numberOfLinuxGateways": {
             "type": "int",
             "defaultValue": 0,
@@ -90,7 +83,6 @@
         },
         "edgePassword": {
             "type": "secureString",
-            "defaultValue": "",
             "metadata": {
                 "description": "The administrator password for the edge simulation vms."
             }
@@ -245,9 +237,6 @@
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
                     },
-                    "simulationScriptsUrl": {
-                        "value": "[parameters('simulationScriptsUrl')]"
-                    },
                     "edgeVmSize": {
                         "value": "[parameters('edgeVmSize')]"  
                     },
@@ -319,9 +308,6 @@
                     },
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
-                    },
-                    "simulationScriptsUrl": {
-                        "value": "[parameters('simulationScriptsUrl')]"
                     },
                     "edgeVmSize": {
                         "value": "[parameters('edgeVmSize')]"  

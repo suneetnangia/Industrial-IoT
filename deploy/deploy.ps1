@@ -318,7 +318,6 @@ else {
     Write-Host "... Deploying using artifacts from '$($script:SourceUri)'."
 }
 $templateUrl = "$($script:SourceUri)/deploy/templates/";
-$templateParameters.Add("scriptsUrl", "$($script:SourceUri)/deploy/scripts/")
 $templateParameters.Add("templateUrl", $templateUrl)
 
 # Select containers to deploy and where from.
@@ -507,7 +506,7 @@ if ($script:dumpTemplateParameterJson) {
 }
 else {
     Write-Host "The following template parameters will be used:"
-    Write-Host $($templateParameters | ConvertTo-Json)
+    Write-Host $templateParameters
 }
 
 # Update tags to show deploying

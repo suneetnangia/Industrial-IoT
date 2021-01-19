@@ -20,22 +20,16 @@
                 "description": "Azure Device Provisioning service connection string."
             }
         },
-        "simulationScriptsUrl": {
+        "edgeUsername": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
             "metadata": {
-                "description": "The artifacts url from which to pull the setup and simulation scripts.  Default is official repository."
+                "description": "Username for the IoT Edge virtual machine."
             }
         },
-        "simulationProfile": {
-            "type": "string",
-            "defaultValue": "default",
-            "allowedValues": [
-                "default",
-                "testing"
-            ],
+        "edgePassword": {
+            "type": "securestring",
             "metadata": {
-                "description": "The name of the simulation docker-compose file on github without extension."
+                "description": "Password for the IoT Edge virtual machine."
             }
         },
         "edgeOs": {
@@ -47,20 +41,6 @@
             "defaultValue": "linux",
             "metadata": {
                 "description": "Operating system to use for the virtual edge."
-            }
-        },
-        "edgeUsername": {
-            "type": "string",
-            "defaultValue": "simulationuser",
-            "metadata": {
-                "description": "Username for the IoT Edge virtual machine."
-            }
-        },
-        "edgePassword": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Password for the IoT Edge virtual machine."
             }
         },
         "edgeVmSize": {
@@ -179,6 +159,17 @@
                 "description": "The size of the simulation VM to provision."
             }
         },
+        "simulationProfile": {
+            "type": "string",
+            "defaultValue": "default",
+            "allowedValues": [
+                "default",
+                "testing"
+            ],
+            "metadata": {
+                "description": "The name of the simulation docker-compose file on github without extension."
+            }
+        },
         "dockerServer": {
             "type": "string",
             "defaultValue": "mcr.microsoft.com",
@@ -212,6 +203,13 @@
             "defaultValue": "latest",
             "metadata": {
                 "description": "Specifies the image version tag to use for all images."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
         "tags": {
@@ -248,8 +246,8 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('simulationScriptsUrl'), 'dps-enroll.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.ps1')]"
+                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1')]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1')]"
                 ]
             },
             "protectedSettings": {
@@ -280,9 +278,9 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('simulationScriptsUrl'), 'dps-enroll.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.ps1')]",
-                    "[concat(parameters('simulationScriptsUrl'), 'edge-setup.sh')]"
+                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1')]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1')]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.sh')]"
                 ]
             },
             "protectedSettings": {
@@ -472,8 +470,8 @@
                                 "autoUpgradeMinorVersion": true,
                                 "settings": {
                                     "fileUris": [
-                                        "[concat(parameters('simulationScriptsUrl'), 'simulation.sh')]",
-                                        "[concat(parameters('simulationScriptsUrl'), parameters('simulationProfile'), '.yml')]"
+                                        "[concat(parameters('templateUrl'), 'scripts/simulation.sh')]",
+                                        "[concat(parameters('templateUrl'), 'simulations/', parameters('simulationProfile'), '.yml')]"
                                     ]
                                 },
                                 "protectedSettings": {

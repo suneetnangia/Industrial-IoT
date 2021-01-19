@@ -124,20 +124,6 @@
                 "description": "The size of the simulation VM to provision."
             }
         },
-        "edgeUserName": {
-            "type": "string",
-            "defaultValue": "simulationuser",
-            "metadata": {
-                "description": "A name for the simulation vm administrator user."
-            }
-        },
-        "edgePassword": {
-            "type": "securestring",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The supplied password must be between 8-75 characters long and must satisfy at least 3 of password complexity requirements: 1) Contains an uppercase character 2) Contains a lowercase character 3) Contains a numeric digit 4) Contains a special character. Control characters are not allowed"
-            }
-        },
         "dockerServer": {
             "type": "string",
             "defaultValue": "mcr.microsoft.com",
@@ -178,13 +164,6 @@
             "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/",
             "metadata": {
                 "description": "The location where all deployment templates reside.  Default is GitHub official repository."
-            }
-        },
-        "scriptsUrl": {
-            "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/scripts/",
-            "metadata": {
-                "description": "The location where all deployment scripts reside.  Default is GitHub official repository."
             }
         },
         "tags": {
@@ -302,8 +281,8 @@
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
                     },
-                    "scriptsUrl": {
-                        "value": "[parameters('scriptsUrl')]"
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -350,9 +329,6 @@
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
-                    },
-                    "scriptsUrl": {
-                        "value": "[parameters('scriptsUrl')]"
                     },
                     "dockerServer": {
                         "value": "[parameters('dockerServer')]"
@@ -413,16 +389,23 @@
                         "value": "[parameters('simulationVmSize')]"  
                     },
                     "edgeUserName": {
-                        "value": "[parameters('edgeUserName')]"
+                        "reference": {
+                            "keyVault": {
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
+                            },
+                            "secretName": "pcs-auth-service-appid"
+                        }
                     },
                     "edgePassword": {
-                        "value": "[parameters('edgePassword')]"
+                        "reference": {
+                            "keyVault": {
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
+                            },
+                            "secretName": "pcs-auth-service-secret"
+                        }
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
-                    },
-                    "simulationScriptsUrl": {
-                        "value": "[parameters('scriptsUrl')]"
                     },
                     "iotHubHostName": {
                         "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubHostName.value]"
