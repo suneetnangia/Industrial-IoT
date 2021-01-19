@@ -9,14 +9,21 @@
                 "description": "The name of the Managed Cluster resource."
             }
         },
-        "clusterDnsPrefix": {
+        "aksDnsPrefix": {
             "type": "string",
             "defaultValue": "[concat(parameters('clusterName'), '-dns')]",
             "metadata": {
                 "description": "Optional DNS prefix to use with hosted Kubernetes API server FQDN."
             }
         },
-        "clusterAgentOsDiskSizeGB": {
+        "kubernetesVersion": {
+            "defaultValue": "1.18.8",
+            "type": "string",
+            "metadata": {
+                "description": "The version of Kubernetes."
+            }
+        },
+        "aksAgentOsDiskSizeGB": {
             "type": "int",
             "defaultValue": 0,
             "metadata": {
@@ -25,7 +32,7 @@
             "minValue": 0,
             "maxValue": 1023
         },
-        "clusterAgentCount": {
+        "aksAgentCount": {
             "type": "int",
             "defaultValue": 3,
             "metadata": {
@@ -34,7 +41,7 @@
             "minValue": 1,
             "maxValue": 100
         },
-        "clusterAgentVmSize": {
+        "aksAgentVMSize": {
             "type": "string",
             "defaultValue": "Standard_DS2_v2",
             "metadata": {
@@ -48,21 +55,21 @@
                 "description": "Group object id for admins of the cluster."
             }
         },
-        "clusterServiceCidr": {
+        "aksServiceCidr": {
             "type": "string",
             "defaultValue": "10.0.0.0/16",
             "metadata": {
                 "description": "A CIDR notation IP range from which to assign service cluster IPs."
             }
         },
-        "clusterDnsServiceIP": {
+        "aksDnsServiceIP": {
             "type": "string",
             "defaultValue": "10.0.0.10",
             "metadata": {
                 "description": "Containers DNS server IP address."
             }
         },
-        "clusterManagedIdentityName": {
+        "aksManagedIdentityName": {
             "type": "string",
             "defaultValue": "[concat(parameters('clusterName'), '-msi')]",
             "metadata": {
@@ -76,7 +83,7 @@
                 "description": "Name of the Managed identity resource of the cluster admin."
             }
         },
-        "clusterDockerBridgeCidr": {
+        "aksDockerBridgeCidr": {
             "type": "string",
             "defaultValue": "172.17.0.1/16",
             "metadata": {
@@ -127,12 +134,16 @@
     "variables": {
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]",
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
-        "clusterNodeSubnetResourceName": "clusternodes",
-        "clusterSubnetResourceId": "[concat(variables('clusterVnetResourceId'), '/subnets/', variables('clusterNodeSubnetResourceName'))]",
-        "clusterResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
-        "clusterIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('clusterManagedIdentityName'))]",
-        "clusterRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'vnetRbacGuid')]",
-        "clusterRoleAssignmentId":  "[resourceId('Microsoft.Authorization/roleAssignments', variables('clusterRoleAssignmentName'))]",
+        "kubernetesSubnetName": "kubesubnet",
+        "kubernetesSubnetId": "[concat(variables('clusterVnetResourceId'), '/subnets/', variables('kubernetesSubnetName'))]",
+        "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
+        "aksManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksManagedIdentityName'))]",
+        "networkContributorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
+        "networkContributorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignNetworkContributorRole')]",
+        "networkContributorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('networkContributorRoleAssignmentName'))]",
+        "managedIdentityOperatorRole": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'f1a07417-d97a-45cb-824c-7a7467783830')]",
+        "managedIdentityOperatorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignManagedIdentityOperatorRole')]",
+        "managedIdentityOperatorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('managedIdentityOperatorRoleAssignmentName'))]",
         "clusterAdminIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('clusterAdminManagedIdentityName'))]",
         "clusterAdminRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'clusterAdminRbacGuid')]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
@@ -208,7 +219,7 @@
             }
         },
         {
-            "comments":  "Managed Kubernetes cluster Vnet for Azure CNI.",
+            "comments": "Managed Kubernetes cluster Vnet for Azure CNI.",
             "name": "[parameters('vnetName')]",
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2018-08-01",
@@ -222,7 +233,7 @@
                 },
                 "subnets": [
                     {
-                        "name": "[variables('clusterNodeSubnetResourceName')]",
+                        "name": "[variables('kubernetesSubnetName')]",
                         "properties": {
                             "addressPrefix": "10.240.0.0/16",
                             "networkSecurityGroup": {
@@ -238,7 +249,7 @@
         },
         {
             "comments": "Kubernetes cluster managed identity.",
-            "name": "[parameters('clusterManagedIdentityName')]",
+            "name": "[parameters('aksManagedIdentityName')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "location": "[resourceGroup().location]",
@@ -249,18 +260,36 @@
         {
             "comments": "Assign network contributor permissions to the cluster managed identity to manage the vnet.",
             "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('clusterRoleAssignmentName')]",
+            "name": "[variables('networkContributorRoleAssignmentName')]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
-                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
-                "principalId": "[reference(variables('clusterIdentityResourceId'), '2018-11-30').principalId]",
+                "roleDefinitionId": "[variables('networkContributorRole')]",
+                "principalId": "[reference(variables('aksManagedIdentityResourceId'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
             },
             "dependsOn": [
-                "[variables('clusterIdentityResourceId')]"
+                "[variables('aksManagedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Assign managed identity operator role for pod identites to cluster.",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "name": "[variables('managedIdentityOperatorRoleAssignmentName')]",
+            "apiVersion": "2020-04-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "roleDefinitionId": "[variables('managedIdentityOperatorRole')]",
+                "principalId": "[reference(variables('aksManagedIdentityResourceId'), '2018-11-30').principalId]",
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
+            },
+            "dependsOn": [
+                "[variables('networkContributorRoleAssignmentId')]",
+                "[variables('aksManagedIdentityResourceId')]"
             ]
         },
         {
@@ -273,12 +302,13 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[variables('clusterIdentityResourceId')]": {}
+                    "[variables('aksManagedIdentityResourceId')]": {}
                 }
             },
             "properties": {
+                "kubernetesVersion": "[parameters('kubernetesVersion')]",
                 "enableRBAC": true,
-                "dnsPrefix": "[parameters('clusterDnsPrefix')]",
+                "dnsPrefix": "[parameters('aksDnsPrefix')]",
                 "aadProfile": {
                     "managed": true,
                     "adminGroupObjectIDs": "[parameters('clusterAdminGroupObjectId')]"
@@ -286,12 +316,12 @@
                 "agentPoolProfiles": [
                     {
                         "name": "agentpool",
-                        "osDiskSizeGB": "[parameters('clusterAgentOsDiskSizeGB')]",
-                        "count": "[parameters('clusterAgentCount')]",
-                        "vmSize": "[parameters('clusterAgentVmSize')]",
+                        "osDiskSizeGB": "[parameters('aksAgentOsDiskSizeGB')]",
+                        "count": "[parameters('aksAgentCount')]",
+                        "vmSize": "[parameters('aksAgentVMSize')]",
                         "osType": "Linux",
                         "storageProfile": "ManagedDisks",
-                        "vnetSubnetID": "[variables('clusterSubnetResourceId')]",
+                        "vnetSubnetID": "[variables('kubernetesSubnetId')]",
                         "type": "VirtualMachineScaleSets",
                         "mode": "System"
                     }
@@ -299,9 +329,9 @@
                 "networkProfile": {
                     "networkPlugin": "azure",
                     "loadBalancerSku": "standard",
-                    "serviceCidr": "[parameters('clusterServiceCidr')]",
-                    "dnsServiceIP": "[parameters('clusterDnsServiceIP')]",
-                    "dockerBridgeCidr": "[parameters('clusterDockerBridgeCidr')]"
+                    "serviceCidr": "[parameters('aksServiceCidr')]",
+                    "dnsServiceIP": "[parameters('aksDnsServiceIP')]",
+                    "dockerBridgeCidr": "[parameters('aksDockerBridgeCidr')]"
                 },
                 "addonProfiles": {
                     "omsagent": {
@@ -316,8 +346,9 @@
                 }
             },
             "dependsOn": [
-                "[variables('clusterIdentityResourceId')]",
-                "[variables('clusterRoleAssignmentId')]",
+                "[variables('aksManagedIdentityResourceId')]",
+                "[variables('networkContributorRoleAssignmentId')]",
+                "[variables('managedIdentityOperatorRoleAssignmentId')]",
                 "[variables('logAnalyticsWorkspaceResourceId')]"
             ]
         },
@@ -332,7 +363,7 @@
             ]
         },
         {
-            "comments": "Assign admin permissions to managed service identity at resource scope.",
+            "comments": "Assign AKS admin permissions to managed service identity at resource scope.",
             "type": "Microsoft.Authorization/roleAssignments",
             "name": "[variables('clusterAdminRoleAssignmentName')]",
             "apiVersion": "2020-04-01-preview",
@@ -352,7 +383,7 @@
     "outputs": {
         "clusterControlPlaneUrl": {
             "type": "string",
-            "value": "[reference(variables('clusterResourceId')).fqdn]"
+            "value": "[reference(variables('aksResourceId')).fqdn]"
         },
         "clusterName": {
             "type": "string",
@@ -360,7 +391,7 @@
         },
         "clusterResourceId": {
             "type": "string",
-            "value": "[variables('clusterResourceId')]"
+            "value": "[variables('aksResourceId')]"
         },
         "clusterAdminIdentityResourceId": {
             "type": "string",
