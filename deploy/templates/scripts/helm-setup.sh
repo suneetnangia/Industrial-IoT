@@ -92,7 +92,7 @@ az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --ov
 kubectl apply -f "$CWD/omsagent.yaml"
 
 # Add Helm repos
-helm repo add ingress-nginx https://charts.helm.sh/stable
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
 helm repo add jetstack https://charts.jetstack.io
 helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
 helm repo add aiiot $HELM_REPO_URL
@@ -102,7 +102,7 @@ helm repo update
 kubectl create namespace ingress-nginx
 
 # Install ingress-nginx/ingress-nginx Helm chart
-helm install --atomic ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --version 3.12.0 --timeout 30m0s \
+helm install --atomic ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --version 3.20.1 --timeout 30m0s \
     --set controller.replicaCount=2 \
     --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
     --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
