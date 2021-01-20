@@ -20,10 +20,10 @@
                 "description": "The Uri of the Azure Key Vault."
             }
         },
-        "aksClusterName": {
+        "aksClusterResourceId": {
             "type": "string",
             "metadata": {
-                "description": "The name of the Azure Managed Kubernetes Cluster to deploy the platform bits to."
+                "description": "The resource id of the Azure Managed Kubernetes Cluster to deploy the platform bits to."
             }
         },
         "aksClusterAdminIdentityResourceId": {
@@ -90,7 +90,7 @@
         },
         "platformPublicIpName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('applicationName'), '-ip')]",
+            "defaultValue": "[concat('public-ip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
             "metadata": {
                 "description": "Public Ip resource name."
             }
@@ -145,8 +145,9 @@
         "helmChartsInstallScriptSetupName": "[concat('msi.helm.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "helmChartsInstallScriptSetupId": "[resourceId('Microsoft.Resources/deployments', variables('helmChartsInstallScriptSetupName'))]",
         "helmChartsInstallScriptResourceName": "[concat('deploy.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "platformPublicIpResourceId": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', parameters('platformPublicIpName'))]",
-        "configurationResourceName": "platform.configuration",
+        "platformPublicIpSetupName": "[concat('ip.platform.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "platformPublicIpSetupId": "[resourceId('Microsoft.Resources/deployments', variables('platformPublicIpSetupName'))]",
+        "configurationResourceName": "config.platform",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
     },
     "resources": [
@@ -162,9 +163,9 @@
                         "value": "[parameters('platformManagedIdentityName')]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "KeyVaultSecretOfficer"
-                         ]
+                        "value": [
+                            "KeyVaultSecretOfficer"
+                        ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -177,21 +178,90 @@
             }
         },
         {
-            "comments": "Create a public IP address of the services endpoint.",
-            "type": "Microsoft.Network/publicIpAddresses",
-            "name": "[parameters('platformPublicIpName')]",
-            "apiVersion": "2019-11-01",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "sku": {
-                "name": "[parameters('platformPublicIpSku')]"
-            },
+            "comments": "Create a public IP address of the services endpoint in the node resource group.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('platformPublicIpSetupName')]",
+            "resourceGroup": "[reference(parameters('aksClusterResourceId'), '2020-09-01').nodeResourceGroup]",
             "properties": {
-                "publicIpAllocationMethod": "[parameters('platformPublicIpAllocationMethod')]",
-                "dnsSettings": "[if(empty(parameters('platformPublicIpDomainNameLabel')), json('null'), json(concat('{\"domainNameLabel\": \"', parameters('platformPublicIpDomainNameLabel') ,'\"}')))]"
-            },
-            "dependsOn": [
-            ]
+                "mode": "Incremental",
+                "parameters": {
+                    "platformPublicIpName": {
+                        "value": "[parameters('platformPublicIpName')]"
+                    },
+                    "platformPublicIpSku": {
+                        "value": "[parameters('platformPublicIpSku')]"
+                    },
+                    "platformPublicIpAllocationMethod": {
+                        "value": "[parameters('platformPublicIpAllocationMethod')]"
+                    },
+                    "platformPublicIpDomainNameLabel": {
+                        "value": "[parameters('platformPublicIpDomainNameLabel')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "platformPublicIpName": {
+                            "type": "string"
+                        },
+                        "platformPublicIpSku": {
+                            "type": "string"
+                        },
+                        "platformPublicIpAllocationMethod": {
+                            "type": "string"
+                        },
+                        "platformPublicIpDomainNameLabel": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object"
+                        }
+                    },
+                    "variables": {
+                        "platformPublicIpResourceId": "[resourceId('Microsoft.Network/publicIpAddresses', parameters('platformPublicIpName'))]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Network/publicIpAddresses",
+                            "name": "[parameters('platformPublicIpName')]",
+                            "apiVersion": "2019-11-01",
+                            "location": "[resourceGroup().location]",
+                            "tags": "[parameters('tags')]",
+                            "sku": {
+                                "name": "[parameters('platformPublicIpSku')]"
+                            },
+                            "properties": {
+                                "publicIpAllocationMethod": "[parameters('platformPublicIpAllocationMethod')]",
+                                "dnsSettings": "[if(empty(parameters('platformPublicIpDomainNameLabel')), json('null'), json(concat('{\"domainNameLabel\": \"', parameters('platformPublicIpDomainNameLabel') ,'\"}')))]"
+                            },
+                            "dependsOn": [
+                            ]
+                        }
+                    ],
+                    "outputs": {
+                        "fqdn": {
+                            "type": "string",
+                            "value": "[reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn]"
+                        },
+                        "domainNameLabel": {
+                            "type": "string",
+                            "value": "[reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel]"
+                        },
+                        "ipAddress": {
+                            "type": "string",
+                            "value": "[reference(variables('platformPublicIpResourceId')).ipAddress]"
+                        }
+                    }
+                }
+            }
         },
         {
             "comments": "Setup the managed identity for the deployment script to run under.",
@@ -205,9 +275,9 @@
                         "value": "[parameters('aksClusterAdminIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "DeploymentScript"
-                         ]
+                        "value": [
+                            "DeploymentScript"
+                        ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -224,21 +294,21 @@
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('helmChartsInstallScriptResourceName')]",
-            "condition": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('helmChartVersion'))))]",
-            "location": "[resourceGroup().location]",            
+            "condition": "[and(not(empty(parameters('aksClusterResourceId'))), not(empty(parameters('helmChartVersion'))))]",
+            "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[ reference(variables('helmChartsInstallScriptSetupId')).outputs.managedIdentityResourceId.value]": {} 
+                    "[ reference(variables('helmChartsInstallScriptSetupId')).outputs.managedIdentityResourceId.value]": {}
                 }
             },
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpResourceId')).ipAddress, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.managedIdentityResourceId.value, '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.clientId.value, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.tenantId.value, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn, '\"' )]",
+                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', reference(parameters('aksClusterResourceId'), '2020-09-01', 'Full').name, '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpSetupId')).outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpSetupId')).outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.managedIdentityResourceId.value, '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.clientId.value, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.tenantId.value, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpSetupId')).outputs.fqdn.value, '\"' )]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
@@ -249,7 +319,7 @@
             },
             "dependsOn": [
                 "[variables('configurationResourceId')]",
-                "[variables('platformPublicIpResourceId')]",
+                "[variables('platformPublicIpSetupId')]",
                 "[variables('helmChartsInstallScriptSetupId')]",
                 "[variables('platformManagedIdentitySetupId')]"
             ]
@@ -270,7 +340,7 @@
                         "value": [
                             {
                                 "key": "PCS_SERVICE_NAME",
-                                "value": "[concat('https://', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]"
+                                "value": "[concat('https://', reference(variables('platformPublicIpSetupId')).outputs.fqdn.value)]"
                             },
                             {
                                 "key": "PCS_MSI_APPID",
@@ -309,14 +379,14 @@
             },
             "dependsOn": [
                 "[variables('platformManagedIdentitySetupId')]",
-                "[variables('platformPublicIpResourceId')]"
+                "[variables('platformPublicIpSetupId')]"
             ]
         }
     ],
     "outputs": {
         "serviceUrl": {
             "type": "string",
-            "value": "[concat('https://', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn)]"
+            "value": "[concat('https://', reference(variables('platformPublicIpSetupId')).outputs.fqdn.value)]"
         },
         "managedIdentityResourceName": {
             "type": "string",

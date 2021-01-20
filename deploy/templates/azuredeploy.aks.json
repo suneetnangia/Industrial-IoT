@@ -500,6 +500,10 @@
             "type": "string",
             "value": "[parameters('clusterName')]"
         },
+        "clusterNodeResourceGroup": {
+            "type": "string",
+            "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
+        },
         "clusterAdminIdentityResourceId": {
             "type": "string",
             "value": "[reference(variables('clusterAdminManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]"

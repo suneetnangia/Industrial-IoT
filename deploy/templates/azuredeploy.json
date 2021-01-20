@@ -37,11 +37,11 @@
                 "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
             }
         },
-        "existingAksClusterName": {
+        "existingAksClusterResourceId": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
-                "description": "The name of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a simple cluster will be created."
+                "description": "The resource id of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a AKS cluster will be created."
             }
         },
         "existingAksClusterAdminIdentityId": {
@@ -175,7 +175,7 @@
         }
     },
     "variables": {
-        "clusterNotProvided": "[or(empty(parameters('existingAksClusterName')), empty(parameters('existingAksClusterAdminIdentityId')))]",
+        "clusterNotProvided": "[or(empty(parameters('existingAksClusterResourceId')), empty(parameters('existingAksClusterAdminIdentityId')))]",
         "deployCluster": "[and(variables('clusterNotProvided'), not(empty(parameters('aadPrincipalId'))))]",
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterAdminIdentityId'))))]",
         "aksClusterResourceName": "services.aks",
@@ -321,8 +321,8 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "aksClusterName": {
-                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
+                    "aksClusterResourceId": {
+                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.aksResourceId.value, parameters('existingAksClusterResourceId'))]"
                     },
                     "aksClusterAdminIdentityResourceId": {
                         "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminIdentityResourceId.value, parameters('existingAksClusterAdminIdentityId'))]"
@@ -473,7 +473,7 @@
         },
         "clusterName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterResourceId'))]"
         },
         "aksControlPlaneUrl": {
             "type": "string",
