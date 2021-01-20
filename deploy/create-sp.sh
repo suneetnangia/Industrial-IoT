@@ -125,6 +125,7 @@ if [[ -z "$resourcegroup" ]]; then
 fi
 
 assign_app_role $principalId $graphSpId Application.ReadWrite.All
+assign_app_role $principalId $graphSpId Group.ReadWrite.All
 # ...
 
 echo ""

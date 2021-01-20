@@ -258,7 +258,7 @@
             ]
         },
         {
-            "comments": "Register Azure AD applications for Industrial IoT Platform.",
+            "comments": "Register AAD entitities in Microsoft Graph.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationResourceName')]",

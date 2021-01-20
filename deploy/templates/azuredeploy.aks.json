@@ -9,6 +9,12 @@
                 "description": "The name of the Managed Cluster resource."
             }
         },
+        "adminGroupObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "Group object id for admins of the cluster."
+            }
+        },
         "aksDnsPrefix": {
             "type": "string",
             "defaultValue": "[concat(parameters('clusterName'), '-dns')]",
@@ -87,13 +93,6 @@
                 "description": "The size of the Virtual Machine."
             }
         },
-        "clusterAdminGroupObjectId": {
-            "type": "array",
-            "defaultValue": [],
-            "metadata": {
-                "description": "Group object id for admins of the cluster."
-            }
-        },
         "aksServiceCidr": {
             "type": "string",
             "defaultValue": "10.0.0.0/16",
@@ -162,6 +161,13 @@
                 "description": "Specifies the service tier of the Azure Log Analytics workspace."
             }
         },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -175,17 +181,11 @@
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "kubernetesSubnetName": "kubesubnet",
         "kubernetesSubnetId": "[concat(variables('clusterVnetResourceId'), '/subnets/', variables('kubernetesSubnetName'))]",
-        "aksAdminRole": "[resourceId('Microsoft.Authorization/roleAssignments', '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8')]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
-        "aksManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksManagedIdentityName'))]",
-        "networkContributorRole": "[resourceId('Microsoft.Authorization/roleAssignments', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
-        "networkContributorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignNetworkContributorRole')]",
-        "networkContributorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('networkContributorRoleAssignmentName'))]",
-        "managedIdentityOperatorRole": "[resourceId('Microsoft.Authorization/roleAssignments', 'f1a07417-d97a-45cb-824c-7a7467783830')]",
-        "managedIdentityOperatorRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'assignManagedIdentityOperatorRole')]",
-        "managedIdentityOperatorRoleAssignmentId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('managedIdentityOperatorRoleAssignmentName'))]",
-        "clusterAdminIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('clusterAdminManagedIdentityName'))]",
-        "clusterAdminRoleAssignmentName": "[guid(subscription().subscriptionId, resourceGroup().id, 'clusterAdminRbacGuid')]",
+        "aksManagedIdentitySetupName": "[concat('msi.aks.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksManagedIdentitySetupId": "[resourceId('Microsoft.Resources/deployments', variables('aksManagedIdentitySetupName'))]",
+        "clusterAdminManagedIdentitySetupName": "[concat('msi.aks.admin.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "clusterAdminManagedIdentitySetupId": "[resourceId('Microsoft.Resources/deployments', variables('aksManagedIdentitySetupName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     },
     "resources": [
@@ -288,52 +288,34 @@
             ]
         },
         {
-            "comments": "Kubernetes cluster managed identity.",
-            "name": "[parameters('aksManagedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Assign network contributor permissions to the cluster managed identity to manage the vnet.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('networkContributorRoleAssignmentName')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
+            "comments": "Create the managed identity for the cluster and assign rbac access permissions.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksManagedIdentitySetupName')]",
             "properties": {
-                "roleDefinitionId": "[variables('networkContributorRole')]",
-                "principalId": "[reference(variables('aksManagedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[variables('aksManagedIdentityResourceId')]"
-            ]
+                "mode": "Incremental",
+                "parameters": {
+                    "managedIdentityName": {
+                        "value": "[parameters('aksManagedIdentityName')]"
+                    },
+                    "assignRoles": {
+                         "value": [
+                             "NetworkContributor",
+                             "ManagedIdentityOperator"
+                         ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                }
+            }
         },
         {
-            "comments": "Assign managed identity operator role for pod identites to cluster.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('managedIdentityOperatorRoleAssignmentName')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "roleDefinitionId": "[variables('managedIdentityOperatorRole')]",
-                "principalId": "[reference(variables('aksManagedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[variables('networkContributorRoleAssignmentId')]",
-                "[variables('aksManagedIdentityResourceId')]"
-            ]
-        },
-        {
-            "comments": "Managed Kubernetes cluster instance",
+            "comments": "Create the Managed Kubernetes cluster instance",
             "type": "Microsoft.ContainerService/managedClusters",
             "name": "[parameters('clusterName')]",
             "apiVersion": "2020-09-01",
@@ -342,7 +324,7 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[variables('aksManagedIdentityResourceId')]": {}
+                    "[reference(variables('aksManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]": {} 
                 }
             },
             "properties": {
@@ -350,7 +332,9 @@
                 "dnsPrefix": "[parameters('aksDnsPrefix')]",
                 "aadProfile": {
                     "managed": true,
-                    "adminGroupObjectIDs": "[parameters('clusterAdminGroupObjectId')]"
+                    "adminGroupObjectIDs": [
+                        "[parameters('adminGroupObjectId')]"
+                    ]
                 },
                 "agentPoolProfiles": [
                     {
@@ -385,37 +369,38 @@
                 }
             },
             "dependsOn": [
-                "[variables('aksManagedIdentityResourceId')]",
-                "[variables('networkContributorRoleAssignmentId')]",
-                "[variables('managedIdentityOperatorRoleAssignmentId')]",
+                "[variables('aksManagedIdentitySetupId')]",
                 "[variables('logAnalyticsWorkspaceResourceId')]"
             ]
         },
         {
-            "comments": "AKS cluster admin managed identity.",
-            "name": "[parameters('clusterAdminManagedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "dependsOn": [
-            ]
-        },
-        {
-            "comments": "Assign AKS admin permissions to managed service identity at resource scope.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('clusterAdminRoleAssignmentName')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
+            "comments": "Create the managed identity for the cluster admin.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('clusterAdminManagedIdentitySetupName')]",
             "properties": {
-                "roleDefinitionId": "[variables('aksAdminRole')]",
-                "principalId": "[reference(variables('clusterAdminIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
+                "mode": "Incremental",
+                "parameters": {
+                    "managedIdentityName": {
+                        "value": "[parameters('clusterAdminManagedIdentityName')]"
+                    },
+                    "assignRoles": {
+                         "value": [
+                             "AzureKubernetesServiceClusterAdmin",
+                             "ManagedIdentityOperator"
+                         ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                }
             },
             "dependsOn": [
-                "[variables('clusterAdminIdentityResourceId')]"
+                "[variables('aksResourceId')]"
             ]
         }
     ],
@@ -434,7 +419,7 @@
         },
         "clusterAdminIdentityResourceId": {
             "type": "string",
-            "value": "[variables('clusterAdminIdentityResourceId')]"
+            "value": "[reference(variables('clusterAdminManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]"
         },
         "logAnalyticsWorkspaceResourceId": {
             "type": "string",

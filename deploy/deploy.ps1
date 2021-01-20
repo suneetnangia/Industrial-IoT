@@ -515,6 +515,7 @@ Set-ResourceGroupTags -rgName $resourceGroupName -state "Deploying" -version $br
 # -------------------------------------------------------------------------------
 
 # Do the deployment
+$deploymentName = "$($applicationName)-deployment"
 $script:requiredProviders | ForEach-Object { `
     $ns = $_
     Write-Host "... Registering $ns..."
@@ -526,21 +527,23 @@ while ($true) {
 
         $StartTime = $(Get-Date)
         Write-Host "... Start time: $($StartTime.ToShortTimeString())"
+        Write-Host "... Using deployment name $deploymentName."
 
         # Start the deployment from template Url
         $deployment = New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName `
             -TemplateUri "$($templateUrl)azuredeploy.json" `
-            -DeploymentDebugLogLevel All `
+            -DeploymentName $deploymentName `
             -SkipTemplateParameterPrompt -TemplateParameterObject $templateParameters
         if ($deployment.ProvisioningState -ne "Succeeded") {
             Set-ResourceGroupTags -rgName $resourceGroupName -state "Failed"
             throw "Deployment $($deployment.ProvisioningState)."
         }
 
-        Set-ResourceGroupTags -rgName $resourceGroupName -state "Complete"
-  
         $elapsedTime = $(Get-Date) - $StartTime
         Write-Host "... Elapsed time (hh:mm:ss): $($elapsedTime.ToString("hh\:mm\:ss"))" 
+
+        Set-ResourceGroupTags -rgName $resourceGroupName -state "Complete"
+        Get-AzDeploymentOperation -DeploymentName $deploymentName
 
         Write-Host "Deployment succeeded."
 
@@ -587,6 +590,8 @@ while ($true) {
         $ex = $_
         Write-Host $_.Exception.Message
         Write-Host "Deployment failed."
+        Get-AzDeploymentOperation -DeploymentName $deploymentName `
+            -ErrorAction SilentlyContinue
 
         $deleteResourceGroup = $false
         $retry = Read-Host -Prompt "Try again? [y/n]"

@@ -165,6 +165,7 @@ if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
         }
     }
     Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $sp.Id
+    Add-AppRole -appRoleName "Group.ReadWrite.All" -principalId $sp.Id
 
     $secret = [System.Net.NetworkCredential]::new("", $secret).Password
     $result.Add("aadPrincipalId", $script:Name)
@@ -197,6 +198,7 @@ else {
             -AzContext $script:Context
     }
     Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $msi.PrincipalId
+    Add-AppRole -appRoleName "Group.ReadWrite.All" -principalId $msi.PrincipalId
     $result.Add("aadPrincipalId", $msi.Id)
     $result.Add("aadTenantId", $msi.TenantId)
 }

@@ -28,6 +28,7 @@ Usage: '"$0"'
                                was created.  Default subscription is used 
                                if not provided.
                                
+    --ownerid                  Optional owner user id (principal id).
     --help                     Shows this help.
 '
     exit 1
@@ -36,8 +37,12 @@ Usage: '"$0"'
 applicationName=
 keyVaultName=
 subscription=
-msi=
+tenantId=
 mode=
+login=
+principalId=
+#principalPassword - allow passing in environment
+#config            - allow passing in environment
 
 [ $# -eq 0 ] && usage
 while [ "$#" -gt 0 ]; do
@@ -47,18 +52,20 @@ while [ "$#" -gt 0 ]; do
         --subscription)    subscription="$2" ;;
         --clean)           mode="clean" ;;
         --unregister)      mode="unregisteronly" ;;
-        --identity)        mode="unattended" ;;
+        --identity)        login="unattended" ;;
         --config)          config="$2" ;;
         --sp)              principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
+        --ownerid)         ownerid="$2" ;;
         --help)            usage ;;
     esac
     shift
 done
 
 # ---------- Login --------------------------------------------------------------
-if [[ "$mode" == "unattended" ]] ; then
+# requires Application.ReadWrite.All permissions to graph
+if [[ "$login" == "unattended" ]] ; then
     mode=
     if ! az login --identity --allow-no-subscriptions; then
         echo "Failed to log in with managed identity."
@@ -194,6 +201,24 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     serviceAppId=${service[0]}
 
     # todo - require resource accss to all permission scopes
+
+     # ---------- update owners -------------------------------------------------
+    if [[ -n "$ownerId" ]] ; then
+        # try and eat errors
+        body='{
+    "@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/{'"$ownerId"'}"
+        }' 
+        az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId/owners/$ref \
+            --headers Content-Type=application/json --body $body > /dev/null 2>&1
+        az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/applications/$webappId/owners/$ref \
+            --headers Content-Type=application/json --body $body > /dev/null 2>&1
+        az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/applications/$clientId/owners/$ref \
+            --headers Content-Type=application/json --body $body > /dev/null 2>&1
+        echo "Owners updated..."
+    fi
 
     # ---------- update client app ----------------------------------------------
     az rest --method patch \

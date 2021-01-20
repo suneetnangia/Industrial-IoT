@@ -88,8 +88,12 @@ az acr helm install-cli --client-version "3.3.4" -y
 # Install `kubectl` and connect to the AKS cluster
 az aks install-cli
 
-# Get AKS admin credentials
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing --admin 
+# Get AKS credentials
+if [[ "$ROLE" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
+    az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --admin
+else
+    az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER
+fi
 
 # Configure omsagent
 kubectl apply -f "$CWD/omsagent.yaml"

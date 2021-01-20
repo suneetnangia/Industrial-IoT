@@ -140,44 +140,44 @@
         }
     },
     "variables": {
-        "platformManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('platformManagedIdentityName'))]",
-        "roleAssignmentPlatformToKeyVaultName": "[guid(parameters('platformManagedIdentityName'), 'keyvaultRbacGuid')]",
-        "roleAssignmentPlatformToKeyVaultId": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentPlatformToKeyVaultName'))]",
-        "roleAssignmentAdminToDeploymentScriptName": "[guid(subscription().subscriptionId, resourceGroup().id, parameters('applicationName'), 'deploymentScriptRbacGuid')]",
-        "roleAssignmentAdminToDeploymentScriptId":  "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentAdminToDeploymentScriptName'))]",
-        "helmChartsInstallScriptResourceName": "[concat('deploy_helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "platformManagedIdentitySetupName": "[concat('msi.platform.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "platformManagedIdentitySetupId": "[resourceId('Microsoft.Resources/deployments', variables('platformManagedIdentitySetupName'))]",
+        "helmChartsInstallScriptSetupName": "[concat('msi.helm.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "helmChartsInstallScriptSetupId": "[resourceId('Microsoft.Resources/deployments', variables('helmChartsInstallScriptSetupName'))]",
+        "helmChartsInstallScriptResourceName": "[concat('deploy.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "platformPublicIpResourceId": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', parameters('platformPublicIpName'))]",
         "configurationResourceName": "platform.configuration",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
     },
     "resources": [
         {
-            "comments": "Managed identity to access azure resources.",
-            "name": "[parameters('platformManagedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]"
-        },
-        {
-            "comments": "Assign keyvault secrets officer permissions to managed identity at resource group scope.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentPlatformToKeyVaultName')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
+            "comments": "Create the managed identity for the platform and assign rbac access permissions.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('platformManagedIdentitySetupName')]",
             "properties": {
-                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
-                "principalId": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[variables('platformManagedIdentityResourceId')]"
-            ]
+                "mode": "Incremental",
+                "parameters": {
+                    "managedIdentityName": {
+                        "value": "[parameters('platformManagedIdentityName')]"
+                    },
+                    "assignRoles": {
+                         "value": [
+                             "KeyVaultSecretOfficer"
+                         ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                }
+            }
         },
         {
-            "comments": "Public IP address of the services endpoint.",
+            "comments": "Create a public IP address of the services endpoint.",
             "type": "Microsoft.Network/publicIpAddresses",
             "name": "[parameters('platformPublicIpName')]",
             "apiVersion": "2019-11-01",
@@ -194,23 +194,33 @@
             ]
         },
         {
-            "comments": "Assign storage and container permissions to admin managed service identity at resource group scope.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentAdminToDeploymentScriptName')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
+            "comments": "Setup the managed identity for the deployment script to run under.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('helmChartsInstallScriptSetupName')]",
             "properties": {
-                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-                "principalId": "[reference(parameters('aksClusterAdminIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-            ]
+                "mode": "Incremental",
+                "parameters": {
+                    "externalManagedIdentityResourceId": {
+                        "value": "[parameters('aksClusterAdminIdentityResourceId')]"
+                    },
+                    "assignRoles": {
+                         "value": [
+                             "DeploymentScript"
+                         ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                }
+            }
         },
         {
-            "comments": "Install the platform into the AKS cluster and set up monitoring and TLS termination under the admin identity.",
+            "comments": "Install the platform into the AKS cluster and set up monitoring and TLS termination.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('helmChartsInstallScriptResourceName')]",
@@ -221,14 +231,14 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[parameters('aksClusterAdminIdentityResourceId')]": {}
+                    "[ reference(variables('helmChartsInstallScriptSetupId')).outputs.managedIdentityResourceId.value]": {} 
                 }
             },
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpResourceId')).ipAddress, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('platformManagedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn, '\"' )]",
+                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpResourceId')).ipAddress, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.domainNameLabel, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.managedIdentityResourceId.value, '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.clientId.value, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentitySetupId')).outputs.tenantId.value, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpResourceId')).dnsSettings.fqdn, '\"' )]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
@@ -240,8 +250,8 @@
             "dependsOn": [
                 "[variables('configurationResourceId')]",
                 "[variables('platformPublicIpResourceId')]",
-                "[variables('roleAssignmentAdminToDeploymentScriptId')]",
-                "[variables('roleAssignmentPlatformToKeyVaultId')]"
+                "[variables('helmChartsInstallScriptSetupId')]",
+                "[variables('platformManagedIdentitySetupId')]"
             ]
         },
         {
@@ -264,11 +274,11 @@
                             },
                             {
                                 "key": "PCS_MSI_APPID",
-                                "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId]"
+                                "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.clientId.value]"
                             },
                             {
                                 "key": "PCS_MSI_TENANT",
-                                "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId]"
+                                "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.tenantId.value]"
                             },
                             {
                                 "key": "PCS_DOCKER_SERVER",
@@ -298,7 +308,7 @@
                 }
             },
             "dependsOn": [
-                "[variables('platformManagedIdentityResourceId')]",
+                "[variables('platformManagedIdentitySetupId')]",
                 "[variables('platformPublicIpResourceId')]"
             ]
         }
@@ -314,19 +324,19 @@
         },
         "managedIdentityResourceId": {
             "type": "string",
-            "value": "[variables('platformManagedIdentityResourceId')]"
+            "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]"
         },
         "managedIdentityClientId": {
             "type": "string",
-            "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId]"
+            "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.clientId.value]"
         },
         "managedIdentityPrincipalId": {
             "type": "string",
-            "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').principalId]"
+            "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.principalId.value]"
         },
         "managedIdentityTenantId": {
             "type": "string",
-            "value": "[reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId]"
+            "value": "[reference(variables('platformManagedIdentitySetupId')).outputs.tenantId.value]"
         }
     }
 }

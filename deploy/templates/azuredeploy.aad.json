@@ -51,63 +51,40 @@
         }
     },
     "variables": {
-        "deploymentManagedIdentityName": "[concat('deploy_aad_msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "deploymentManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deploymentManagedIdentityName'))]",
-        "deploymentManagedIdentityId": "[if(variables('createLocalManagedIdentity'), variables('deploymentManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
-        "roleAssignmentDeploymentScript1Name": "[guid(variables('deploymentManagedIdentityResourceId'), 'Storage')]",
-        "roleAssignmentDeploymentScript1Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentDeploymentScript1Name'))]",
-        "roleAssignmentDeploymentScript2Name": "[guid(variables('deploymentManagedIdentityResourceId'), 'KeyVault')]",
-        "roleAssignmentDeploymentScript2Id": "[resourceId('Microsoft.Authorization/roleAssignments', variables('roleAssignmentDeploymentScript2Name'))]",
-        "aadAppRegistrationResourceName": "[concat('deploy_aad', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAppRegistrationSetupName": "[concat('msi.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAppRegistrationSetupId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationSetupName'))]",
+        "aadAppRegistrationResourceName": "[concat('deploy.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
-        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]",
-        "storageReaderRole": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-        "keyVaultSecretOfficerRole": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]"
+        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]"
     },
     "resources": [
         {
-            "comments": "Managed identity to access azure resources from deployment scripts if outside identity not provided.",
-            "name": "[variables('deploymentManagedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "condition": "[variables('createLocalManagedIdentity')]",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]"
-        },
-        {
-            "comments": "Assign storage and container permissions to managed identity at resource group scope.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentDeploymentScript1Name')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
+            "comments": "Setup the managed identity for the graph registration script.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAppRegistrationSetupName')]",
+            "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
             "properties": {
-                "roleDefinitionId": "[variables('storageReaderRole')]",
-                "principalId": "[reference(variables('deploymentManagedIdentityId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[variables('deploymentManagedIdentityResourceId')]"
-            ]
-        },
-        {
-            "comments": "Assign keyvault secrets officer permissions to managed identity at resource group scope.",
-            "type": "Microsoft.Authorization/roleAssignments",
-            "name": "[variables('roleAssignmentDeploymentScript2Name')]",
-            "apiVersion": "2020-04-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "properties": {
-                "roleDefinitionId": "[variables('keyVaultSecretOfficerRole')]",
-                "principalId": "[reference(variables('deploymentManagedIdentityId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
-                "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                 "[variables('roleAssignmentDeploymentScript1Id')]", 
-                "[variables('deploymentManagedIdentityResourceId')]"
-            ]
+                "mode": "Incremental",
+                "parameters": {
+                    "externalManagedIdentityResourceId": {
+                        "value": "[if(variables('createLocalManagedIdentity'), '', parameters('aadPrincipalId'))]"
+                    },
+                    "assignRoles": {
+                         "value": [
+                             "DeploymentScript",
+                             "KeyVaultSecretOfficer"
+                         ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                }
+            }
         },
         {
             "comments": "Register the platform service application in AAD.",
@@ -119,8 +96,10 @@
             "kind": "AzureCLI",
             "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
             "identity": {
-            "type": "UserAssigned",
-                "userAssignedIdentities": { "[variables('deploymentManagedIdentityId')]": {} }
+                "type": "UserAssigned",
+                "userAssignedIdentities": { 
+                    "[ reference(variables('aadAppRegistrationSetupId')).outputs.managedIdentityResourceId.value]": {} 
+                }
             },
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
@@ -142,8 +121,7 @@
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('roleAssignmentDeploymentScript1Id')]", 
-                "[variables('roleAssignmentDeploymentScript2Id')]"
+                "[variables('aadAppRegistrationSetupId')]"
             ]
         }
     ],
