@@ -19,14 +19,15 @@ Usage: '"$0"'
     --display                  Optional Display name for the group.
     --description              Optional description for the group.
 
-    --owner                    Optional owner user id (principal id).
+    --owner                    Optional owner principal id (multiple).
+    --member                   Optional member principal id (multiple).
     --help                     Shows this help.
 '
     exit 1
 }
 
 groupName=
-groupDescription=
+description=
 displayName=
 login=
 owners=( )
@@ -44,7 +45,7 @@ while [ "$#" -gt 0 ]; do
         --name)            groupName="$2" ;;
         --owner)           owners+="$2" ;;
         --member)          members+="$2" ;;
-        --description)     groupDescription="$2" ;;
+        --description)     description="$2" ;;
         --display)         displayName="$2" ;;
         --identity)        login="unattended" ;;
         --sp)              principalId="$2" ;;
@@ -74,6 +75,11 @@ elif [[ -n "$principalId" ]] && \
 elif [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     echo "Must login with service principal or managed identity"
     exit 1
+else
+    ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+    if [[ -n "$ownerId" ]] ; then 
+        owners+="$ownerId" 
+    fi
 fi
 
 # ---------- Register -----------------------------------------------------------
@@ -83,13 +89,15 @@ if [[ -z "$groupId" ]] ; then
     if [[ -z "$groupName" ]] ; then 
         echo "Parameter is empty or missing: --name"; usage
     fi
-
     if [[ -z "$description" ]] ; then 
         description="Administrator group for the '"$groupName"' resource."
     fi
-    displayName="$groupName Administrators"
+    if [[ -z "$displayName" ]] ; then 
+        displayName="$groupName Administrators"
+    fi
+    
     # ---------- create ---------------------------------------------------------
-    groupId=$(az rest --method get \   
+    groupId=$(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/groups \
         --uri-parameters "\$filter=displayName eq '$displayName'" \
         --query value[0].id -o tsv | tr -d '\r')
@@ -114,12 +122,11 @@ fi
 
 # ---------- add owners ---------------------------------------------------------
 for id in "${owners[@]}" ; do
-    body='{
-"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/{'"$id"'}"
-    }' 
     az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners/$ref \
-        --headers Content-Type=application/json --body $body > /dev/null 2>&1
+        --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners/\$ref \
+        --headers Content-Type=application/json --body '{
+"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
+    }'
     echo "Added '$id' to group $groupId as owner..."
 done
 
@@ -128,12 +135,11 @@ if [[ -n "$principalId" ]]; then
     members+="$principalId"
 fi
 for id in "${members[@]}" ; do
-    body='{
-"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/{'"$id"'}"
-    }' 
     az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/members/$ref \
-        --headers Content-Type=application/json --body $body > /dev/null 2>&1
+        --uri https://graph.microsoft.com/v1.0/groups/$groupId/members/\$ref \
+        --headers Content-Type=application/json --body '{
+"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
+    }'
     echo "Added '$id' to group $groupId as member..."
 done
 

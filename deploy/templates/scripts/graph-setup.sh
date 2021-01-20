@@ -28,7 +28,7 @@ Usage: '"$0"'
                                was created.  Default subscription is used 
                                if not provided.
                                
-    --ownerid                  Optional owner user id (principal id).
+    --owner                    Optional owner user id (principal id).
     --help                     Shows this help.
 '
     exit 1
@@ -38,6 +38,7 @@ applicationName=
 keyVaultName=
 subscription=
 tenantId=
+ownerId=
 mode=
 login=
 principalId=
@@ -57,7 +58,7 @@ while [ "$#" -gt 0 ]; do
         --sp)              principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
-        --ownerid)         ownerid="$2" ;;
+        --owner)           ownerId="$2" ;;
         --help)            usage ;;
     esac
     shift
@@ -82,6 +83,8 @@ elif [[ -n "$principalId" ]] && \
 elif [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     echo "Must login with service principal or managed identity"
     exit 1
+elif [[ -n "$ownerId" ]] ; then
+    ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
 fi
 
 tenantId=$(az account show --query tenantId -o tsv | tr -d '\r')
@@ -206,16 +209,16 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     if [[ -n "$ownerId" ]] ; then
         # try and eat errors
         body='{
-    "@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/{'"$ownerId"'}"
+    "@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$ownerId"'"
         }' 
         az rest --method post \
-            --uri https://graph.microsoft.com/v1.0/applications/$serviceId/owners/$ref \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId/owners/\$ref \
             --headers Content-Type=application/json --body $body > /dev/null 2>&1
         az rest --method post \
-            --uri https://graph.microsoft.com/v1.0/applications/$webappId/owners/$ref \
+            --uri https://graph.microsoft.com/v1.0/applications/$webappId/owners/\$ref \
             --headers Content-Type=application/json --body $body > /dev/null 2>&1
         az rest --method post \
-            --uri https://graph.microsoft.com/v1.0/applications/$clientId/owners/$ref \
+            --uri https://graph.microsoft.com/v1.0/applications/$clientId/owners/\$ref \
             --headers Content-Type=application/json --body $body > /dev/null 2>&1
         echo "Owners updated..."
     fi

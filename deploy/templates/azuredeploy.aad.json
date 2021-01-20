@@ -59,7 +59,7 @@
     },
     "resources": [
         {
-            "comments": "Setup the managed identity for the graph registration script.",
+            "comments": "Setup the managed identity for the graph application registration script.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationSetupName')]",

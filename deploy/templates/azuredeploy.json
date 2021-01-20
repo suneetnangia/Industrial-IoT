@@ -175,7 +175,9 @@
         }
     },
     "variables": {
-        "deployCluster": "[or(empty(parameters('existingAksClusterName')), empty(parameters('existingAksClusterAdminIdentityId')))]",
+        "clusterNotProvided": "[or(empty(parameters('existingAksClusterName')), empty(parameters('existingAksClusterAdminIdentityId')))]",
+        "deployCluster": "[and(variables('clusterNotProvided'), not(empty(parameters('aadPrincipalId'))))]",
+        "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterAdminIdentityId'))))]",
         "aksClusterResourceName": "services.aks",
         "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
         "requiredServicesResourceName": "services",
@@ -198,6 +200,15 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
@@ -206,7 +217,9 @@
                     "contentVersion": "1.0.0.0",
                     "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json')]"
                 }
-            }
+            },
+            "dependsOn": [
+            ]
         },
         {
             "comments": "Deploy required Azure Infrastructure for the platform.",
@@ -227,7 +240,9 @@
                     "contentVersion": "1.0.0.0",
                     "uri": "[concat(parameters('templateUrl'), 'azuredeploy.minimum.json')]"
                 }
-            }
+            },
+            "dependsOn": [
+            ]
         },
         {
             "comments": "Deploy Azure Infrastructure required by the full Industrial IoT Platform.",
@@ -302,7 +317,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('platformResourcName')]",
-            "condition": "[parameters('deployPlatformComponents')]",
+            "condition": "[and(variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -452,17 +467,25 @@
             "type": "string",
             "value": "[subscription().tenantId]"
         },
-        "clusterName": {
-            "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
-        },
         "serviceUrl": {
             "type": "string",
             "value": "[if (parameters('deployPlatformComponents'), reference(variables('platformResourceId'), '2017-05-10').outputs.serviceUrl.value, '')]"
         },
-        "appUrl": {
+        "clusterName": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), reference(variables('platformResourceId'), '2017-05-10').outputs.appUrl.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterName'))]"
+        },
+        "aksControlPlaneUrl": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.aksControlPlaneUrl.value, '')]"
+        },
+        "clusterAdminGroupObjectId": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminGroupObjectId.value, '')]"
+        },
+        "clusterAdminGroupName": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminGroupName.value, '')]"
         }
     }
 }
