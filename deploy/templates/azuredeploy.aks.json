@@ -356,6 +356,35 @@
             ]
         },
         {
+            "comments": "Register the admin group in AAD and add the managed service identity principal as member.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('aadAdminGroupRegistrationResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "identity": "[reference(variables('aadAdminGroupRegistrationSetupId')).outputs.identity.value]",
+            "properties": {
+                "forceUpdateTag": "[parameters('clusterName')]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh')]",
+                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().id, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('clusterAdminManagedIdentitySetupId')).outputs.principalId.value, '\" --name \"', parameters('clusterName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "principalPassword",
+                        "secureValue": "[if(not(empty(parameters('aadPrincipalPassword'))), parameters('aadPrincipalPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnExpiration",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('aadAdminGroupRegistrationSetupId')]",
+                "[variables('clusterAdminManagedIdentitySetupId')]"
+            ]
+        },
+        {
             "comments": "Create the managed identity of the cluster itself and assign permissions.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
@@ -391,12 +420,7 @@
             "apiVersion": "2020-09-01",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
-            "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                    "[reference(variables('aksManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]": {} 
-                }
-            },
+            "identity": "[reference(variables('aksManagedIdentitySetupId')).outputs.identity.value]",
             "properties": {
                 "enableRBAC": true,
                 "dnsPrefix": "[parameters('aksDnsPrefix')]",

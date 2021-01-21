@@ -95,12 +95,7 @@
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
             "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
-            "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": { 
-                    "[ reference(variables('aadAppRegistrationSetupId')).outputs.managedIdentityResourceId.value]": {} 
-                }
-            },
+            "identity": "[reference(variables('aadAppRegistrationSetupId')).outputs.identity.value]",
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",

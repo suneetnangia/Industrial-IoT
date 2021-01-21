@@ -298,12 +298,7 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
-            "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                    "[ reference(variables('helmChartsInstallScriptSetupId')).outputs.managedIdentityResourceId.value]": {}
-                }
-            },
+            "identity": "[reference(variables('helmChartsInstallScriptSetupId')).outputs.identity.value]",
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",

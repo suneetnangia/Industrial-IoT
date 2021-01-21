@@ -86,6 +86,15 @@
             "type": "string",
             "value": "[variables('managedIdentityResourceId')]"
         },
+        "identity": {
+            "type": "object",
+            "value": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": { 
+                    "[variables('managedIdentityResourceId')]": {} 
+                }
+            }
+        },
         "principalId": {
             "type": "string",
             "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]"
