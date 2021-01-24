@@ -440,7 +440,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
                 }
             },
             "dependsOn": [
