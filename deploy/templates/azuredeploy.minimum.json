@@ -217,8 +217,8 @@
         "keyVaultResourceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
         "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
-        "workbookConfigurationResourceName": "workbook.configuration",
-        "configurationResourceName": "infrastructure.configuration"
+        "workbookConfigurationResourceName":  "[concat('deploy.workbook.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "configurationResourceName": "config.minimum"
     },
     "resources": [
         {

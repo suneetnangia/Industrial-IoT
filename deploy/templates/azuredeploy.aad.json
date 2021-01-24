@@ -35,6 +35,13 @@
                 "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
             }
         },
+        "deployScriptIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "Name of the Managed identity resource to run scripts"
+            }
+        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
@@ -51,30 +58,38 @@
         }
     },
     "variables": {
-        "aadAppRegistrationSetupName": "[concat('msi.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aadAppRegistrationSetupId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationSetupName'))]",
+        "aadAppRegistrationRoleAssignmentsName": "[concat('rbac.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAppRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationRoleAssignmentsName'))]",
         "aadAppRegistrationResourceName": "[concat('deploy.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
+        "aadAppRegistrationIdentityId": "[if(variables('createLocalManagedIdentity'), variables('localIdentityResourceId'), parameters('aadPrincipalId'))]",
+        "localIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deployScriptIdentityName'))]",
         "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]"
     },
     "resources": [
         {
-            "comments": "Setup the managed identity for the graph application registration script.",
+            "comments": "Managed identity to run scripts in the deployment.",
+            "name": "[parameters('deployScriptIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "condition": "[variables('createLocalManagedIdentity')]",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign role to the principal to run the graph application registration script.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aadAppRegistrationSetupName')]",
+            "name": "[variables('aadAppRegistrationRoleAssignmentsName')]",
             "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "externalManagedIdentityResourceId": {
-                        "value": "[if(variables('createLocalManagedIdentity'), '', parameters('aadPrincipalId'))]"
+                    "managedIdentityResourceId": {
+                        "value": "[variables('aadAppRegistrationIdentityId')]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "DeploymentScript",
-                             "KeyVaultSecretOfficer"
-                         ]
+                         "value": [ "DeploymentScript", "KeyVaultSecretOfficer" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -82,9 +97,12 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
                 }
-            }
+            },
+            "dependsOn": [
+                "[variables('localIdentityResourceId')]"
+            ]
         },
         {
             "comments": "Register the platform service application in AAD.",
@@ -95,7 +113,12 @@
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
             "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
-            "identity": "[reference(variables('aadAppRegistrationSetupId')).outputs.identity.value]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('aadAppRegistrationIdentityId')]": {}
+                }
+            },
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
@@ -116,7 +139,7 @@
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('aadAppRegistrationSetupId')]"
+                "[variables('aadAppRegistrationRoleAssignmentsId')]"
             ]
         }
     ],

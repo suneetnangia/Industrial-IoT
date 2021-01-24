@@ -2,18 +2,11 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "externalManagedIdentityResourceId": {
+        "managedIdentityResourceId": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
                 "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
-            }
-        },
-        "managedIdentityName": {
-            "type": "string",
-            "defaultValue": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-            "metadata": {
-                "description": "Name of a created managed identity if no external is provided."
             }
         },
         "assignRoles": {
@@ -31,9 +24,6 @@
         }
     },
     "variables": {
-        "createLocalManagedIdentity": "[empty(parameters('externalManagedIdentityResourceId'))]",
-        "localManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
-        "managedIdentityResourceId": "[if(variables('createLocalManagedIdentity'), variables('localManagedIdentityResourceId'), parameters('externalManagedIdentityResourceId'))]",
         "roleNames": {
             "DeploymentScript": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
             "KeyVaultSecretOfficer": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
@@ -48,17 +38,6 @@
     },
     "resources": [
         {
-            "comments": "Managed identity to access azure resources from deployment scripts if outside identity not provided.",
-            "name": "[parameters('managedIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "condition": "[variables('createLocalManagedIdentity')]",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]",
-            "dependsOn": [
-            ]
-        },
-        {
             "comments": "Assign specified roles to the managed identity.",
             "type": "Microsoft.Authorization/roleAssignments",
             "copy":{
@@ -66,46 +45,16 @@
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(variables('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
-                "principalId": "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]",
+                "principalId": "[reference(parameters('managedIdentityResourceId'), '2018-11-30').principalId]",
                 "scope": "[resourceGroup().id]",
                 "principalType": "ServicePrincipal"
-            },
-            "dependsOn": [
-                "[variables('localManagedIdentityResourceId')]"
-            ]
-        }
-    ],
-    "outputs": {
-        "managedIdentityResourceId": {
-            "type": "string",
-            "value": "[variables('managedIdentityResourceId')]"
-        },
-        "identity": {
-            "type": "object",
-            "value": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": { 
-                    "[variables('managedIdentityResourceId')]": {} 
-                }
             }
-        },
-        "principalId": {
-            "type": "string",
-            "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]"
-        },
-        "clientId": {
-            "type": "string",
-            "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').clientId]"
-        },
-        "tenantId": {
-            "type": "string",
-            "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId]"
         }
-    }
+    ]
 }

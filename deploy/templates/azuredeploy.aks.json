@@ -114,18 +114,25 @@
                 "description": "Containers DNS server IP address."
             }
         },
-        "aksManagedIdentityName": {
+        "aksClusterIdentityName": {
             "type": "string",
             "defaultValue": "[concat(parameters('clusterName'), '-msi')]",
             "metadata": {
                 "description": "Name of the Managed identity resource of the cluster."
             }
         },
-        "clusterAdminManagedIdentityName": {
+        "aksAdminManagedIdentityName": {
             "type": "string",
             "defaultValue": "[concat(parameters('clusterName'), '-admin-msi')]",
             "metadata": {
                 "description": "Name of the Managed identity resource of the cluster admin."
+            }
+        },
+        "deployScriptIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "Name of the Managed identity resource to run scripts"
             }
         },
         "aksDockerBridgeCidr": {
@@ -184,20 +191,23 @@
         }
     },
     "variables": {
-        "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]",
-        "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "kubernetesSubnetName": "kubesubnet",
         "kubernetesSubnetId": "[concat(variables('clusterVnetResourceId'), '/subnets/', variables('kubernetesSubnetName'))]",
+        "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]",
+        "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
-        "aksManagedIdentitySetupName": "[concat('msi.aks.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aksManagedIdentitySetupId": "[resourceId('Microsoft.Resources/deployments', variables('aksManagedIdentitySetupName'))]",
-        "clusterAdminManagedIdentitySetupName": "[concat('msi.aks.admin.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "clusterAdminManagedIdentitySetupId": "[resourceId('Microsoft.Resources/deployments', variables('clusterAdminManagedIdentitySetupName'))]",
+        "aksClusterIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksClusterIdentityName'))]",
+        "aksClusterIdentityRoleAssignmentsName": "[concat('rbac.aks.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksClusterIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterIdentityRoleAssignmentsName'))]",
+        "aksAdminManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksAdminManagedIdentityName'))]",
+        "aksAdminManagedIdentityRoleAssignmentsName": "[concat('rbac.aks.admin.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksAdminManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksAdminManagedIdentityRoleAssignmentsName'))]",
         "createLocalManagedIdentity": "[not(empty(parameters('aadPrincipalPassword')))]",
-        "aadAdminGroupRegistrationSetupName": "[concat('msi.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aadAdminGroupRegistrationSetupId": "[resourceId('Microsoft.Resources/deployments', variables('aadAdminGroupRegistrationSetupName'))]",
+        "aadAdminGroupRegistrationLocalIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deployScriptIdentityName'))]",
         "aadAdminGroupRegistrationResourceName": "[concat('deploy.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAdminGroupRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAdminGroupRegistrationResourceName'))]",
+        "aadAdminGroupRegistrationRoleAssignmentsName": "[concat('rbac.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAdminGroupRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAdminGroupRegistrationRoleAssignmentsName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     },
     "resources": [
@@ -215,9 +225,7 @@
                 "features": {
                     "searchVersion": 1
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Managed Kubernetes cluster Virtual Network Security Group.",
@@ -300,20 +308,26 @@
             ]
         },
         {
-            "comments": "Create the managed identity for the cluster admin and assign access to the cluster.",
+            "comments": "Managed identity of the cluster admin for automation.",
+            "name": "[parameters('aksAdminManagedIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Role assignments for cluster admin managed identity.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('clusterAdminManagedIdentitySetupName')]",
+            "name": "[variables('aksAdminManagedIdentityRoleAssignmentsName')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityName": {
-                        "value": "[parameters('clusterAdminManagedIdentityName')]"
+                    "managedIdentityResourceId": {
+                        "value": "[variables('aksAdminManagedIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "AzureKubernetesServiceClusterAdmin"
-                         ]
+                         "value": ["AzureKubernetesServiceClusterAdmin", "DeploymentScript" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -321,27 +335,35 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
                 }
             },
             "dependsOn": [
+                "[variables('aksAdminManagedIdentityResourceId')]"
             ]
         },
         {
-            "comments": "Setup the managed identity for the admin group registration script.",
+            "comments": "Managed identity to run scripts in the deployment.",
+            "name": "[parameters('deployScriptIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "condition": "[variables('createLocalManagedIdentity')]",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign deployment script role to the managed identity to run admin group registration script.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aadAdminGroupRegistrationSetupName')]",
+            "name": "[variables('aadAdminGroupRegistrationRoleAssignmentsName')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "externalManagedIdentityResourceId": {
-                        "value": "[if(variables('createLocalManagedIdentity'), '', parameters('aadPrincipalId'))]"
+                    "managedIdentityResourceId": {
+                        "value": "[if(variables('createLocalManagedIdentity'), variables('aadAdminGroupRegistrationLocalIdentityResourceId'), parameters('aadPrincipalId'))]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "DeploymentScript"
-                         ]
+                         "value": [ "DeploymentScript" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -349,10 +371,11 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.msi.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
                 }
             },
             "dependsOn": [
+                "[variables('aadAdminGroupRegistrationLocalIdentityResourceId')]"
             ]
         },
         {
@@ -363,12 +386,17 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
-            "identity": "[reference(variables('aadAdminGroupRegistrationSetupId')).outputs.identity.value]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[if(variables('createLocalManagedIdentity'), variables('aadAdminGroupRegistrationLocalIdentityResourceId'), parameters('aadPrincipalId'))]": {}
+                }
+            },
             "properties": {
                 "forceUpdateTag": "[parameters('clusterName')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh')]",
-                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().id, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('clusterAdminManagedIdentitySetupId')).outputs.principalId.value, '\" --name \"', parameters('clusterName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().id, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.principalId.value, '\" --name \"', parameters('clusterName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -380,26 +408,31 @@
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('aadAdminGroupRegistrationSetupId')]",
-                "[variables('clusterAdminManagedIdentitySetupId')]"
+                "[variables('aadAdminGroupRegistrationRoleAssignmentsId')]",
+                "[variables('aksAdminManagedIdentityRoleAssignmentsId')]"
             ]
         },
         {
-            "comments": "Create the managed identity of the cluster itself and assign permissions.",
+            "comments": "Managed identity to run scripts in the deployment.",
+            "name": "[parameters('aksClusterIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign permissions to the managed identity of the cluster.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aksManagedIdentitySetupName')]",
+            "name": "[variables('aksClusterIdentityRoleAssignmentsName')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityName": {
-                        "value": "[parameters('aksManagedIdentityName')]"
+                    "managedIdentityResourceId": {
+                        "value": "[variables('aksClusterIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": [
-                             "NetworkContributor",
-                             "ManagedIdentityOperator"
-                         ]
+                         "value": [ "NetworkContributor", "ManagedIdentityOperator" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -411,6 +444,7 @@
                 }
             },
             "dependsOn": [
+                "[variables('aksClusterIdentityResourceId')]"
             ]
         },
         {
@@ -420,7 +454,12 @@
             "apiVersion": "2020-09-01",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
-            "identity": "[reference(variables('aksManagedIdentitySetupId')).outputs.identity.value]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('aksClusterIdentityResourceId')]": {}
+                }
+            },
             "properties": {
                 "enableRBAC": true,
                 "dnsPrefix": "[parameters('aksDnsPrefix')]",
@@ -463,7 +502,7 @@
                 }
             },
             "dependsOn": [
-                "[variables('aksManagedIdentitySetupId')]",
+                "[variables('aksClusterIdentityRoleAssignmentsId')]",
                 "[variables('aadAdminGroupRegistrationResourceId')]",
                 "[variables('logAnalyticsWorkspaceResourceId')]"
             ]
@@ -474,11 +513,11 @@
             "type": "string",
             "value": "[reference(variables('aksResourceId')).fqdn]"
         },
-        "clusterAdminGroupObjectId": {
+        "aksAdminGroupObjectId": {
             "type": "string",
             "value": "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupId]"
         },
-        "clusterAdminGroupName": {
+        "aksAdminGroupName": {
             "type": "string",
             "value": "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupName]"
         },
@@ -494,17 +533,17 @@
             "type": "string",
             "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
         },
-        "clusterAdminIdentityResourceId": {
+        "aksAdminIdentityResourceId": {
             "type": "string",
-            "value": "[reference(variables('clusterAdminManagedIdentitySetupId')).outputs.managedIdentityResourceId.value]"
+            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.managedIdentityResourceId.value]"
         },
-        "clusterAdminIdentityPrincipalId": {
+        "aksAdminIdentityPrincipalId": {
             "type": "string",
-            "value": "[reference(variables('clusterAdminManagedIdentitySetupId')).outputs.principalId.value]"
+            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.principalId.value]"
         },
-        "clusterAdminIdentityClientId": {
+        "aksAdminIdentityClientId": {
             "type": "string",
-            "value": "[reference(variables('clusterAdminManagedIdentitySetupId')).outputs.clientId.value]"
+            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.clientId.value]"
         },
         "logAnalyticsWorkspaceResourceId": {
             "type": "string",

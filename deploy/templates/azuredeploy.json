@@ -180,7 +180,7 @@
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterAdminIdentityId'))))]",
         "aksClusterResourceName": "services.aks",
         "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
-        "requiredServicesResourceName": "services",
+        "requiredServicesResourceName": "services.required",
         "requiredServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('requiredServicesResourceName'))]",
         "optionalServicesResourceName": "services.optional",
         "optionalServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesResourceName'))]",
