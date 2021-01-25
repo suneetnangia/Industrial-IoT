@@ -6,7 +6,8 @@ if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then set -ex; else set -e; fi
 usage(){
     echo '
 Usage: '"$0"' 
-    --sp, --password, --tenant Logs into azure using service principal.
+    --user,                    Service principal id or msi 
+        --password, --tenant   Logs into azure using service principal.
     --identity                 Logs into azure using managed identity.
 
     --name                     Application name needed if configuration 
@@ -27,6 +28,8 @@ Usage: '"$0"'
          --subscription        Subscription to use in which the keyvault
                                was created.  Default subscription is used 
                                if not provided.
+         --msi                 Manasged service identity to use to log
+                               into the keyvault.
                                
     --owner                    Optional owner user id (principal id).
     --help                     Shows this help.
@@ -36,6 +39,7 @@ Usage: '"$0"'
 
 applicationName=
 keyVaultName=
+keyVaultMsi=
 subscription=
 tenantId=
 ownerId=
@@ -50,12 +54,13 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --name)            applicationName="$2" ;;
         --keyvault)        keyVaultName="$2" ;;
+        --msi)             keyVaultMsi="$2" ;;
         --subscription)    subscription="$2" ;;
         --clean)           mode="clean" ;;
         --unregister)      mode="unregisteronly" ;;
         --identity)        login="unattended" ;;
         --config)          config="$2" ;;
-        --sp)              principalId="$2" ;;
+        --user)            principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
         --owner)           ownerId="$2" ;;
@@ -67,10 +72,16 @@ done
 # ---------- Login --------------------------------------------------------------
 # requires Application.ReadWrite.All permissions to graph
 if [[ "$login" == "unattended" ]] ; then
-    mode=
-    if ! az login --identity --allow-no-subscriptions; then
-        echo "Failed to log in with managed identity."
-        exit 1
+    if [[ -n "$principalId" ]] ; then
+        if ! az login --identity -u "$principalId" --allow-no-subscriptions; then
+            echo "Failed to log in with managed identity '$principalId'."
+            exit 1
+        fi
+    else
+        if ! az login --identity --allow-no-subscriptions; then
+            echo "Failed to log in with managed identity."
+            exit 1
+        fi
     fi
 elif [[ -n "$principalId" ]] && \
      [[ -n "$principalPassword" ]] && \
@@ -318,6 +329,13 @@ fi
         
 # ---------- Save results -------------------------------------------------------
 if [[ -n "$keyVaultName" ]] ; then
+    if [[ -n "$keyVaultMsi" ]] ; then
+        if ! az login --identity -u "$keyVaultMsi" --allow-no-subscriptions; then
+            echo "Failed to log in with managed identity '$keyVaultMsi'."
+            exit 1
+        fi
+    else
+
     # log in using the managed service identity and write secrets to keyvault
     if [[ -n "$subscription" ]] ; then
         az account set --subscription $subscription

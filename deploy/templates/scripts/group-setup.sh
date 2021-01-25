@@ -10,7 +10,9 @@ Usage: '"$0"'
                                graph and add the owners, members, and 
                                principal to it, then output group
                                object id
-    --sp,                      Service principal id - will also be member.
+    --user,                    Service principal id or msi 
+                               if service principal then will also be
+                               added as member.
         --password, --tenant   Logs into azure using service principal.
     --identity                 Logs into azure using managed identity.
 
@@ -48,7 +50,7 @@ while [ "$#" -gt 0 ]; do
         --description)     description="$2" ;;
         --display)         displayName="$2" ;;
         --identity)        login="unattended" ;;
-        --sp)              principalId="$2" ;;
+        --user)            principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
         --groupid)         groupId="$2" ;;
@@ -60,16 +62,23 @@ done
 # ---------- Login --------------------------------------------------------------
 # requires Group.ReadWrite.All permissions to graph
 if [[ "$login" == "unattended" ]] ; then
-    if ! az login --identity --allow-no-subscriptions; then
-        echo "Failed to log in with managed identity."
-        exit 1
+    if [[ -n "$principalId" ]] ; then
+        if ! az login --identity -u "$principalId" --allow-no-subscriptions; then
+            echo "Failed to log in with managed identity '$principalId'."
+            exit 1
+        fi
+    else
+        if ! az login --identity --allow-no-subscriptions; then
+            echo "Failed to log in with managed identity."
+            exit 1
+        fi
     fi
 elif [[ -n "$principalId" ]] && \
      [[ -n "$principalPassword" ]] && \
      [[ -n "$tenantId" ]]; then
     if ! az login --service-principal -u $principalId \
         -p=$principalPassword -t $tenantId --allow-no-subscriptions; then
-        echo "Failed to log in with service principal."
+        echo "Failed to log in with service principal '$principalId'."
         exit 1
     fi
 elif [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
