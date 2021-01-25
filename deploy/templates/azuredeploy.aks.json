@@ -177,7 +177,7 @@
         },
         "templateUrl": {
             "type": "string",
-            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/templates/')]",
             "metadata": {
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
@@ -396,7 +396,7 @@
                 "forceUpdateTag": "[parameters('clusterName')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh')]",
-                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().id, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.principalId.value, '\" --name \"', parameters('clusterName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().id, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('clusterName'), '\" --sp \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -466,7 +466,6 @@
                 "aadProfile": {
                     "managed": true,
                     "adminGroupObjectIDs": [
-                        "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupId]"
                     ]
                 },
                 "agentPoolProfiles": [

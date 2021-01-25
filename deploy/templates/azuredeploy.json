@@ -217,12 +217,10 @@
                     "contentVersion": "1.0.0.0",
                     "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json')]"
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
-            "comments": "Deploy required Azure Infrastructure for the platform.",
+            "comments": "Deploy required Azure services for the platform components.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('requiredServicesResourceName')]",
@@ -240,12 +238,10 @@
                     "contentVersion": "1.0.0.0",
                     "uri": "[concat(parameters('templateUrl'), 'azuredeploy.minimum.json')]"
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
-            "comments": "Deploy Azure Infrastructure required by the full Industrial IoT Platform.",
+            "comments": "Deploy Azure optional Azure services for the platform components.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('optionalServicesResourceName')]",

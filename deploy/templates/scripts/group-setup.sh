@@ -131,7 +131,8 @@ for id in "${owners[@]}" ; do
 done
 
 # ---------- add members --------------------------------------------------------
-if [[ -n "$principalId" ]]; then
+if [[ -n "$principalId" ]] && \
+   [[ -n "$principalPassword" ]] ; then
     members+="$principalId"
 fi
 for id in "${members[@]}" ; do

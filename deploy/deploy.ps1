@@ -63,6 +63,7 @@ param(
 )
 
 # -------------------------------------------------------------------------------
+Set-Item Env:\SuppressAzurePowerShellBreakingChangeWarnings "true"
 Import-Module Az 
 Import-Module Az.ManagedServiceIdentity -WarningAction SilentlyContinue
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
@@ -588,7 +589,7 @@ while ($true) {
     }
     catch {
         $ex = $_
-        Write-Host $_.Exception.Message
+        Write-Host $_.Exception
         Write-Host "Deployment failed."
         Get-AzDeploymentOperation -DeploymentName $deploymentName `
             -ErrorAction SilentlyContinue
