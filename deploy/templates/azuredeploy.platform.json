@@ -143,8 +143,6 @@
         "platformManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('platformManagedIdentityName'))]",
         "platformManagedIdentityRoleAssignmentsName": "[concat('rbac.platform.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "platformManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('platformManagedIdentityRoleAssignmentsName'))]",
-        "helmChartsInstallScriptRoleAssignmentsName": "[concat('rbac.helm.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "helmChartsInstallScriptRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('helmChartsInstallScriptRoleAssignmentsName'))]",
         "helmChartsInstallScriptResourceName": "[concat('deploy.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "platformPublicIpRoleAssignmentsName": "[concat('public-ip-.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "platformPublicIpRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('platformPublicIpRoleAssignmentsName'))]",
@@ -274,30 +272,6 @@
             }
         },
         {
-            "comments": "Assign deployment script role to admin identity.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('helmChartsInstallScriptRoleAssignmentsName')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "managedIdentityResourceId": {
-                        "value": "[parameters('aksClusterAdminIdentityResourceId')]"
-                    },
-                    "assignRoles": {
-                        "value": [ "DeploymentScript" ]
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
-                }
-            }
-        },
-        {
             "comments": "Install the platform into the AKS cluster and set up monitoring and TLS termination.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
@@ -328,7 +302,6 @@
             "dependsOn": [
                 "[variables('configurationResourceId')]",
                 "[variables('platformPublicIpRoleAssignmentsId')]",
-                "[variables('helmChartsInstallScriptRoleAssignmentsId')]",
                 "[variables('platformManagedIdentityRoleAssignmentsId')]"
             ]
         },

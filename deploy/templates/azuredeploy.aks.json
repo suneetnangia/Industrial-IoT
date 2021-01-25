@@ -466,6 +466,7 @@
                 "aadProfile": {
                     "managed": true,
                     "adminGroupObjectIDs": [
+                        "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupId]"
                     ]
                 },
                 "agentPoolProfiles": [
@@ -534,15 +535,15 @@
         },
         "aksAdminIdentityResourceId": {
             "type": "string",
-            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.managedIdentityResourceId.value]"
+            "value": "[variables('aksAdminManagedIdentityResourceId')]"
         },
         "aksAdminIdentityPrincipalId": {
             "type": "string",
-            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.principalId.value]"
+            "value": "[reference(variables('aksAdminManagedIdentityResourceId')).principalId]"
         },
         "aksAdminIdentityClientId": {
             "type": "string",
-            "value": "[reference(variables('aksAdminManagedIdentityRoleAssignmentsId')).outputs.clientId.value]"
+            "value": "[reference(variables('aksAdminManagedIdentityResourceId')).clientId]"
         },
         "logAnalyticsWorkspaceResourceId": {
             "type": "string",
