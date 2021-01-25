@@ -178,6 +178,7 @@
         "clusterNotProvided": "[or(empty(parameters('existingAksClusterResourceId')), empty(parameters('existingAksClusterAdminIdentityId')))]",
         "deployCluster": "[and(variables('clusterNotProvided'), not(empty(parameters('aadPrincipalId'))))]",
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterAdminIdentityId'))))]",
+        "deployScriptIdentityName": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aksClusterResourceName": "services.aks",
         "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
         "requiredServicesResourceName": "services.required",
@@ -205,6 +206,9 @@
                     },
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "deployScriptIdentityName": {
+                        "value": "[variables('deployScriptIdentityName')]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
@@ -291,6 +295,9 @@
                     },
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "deployScriptIdentityName": {
+                        "value": "[variables('deployScriptIdentityName')]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"

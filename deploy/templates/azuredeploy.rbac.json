@@ -25,12 +25,13 @@
     },
     "variables": {
         "roleNames": {
-            "DeploymentScript": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+            "Contributor": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
             "KeyVaultSecretOfficer": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
             "NetworkContributor": "[resourceId('Microsoft.Authorization/roleAssignments', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
             "ManagedIdentityOperator": "[resourceId('Microsoft.Authorization/roleAssignments', 'f1a07417-d97a-45cb-824c-7a7467783830')]",
             "AzureKubernetesServiceClusterAdmin": "[resourceId('Microsoft.Authorization/roleAssignments', '0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8')]",
             "AzureKubernetesServiceClusterUser": "[resourceId('Microsoft.Authorization/roleAssignments', '4abbcc35-e782-43d8-92c5-2d3f1bd2253f')]",
+            "StorageAccountContributor": "[resourceId('Microsoft.Authorization/roleAssignments', '17d1049b-9a84-46fb-8f53-869881c3d3ab')]",
             "StorageBlobDataContributor": "[resourceId('Microsoft.Authorization/roleAssignments', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
             "StorageBlobDataOwner": "[resourceId('Microsoft.Authorization/roleAssignments', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')]",
             "StorageBlobDataReader": "[resourceId('Microsoft.Authorization/roleAssignments', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]"

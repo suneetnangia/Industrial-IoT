@@ -326,7 +326,7 @@
                         "value": "[variables('aksAdminManagedIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": ["AzureKubernetesServiceClusterAdmin", "DeploymentScript" ]
+                         "value": ["AzureKubernetesServiceClusterAdmin", "Contributor" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -361,7 +361,7 @@
                         "value": "[variables('aadAdminGroupRegistrationIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": [ "DeploymentScript" ]
+                         "value": [ "Contributor" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"

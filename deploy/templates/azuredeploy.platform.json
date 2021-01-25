@@ -144,10 +144,10 @@
         "platformManagedIdentityRoleAssignmentsName": "[concat('rbac.platform.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "platformManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('platformManagedIdentityRoleAssignmentsName'))]",
         "helmChartsInstallScriptResourceName": "[concat('deploy.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "platformPublicIpRoleAssignmentsName": "[concat('public-ip-.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "platformPublicIpRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('platformPublicIpRoleAssignmentsName'))]",
-        "configurationResourceName": "config.platform",
-        "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]"
+        "platformPublicIpDeploymentName": "[concat('public-ip-.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "platformPublicIpDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('platformPublicIpDeploymentName'))]",
+        "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
+        "configurationResourceName": "config.platform"
     },
     "resources": [
         {
@@ -189,7 +189,7 @@
             "comments": "Create a public IP address of the services endpoint in the node resource group.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('platformPublicIpRoleAssignmentsName')]",
+            "name": "[variables('platformPublicIpDeploymentName')]",
             "resourceGroup": "[reference(parameters('aksClusterResourceId'), '2020-09-01').nodeResourceGroup]",
             "properties": {
                 "mode": "Incremental",
@@ -290,7 +290,7 @@
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', reference(parameters('aksClusterResourceId'), '2020-09-01', 'Full').name, '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpRoleAssignmentsId')).outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpRoleAssignmentsId')).outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('platformManagedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpRoleAssignmentsId')).outputs.fqdn.value, '\"' )]",
+                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', reference(parameters('aksClusterResourceId'), '2020-09-01', 'Full').name, '\"', ' --load_balancer_ip ', '\"', reference(variables('platformPublicIpDeploymentId')).outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('platformPublicIpDeploymentId')).outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('platformManagedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('platformManagedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('platformManagedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('platformPublicIpDeploymentId')).outputs.fqdn.value, '\"' )]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
@@ -301,7 +301,7 @@
             },
             "dependsOn": [
                 "[variables('configurationResourceId')]",
-                "[variables('platformPublicIpRoleAssignmentsId')]",
+                "[variables('platformPublicIpDeploymentId')]",
                 "[variables('platformManagedIdentityRoleAssignmentsId')]"
             ]
         },
@@ -321,7 +321,7 @@
                         "value": [
                             {
                                 "key": "PCS_SERVICE_NAME",
-                                "value": "[concat('https://', reference(variables('platformPublicIpRoleAssignmentsId')).outputs.fqdn.value)]"
+                                "value": "[concat('https://', reference(variables('platformPublicIpDeploymentId')).outputs.fqdn.value)]"
                             },
                             {
                                 "key": "PCS_MSI_APPID",
@@ -360,14 +360,14 @@
             },
             "dependsOn": [
                 "[variables('platformManagedIdentityRoleAssignmentsId')]",
-                "[variables('platformPublicIpRoleAssignmentsId')]"
+                "[variables('platformPublicIpDeploymentId')]"
             ]
         }
     ],
     "outputs": {
         "serviceUrl": {
             "type": "string",
-            "value": "[concat('https://', reference(variables('platformPublicIpRoleAssignmentsId')).outputs.fqdn.value)]"
+            "value": "[concat('https://', reference(variables('platformPublicIpDeploymentId')).outputs.fqdn.value)]"
         },
         "managedIdentityResourceName": {
             "type": "string",

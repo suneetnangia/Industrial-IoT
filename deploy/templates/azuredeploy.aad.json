@@ -77,7 +77,7 @@
                 "[parameters('aadPrincipalId')]": {}
             }
         },
-		"aadAppRegistrationScriptIdentity": "[if(empty(parameters('aadPrincipalPassword')), variables('identityWithServicePrincipal'), variables('identityWithManagedIdentity'))]"
+		"aadAppRegistrationScriptIdentity": "[if(empty(parameters('aadPrincipalPassword')), variables('identityWithManagedIdentity'), variables('identityWithServicePrincipal'))]"
     },
     "resources": [
         {
@@ -102,7 +102,7 @@
                         "value": "[variables('aadAppRegistrationIdentityId')]"
                     },
                     "assignRoles": {
-                         "value": [ "DeploymentScript", "KeyVaultSecretOfficer" ]
+                         "value": [ "Contributor", "KeyVaultSecretOfficer" ]
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
