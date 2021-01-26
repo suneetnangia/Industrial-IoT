@@ -46,14 +46,14 @@
     },
     "resources": [
         {
-            "comments": "Assign specified roles to the managed identity.",
+            "comments": "Assign specified roles to the managed identity. Every role can only be assigned to a principal once and assignments are idempotent.",
             "type": "Microsoft.Authorization/roleAssignments",
             "copy":{
                 "count": "[length(parameters('assignRoles'))]",
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(parameters('scope'), parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
