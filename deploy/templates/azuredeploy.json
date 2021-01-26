@@ -279,10 +279,10 @@
                 "mode": "Incremental",
                 "parameters": {
                     "clusterName": {
-                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.clusterName]"
+                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.clusterName.value]"
                     },
                     "aksAdminGroupObjectIds": {
-                        "value": "[createArray(reference(variables('aksClusterAdminResourceId')).outputs.aksAdminGroupObjectId)]"
+                        "value": "[createArray(reference(variables('aksClusterAdminResourceId')).outputs.aksAdminGroupObjectId.value)]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"

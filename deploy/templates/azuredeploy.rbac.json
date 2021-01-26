@@ -6,7 +6,7 @@
             "type": "string",
             "defaultValue": "",
             "metadata": {
-                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+                "description": "The managed identity to assign roles to."
             }
         },
         "assignRoles": {
