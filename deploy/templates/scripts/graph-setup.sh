@@ -334,7 +334,7 @@ if [[ -n "$keyVaultName" ]] ; then
             echo "Failed to log in with managed identity '$keyVaultMsi'."
             exit 1
         fi
-    else
+    fi
 
     # log in using the managed service identity and write secrets to keyvault
     if [[ -n "$subscription" ]] ; then
