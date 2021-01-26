@@ -50,9 +50,7 @@
         "useServicePrincipalAuthentication": "[not(empty(parameters('aadPrincipalPassword')))]",
 		"aadAdminGroupRegistrationIdentityResourceId": "[if(variables('useServicePrincipalAuthentication'), variables('aksAdminManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
         "aadAdminGroupRegistrationResourceName": "[concat('deploy.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aadAdminGroupRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAdminGroupRegistrationResourceName'))]",
-        "aadAdminGroupRegistrationRoleAssignmentsName": "[concat('rbac.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aadAdminGroupRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAdminGroupRegistrationRoleAssignmentsName'))]"
+        "aadAdminGroupRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAdminGroupRegistrationResourceName'))]"
     },
     "resources": [
         {
@@ -123,7 +121,6 @@
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('aadAdminGroupRegistrationRoleAssignmentsId')]",
                 "[variables('aksAdminManagedIdentityRoleAssignmentsId')]"
             ]
         }
