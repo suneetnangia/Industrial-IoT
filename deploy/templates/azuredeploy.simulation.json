@@ -186,9 +186,7 @@
                         "name": "[parameters('ioTHubHostName')]"
                     }
                 ]
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Deploy linux edge gateway and factory network simulation.",

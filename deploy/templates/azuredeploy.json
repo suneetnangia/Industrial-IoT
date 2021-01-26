@@ -44,13 +44,6 @@
                 "description": "The resource id of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a AKS cluster will be created."
             }
         },
-        "existingAksClusterAdminIdentityId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "The admin managed identity resource to access the cluster - if not provided a simple cluster will be created."
-            }
-        },
         "deployPlatformComponents": {
             "type": "bool",
             "defaultValue": true,
@@ -175,10 +168,14 @@
         }
     },
     "variables": {
-        "clusterNotProvided": "[or(empty(parameters('existingAksClusterResourceId')), empty(parameters('existingAksClusterAdminIdentityId')))]",
-        "deployCluster": "[and(variables('clusterNotProvided'), not(empty(parameters('aadPrincipalId'))))]",
-        "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterAdminIdentityId'))))]",
-        "deployScriptIdentityName": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+		"performAadRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+		"canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
+        "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+        "deployCluster": "[and(variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
+        "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
+        "aksClusterAdminResourceName": "services.aks.admin",
+        "aksClusterAdminResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminResourceName'))]",
         "aksClusterResourceName": "services.aks",
         "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
         "requiredServicesResourceName": "services.required",
@@ -192,37 +189,6 @@
         "simulationResourcName": "simulation"
     },
     "resources": [
-        {
-            "comments": "Deploy AKS managed cluster for Industrial IoT platform hosting.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('aksClusterResourceName')]",
-            "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "aadPrincipalId": {
-                        "value": "[parameters('aadPrincipalId')]"
-                    },
-                    "aadPrincipalPassword": {
-                        "value": "[parameters('aadPrincipalPassword')]"
-                    },
-                    "deployScriptIdentityName": {
-                        "value": "[variables('deployScriptIdentityName')]"
-                    },
-                    "templateUrl": {
-                        "value": "[parameters('templateUrl')]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json')]"
-                }
-            }
-        },
         {
             "comments": "Deploy required Azure services for the platform components.",
             "type": "Microsoft.Resources/deployments",
@@ -240,7 +206,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.minimum.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.required.json')]"
                 }
             }
         },
@@ -265,7 +231,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.standard.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.optional.json')]"
                 }
             },
             "dependsOn": [
@@ -273,11 +239,73 @@
             ]
         },
         {
+            "comments": "Register AKS administrator group in Microsoft Graph.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterAdminResourceName')]",
+            "condition": "[and(variables('deployCluster'), variables('canCreateAdminGroup'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "clusterName": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), variables('defaultClusterName'), reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                    },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.admin.json')]"
+                }
+            }
+        },
+        {
+            "comments": "Deploy an AKS managed cluster for Industrial IoT micro services hosting if non provided.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterResourceName')]",
+            "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "clusterName": {
+                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.clusterName]"
+                    },
+                    "aksAdminGroupObjectIds": {
+                        "value": "[createArray(reference(variables('aksClusterAdminResourceId')).outputs.aksAdminGroupObjectId)]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksClusterAdminResourceId')]"
+            ]
+        },
+        {
             "comments": "Register AAD entitities in Microsoft Graph.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationResourceName')]",
-            "condition": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+            "condition": "[variables('performAadRegistration')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -296,9 +324,6 @@
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
                     },
-                    "deployScriptIdentityName": {
-                        "value": "[variables('deployScriptIdentityName')]"
-                    },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
@@ -316,7 +341,7 @@
             ]
         },
         {
-            "comments": "Deploy Azure Industrial IoT platform.",
+            "comments": "Deploy Azure Industrial IoT micro services into the cluster as cluster admin.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('platformResourcName')]",
@@ -327,8 +352,8 @@
                     "aksClusterResourceId": {
                         "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.aksResourceId.value, parameters('existingAksClusterResourceId'))]"
                     },
-                    "aksClusterAdminIdentityResourceId": {
-                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminIdentityResourceId.value, parameters('existingAksClusterAdminIdentityId'))]"
+                    "aksAdminIdentityResourceId": {
+                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.aksAdminIdentityResourceId.value]"
                     },
                     "keyVaultName": {
                         "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
@@ -369,11 +394,12 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.platform.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.services.json')]"
                 }
             },
             "dependsOn": [
                 "[variables('aksClusterResourceId')]",
+                "[variables('aksClusterAdminResourceId')]",
                 "[variables('requiredServicesResourceId')]",
                 "[variables('optionalServicesResourceId')]",
                 "[variables('aadAppRegistrationResourceId')]"
@@ -476,7 +502,7 @@
         },
         "clusterName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, parameters('existingAksClusterResourceId'))]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, '')]"
         },
         "aksControlPlaneUrl": {
             "type": "string",

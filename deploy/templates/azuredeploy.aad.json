@@ -78,7 +78,7 @@
             "tags": "[parameters('tags')]"
         },
         {
-            "comments": "Assign role to the principal to run the graph application registration script.",
+            "comments": "Assign role to the principal to run the application registration script.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationRoleAssignmentsName')]",
@@ -109,7 +109,7 @@
             ]
         },
         {
-            "comments": "Register the platform service application in AAD.",
+            "comments": "Register the micro service and client applications in AAD / Microsoft Graph.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('aadAppRegistrationResourceName')]",
