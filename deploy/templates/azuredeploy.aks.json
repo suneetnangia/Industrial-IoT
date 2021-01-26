@@ -387,8 +387,8 @@
             "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                    "[variables('aadAdminGroupRegistrationIdentityResourceId')]": {},
-                    "[if(empty(parameters('aadPrincipalPassword')), variables('aksAdminManagedIdentityResourceId'), parameters('aadPrincipalId'))]": {}
+                    "[if(empty(parameters('aadPrincipalPassword')), variables('aksAdminManagedIdentityResourceId'), parameters('aadPrincipalId'))]": {},
+                    "[variables('aadAdminGroupRegistrationIdentityResourceId')]": {}
                 }
             },
             "properties": {

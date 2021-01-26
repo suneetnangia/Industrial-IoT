@@ -73,8 +73,8 @@
         "identityWithManagedIdentity": {
             "type": "UserAssigned",
             "userAssignedIdentities": {
-                "[variables('aadAppRegistrationIdentityId')]": {},
-                "[parameters('aadPrincipalId')]": {}
+                "[parameters('aadPrincipalId')]": {},
+                "[variables('aadAppRegistrationIdentityId')]": {}
             }
         },
 		"aadAppRegistrationScriptIdentity": "[if(empty(parameters('aadPrincipalPassword')), variables('identityWithManagedIdentity'), variables('identityWithServicePrincipal'))]"
