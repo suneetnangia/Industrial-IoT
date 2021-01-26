@@ -121,6 +121,15 @@ Function Add-AppRole() {
     }
 }
 
+# Get role with given name and assign it to the principal
+Function Add-Roles() {
+    Param(
+        [Parameter(Mandatory)][string] $principalId
+    )
+    Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $principalId
+    Add-AppRole -appRoleName "Group.ReadWrite.All" -principalId $principalId
+}
+
 $result = @{ }
 if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
     # create or update a service principal and get object id
@@ -164,8 +173,7 @@ if ([string]::IsNullOrWhiteSpace($script:ResourceGroup)) {
             }
         }
     }
-    Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $sp.Id
-    Add-AppRole -appRoleName "Group.ReadWrite.All" -principalId $sp.Id
+    Add-Roles -principalId $sp.Id
 
     $secret = [System.Net.NetworkCredential]::new("", $secret).Password
     $result.Add("aadPrincipalId", $script:Name)
@@ -197,8 +205,8 @@ else {
             -Location $rg.Location -Name $script:Name `
             -AzContext $script:Context
     }
-    Add-AppRole -appRoleName "Application.ReadWrite.All" -principalId $msi.PrincipalId
-    Add-AppRole -appRoleName "Group.ReadWrite.All" -principalId $msi.PrincipalId
+    
+    Add-Roles -principalId $msi.PrincipalId
     $result.Add("aadPrincipalId", $msi.Id)
     $result.Add("aadTenantId", $msi.TenantId)
 }

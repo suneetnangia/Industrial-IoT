@@ -58,39 +58,27 @@
         }
     },
     "variables": {
-        "performAadRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]",
         "aadAppRegistrationRoleAssignmentsName": "[concat('rbac.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAppRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationRoleAssignmentsName'))]",
-        "aadAppRegistrationResourceScriptName": "[concat('deploy.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aadAppRegistrationResourceScriptId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceScriptName'))]",
-        "aadAppRegistrationIdentityId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deployScriptIdentityName'))]",
-        "identityWithServicePrincipal": {
-            "type": "UserAssigned",
-            "userAssignedIdentities": {
-                "[variables('aadAppRegistrationIdentityId')]": {}
-            }
-        },
-        "identityWithManagedIdentity": {
-            "type": "UserAssigned",
-            "userAssignedIdentities": {
-                "[parameters('aadPrincipalId')]": {},
-                "[variables('aadAppRegistrationIdentityId')]": {}
-            }
-        },
-		"aadAppRegistrationScriptIdentity": "[if(empty(parameters('aadPrincipalPassword')), variables('identityWithManagedIdentity'), variables('identityWithServicePrincipal'))]"
+        "aadAppRegistrationResourceName": "[concat('deploy.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
+        "aadAppRegistrationLocalIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deployScriptIdentityName'))]",
+        "aadAppRegistrationIdentityResourceId": "[if(variables('createLocalManagedIdentity'), variables('aadAppRegistrationLocalIdentityResourceId'), parameters('aadPrincipalId'))]",
+        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]",
+        "performAadRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]"
     },
     "resources": [
         {
             "comments": "Managed identity to run scripts in the deployment.",
             "name": "[parameters('deployScriptIdentityName')]",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "condition": "[variables('createLocalManagedIdentity')]",
             "apiVersion": "2018-11-30",
-            "condition": "[variables('performAadRegistration')]",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]"
         },
         {
-            "comments": "Assign role to run the graph application registration script.",
+            "comments": "Assign role to the principal to run the graph application registration script.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationRoleAssignmentsName')]",
@@ -99,10 +87,13 @@
                 "mode": "Incremental",
                 "parameters": {
                     "managedIdentityResourceId": {
-                        "value": "[variables('aadAppRegistrationIdentityId')]"
+                        "value": "[variables('aadAppRegistrationIdentityResourceId')]"
                     },
                     "assignRoles": {
                          "value": [ "Contributor", "KeyVaultSecretOfficer" ]
+                    },
+                    "scope":{
+                         "value": "[resourceGroup().id]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -114,24 +105,29 @@
                 }
             },
             "dependsOn": [
-                "[variables('aadAppRegistrationIdentityId')]"
+                "[variables('aadAppRegistrationLocalIdentityResourceId')]"
             ]
         },
         {
-            "comments": "Register the platform service and client applications in Microsoft Graph.",
+            "comments": "Register the platform service application in AAD.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
-            "name": "[variables('aadAppRegistrationResourceScriptName')]",
+            "name": "[variables('aadAppRegistrationResourceName')]",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
             "condition": "[variables('performAadRegistration')]",
-            "identity": "[variables('aadAppRegistrationScriptIdentity')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('aadAppRegistrationIdentityResourceId')]": {}
+                }
+            },
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh')]",
-                "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'), ' --msi \"', variables('aadAppRegistrationIdentityId'), '\"')]",
+                "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -154,31 +150,31 @@
     "outputs": {
         "serviceAppId": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.serviceAppId, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.serviceAppId, '')]"
         },
         "serviceAudience": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.serviceAudience, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.serviceAudience, '')]"
         },
         "clientAppId": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.clientAppId, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.clientAppId, '')]"
         },
         "webappAppId": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.webappAppId, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.webappAppId, '')]"
         },
         "tenantId": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.tenantId, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.tenantId, '')]"
         },
         "authorityUri": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.authorityUri, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.authorityUri, '')]"
         },
         "trustedTokenIssuer": {
             "type": "string",
-            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceScriptId')).outputs.trustedTokenIssuer, '')]"
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.trustedTokenIssuer, '')]"
         }
     }
 }

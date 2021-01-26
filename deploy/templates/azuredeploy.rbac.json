@@ -15,6 +15,13 @@
                 "description": "Roles to assign."
             }
         },
+		"scope": { 
+			"type": "string", 
+			"defaultValue": "[resourceGroup().id]",
+            "metadata": {
+                "description": "Scope of the assingment.  Defaults to resource group."
+            }
+		},
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -46,14 +53,14 @@
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(resourceGroup().id, parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
                 "principalId": "[reference(parameters('managedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[resourceGroup().id]",
+                "scope": "[parameters('scope')]",
                 "principalType": "ServicePrincipal"
             }
         }
