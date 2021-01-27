@@ -540,7 +540,8 @@
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesDeploymentId')]"
+                "[variables('requiredServicesDeploymentId')]",
+                "[variables('aadAppRegistrationDeploymentId')]"
             ]
         }
     ],
