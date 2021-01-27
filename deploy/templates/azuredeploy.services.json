@@ -199,7 +199,6 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('publicIpName')]",
-            "condition": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('aksNodeResourceGroup'))))]",
             "resourceGroup": "[parameters('aksNodeResourceGroup')]",
             "properties": {
                 "mode": "Incremental",
@@ -231,7 +230,6 @@
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('helmChartsInstallScriptResourceName')]",
-            "condition": "[and(not(empty(parameters('aksClusterName'))), not(empty(parameters('helmChartVersion'))))]",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "kind": "AzureCLI",
