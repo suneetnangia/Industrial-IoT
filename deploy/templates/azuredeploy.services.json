@@ -91,7 +91,7 @@
             "type": "string",
             "defaultValue": "[concat('msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
             "metadata": {
-                "description": "The name of the managed identity the platform instance uses to access azure services."
+                "description": "The name of the managed identity the micro services will use to access azure services."
             }
         },
         "publicIpName": {
@@ -151,7 +151,7 @@
         "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
         "helmChartsInstallScriptResourceName": "[concat('services.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "publicIpDeploymentName": "services.ip",
-        "publicIpDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
+        "publicIpDeploymentId": "[resourceId(subscription().id, parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
         "configurationResourceName": "services.configuration"
     },
@@ -226,7 +226,7 @@
             }
         },
         {
-            "comments": "Install the platform into the AKS cluster and set up monitoring and TLS termination.",
+            "comments": "Install the services into the AKS cluster using Helm and set up monitoring and TLS termination.",
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2020-10-01",
             "name": "[variables('helmChartsInstallScriptResourceName')]",
@@ -243,7 +243,7 @@
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('publicIpDeploymentId')).outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('publicIpDeploymentId')).outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('managedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('managedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('publicIpDeploymentId')).outputs.fqdn.value, '\"' )]",
+                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('managedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('managedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"' )]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
@@ -320,7 +320,7 @@
     "outputs": {
         "serviceUrl": {
             "type": "string",
-            "value": "[concat('https://', reference(variables('publicIpDeploymentId')).outputs.fqdn.value)]"
+            "value": "[concat('https://', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value)]"
         },
         "managedIdentityResourceName": {
             "type": "string",
