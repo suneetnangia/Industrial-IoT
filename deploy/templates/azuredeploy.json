@@ -349,8 +349,11 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "aksClusterResourceId": {
-                        "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.aksResourceId.value, parameters('existingAksClusterResourceId'))]"
+                    "aksClusterName": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterResourceId')).outputs.clusterName.value,  reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                    },
+                    "aksNodeResourceGroup": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterResourceId')).outputs.aksNodeResourceGroup.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').nodeResourceGroup)]"
                     },
                     "aksAdminIdentityResourceId": {
                         "value": "[reference(variables('aksClusterAdminResourceId')).outputs.aksAdminIdentityResourceId.value]"

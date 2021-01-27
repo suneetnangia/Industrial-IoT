@@ -387,7 +387,7 @@
             "type": "string",
             "value": "[parameters('clusterName')]"
         },
-        "clusterNodeResourceGroup": {
+        "aksNodeResourceGroup": {
             "type": "string",
             "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
         },
