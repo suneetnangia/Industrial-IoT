@@ -45,11 +45,11 @@
     },
     "variables": {
         "aksAdminManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksAdminManagedIdentityName'))]",
-        "aksAdminManagedIdentityRoleAssignmentsName": "[concat('rbac.aks.admin.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksAdminManagedIdentityRoleAssignmentsName": "aks.admin.rbac",
         "aksAdminManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksAdminManagedIdentityRoleAssignmentsName'))]",
         "useServicePrincipalAuthentication": "[not(empty(parameters('aadPrincipalPassword')))]",
 		"aadAdminGroupRegistrationIdentityResourceId": "[if(variables('useServicePrincipalAuthentication'), variables('aksAdminManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
-        "aadAdminGroupRegistrationResourceName": "[concat('deploy.admingroup.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAdminGroupRegistrationResourceName": "[concat('aks.admin.group.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "aadAdminGroupRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAdminGroupRegistrationResourceName'))]"
     },
     "resources": [

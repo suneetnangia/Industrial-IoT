@@ -51,6 +51,13 @@
                 "description": "Whether to deploy Platform services into the cluster. Set to false to deploy dependencies for local development."
             }
         },
+        "deployFrontend": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Whether to deploy engineering tool frontend."
+            }
+        },
         "helmRepoUrl": {
             "type": "string",
             "defaultValue": "https://microsoft.github.io/charts/repo",
@@ -168,32 +175,33 @@
         }
     },
     "variables": {
-		"performAadRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+		"performAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
 		"canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
         "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
         "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
         "deployCluster": "[and(variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
-        "aksClusterAdminResourceName": "services.aks.admin",
-        "aksClusterAdminResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminResourceName'))]",
-        "aksClusterResourceName": "services.aks",
-        "aksClusterResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterResourceName'))]",
-        "requiredServicesResourceName": "services.required",
-        "requiredServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('requiredServicesResourceName'))]",
-        "optionalServicesResourceName": "services.optional",
-        "optionalServicesResourceId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesResourceName'))]",
-        "aadAppRegistrationResourceName": "services.aad",
-        "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationResourceName'))]",
-        "platformResourcName": "platform",
-        "platformResourceId": "[resourceId('Microsoft.Resources/deployments', variables('platformResourcName'))]",
-        "simulationResourcName": "simulation"
+        "aksClusterAdminDeploymentName": "aks.admin",
+        "aksClusterAdminDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminDeploymentName'))]",
+        "aksClusterDeploymentName": "aks",
+        "aksClusterDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterDeploymentName'))]",
+        "requiredServicesDeploymentName": "required",
+        "requiredServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('requiredServicesDeploymentName'))]",
+        "optionalServicesDeploymentName": "optional",
+        "optionalServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesDeploymentName'))]",
+        "aadAppRegistrationDeploymentName": "aad",
+        "aadAppRegistrationDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationDeploymentName'))]",
+        "frontendDeploymentName": "frontend",
+        "microServicesDeploymentName": "services",
+        "microServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('microServicesDeploymentName'))]",
+        "simulationDeploymentName": "simulation"
     },
     "resources": [
         {
             "comments": "Deploy required Azure services for the platform components.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('requiredServicesResourceName')]",
+            "name": "[variables('requiredServicesDeploymentName')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -214,7 +222,7 @@
             "comments": "Deploy Azure optional Azure services for the platform components.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('optionalServicesResourceName')]",
+            "name": "[variables('optionalServicesDeploymentName')]",
             "condition": "[parameters('deployOptionalServices')]",
             "properties": {
                 "mode": "Incremental",
@@ -223,7 +231,7 @@
                         "value": "[parameters('templateUrl')]"
                     },
                     "keyVaultName": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -235,14 +243,14 @@
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesResourceId')]"
+                "[variables('requiredServicesDeploymentId')]"
             ]
         },
         {
             "comments": "Register AKS administrator group in Microsoft Graph.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aksClusterAdminResourceName')]",
+            "name": "[variables('aksClusterAdminDeploymentName')]",
             "condition": "[and(variables('deployCluster'), variables('canCreateAdminGroup'))]",
             "properties": {
                 "mode": "Incremental",
@@ -273,16 +281,16 @@
             "comments": "Deploy an AKS managed cluster for Industrial IoT micro services hosting if non provided.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aksClusterResourceName')]",
+            "name": "[variables('aksClusterDeploymentName')]",
             "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
                     "clusterName": {
-                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.clusterName.value]"
+                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.clusterName.value]"
                     },
                     "aksAdminGroupObjectIds": {
-                        "value": "[createArray(reference(variables('aksClusterAdminResourceId')).outputs.aksAdminGroupObjectId.value)]"
+                        "value": "[createArray(reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value)]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
@@ -297,20 +305,20 @@
                 }
             },
             "dependsOn": [
-                "[variables('aksClusterAdminResourceId')]"
+                "[variables('aksClusterAdminDeploymentId')]"
             ]
         },
         {
             "comments": "Register AAD entitities in Microsoft Graph.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aadAppRegistrationResourceName')]",
-            "condition": "[variables('performAadRegistration')]",
+            "name": "[variables('aadAppRegistrationDeploymentName')]",
+            "condition": "[variables('performAadAppRegistration')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
                     "keyVaultName": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
                     },
                     "applicationName": {
                         "value": "[parameters('applicationName')]"
@@ -337,32 +345,32 @@
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesResourceId')]"
+                "[variables('requiredServicesDeploymentId')]"
             ]
         },
         {
             "comments": "Deploy Azure Industrial IoT micro services into the cluster as cluster admin.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('platformResourcName')]",
+            "name": "[variables('microServicesDeploymentName')]",
             "condition": "[and(variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
                     "aksClusterName": {
-                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterResourceId')).outputs.clusterName.value,  reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.clusterName.value,  reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
                     },
                     "aksNodeResourceGroup": {
-                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterResourceId')).outputs.aksNodeResourceGroup.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').nodeResourceGroup)]"
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksNodeResourceGroup.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').nodeResourceGroup)]"
                     },
                     "aksAdminIdentityResourceId": {
-                        "value": "[reference(variables('aksClusterAdminResourceId')).outputs.aksAdminIdentityResourceId.value]"
+                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminIdentityResourceId.value]"
                     },
                     "keyVaultName": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
                     },
                     "keyVaultUri": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.keyVaultUri.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultUri.value]"
                     },
                     "helmChartVersion": {
                         "value": "[parameters('helmChartVersion')]"
@@ -401,18 +409,65 @@
                 }
             },
             "dependsOn": [
-                "[variables('aksClusterResourceId')]",
-                "[variables('aksClusterAdminResourceId')]",
-                "[variables('requiredServicesResourceId')]",
-                "[variables('optionalServicesResourceId')]",
-                "[variables('aadAppRegistrationResourceId')]"
+                "[variables('aksClusterDeploymentId')]",
+                "[variables('aksClusterAdminDeploymentId')]",
+                "[variables('requiredServicesDeploymentId')]",
+                "[variables('optionalServicesDeploymentId')]",
+                "[variables('aadAppRegistrationDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Deploy engineering tool front end.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('frontendDeploymentName')]",
+            "condition": "[and(parameters('deployFrontend'), parameters('deployPlatformComponents'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "siteName": {
+                        "value": "[parameters('applicationName')]"
+                    },
+                    "keyVaultUri": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultUri.value]"
+                    },
+                    "managedIdentityResourceId": {
+                        "value": "[reference(variables('microServicesDeploymentId')).outputs.managedIdentityResourceId.value]"
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesNamespace": {
+                        "value": "[parameters('imagesNamespace')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.frontend.json')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('microServicesDeploymentId')]",
+                "[variables('requiredServicesDeploymentId')]"
             ]
         },
         {
             "comments": "Deploy Azure Industrial IoT Edge simulation.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('simulationResourcName')]",
+            "name": "[variables('simulationDeploymentName')]",
             "condition": "[not(equals(0, parameters('numberOfSimulations')))]",
             "properties": {
                 "mode": "Incremental",
@@ -438,21 +493,21 @@
                     "edgePassword": {
                         "reference": {
                             "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value)]"
                             },
                             "secretName": "pcs-auth-service-secret"
                         }
                     },
                     "iotHubHostName": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubHostName.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.iotHubHostName.value]"
                     },
                     "iotHubLocation": {
-                        "value": "[reference(variables('requiredServicesResourceId')).outputs.iotHubLocation.value]"
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.iotHubLocation.value]"
                     },
                     "iotHubConnString": {
                         "reference": {
                             "keyVault": {
-                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesResourceId')).outputs.keyVaultName.value)]"
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value)]"
                             },
                             "secretName": "pcs-iothub-connstring"
                         }
@@ -485,15 +540,14 @@
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesResourceId')]",
-                "[variables('aadAppRegistrationResourceId')]"
+                "[variables('requiredServicesDeploymentId')]"
             ]
         }
     ],
     "outputs": {
         "keyVaultUri": {
             "type": "string",
-            "value": "[reference(variables('requiredServicesResourceId'), '2017-05-10').outputs.keyVaultUri.value]"
+            "value": "[reference(variables('requiredServicesDeploymentId'), '2017-05-10').outputs.keyVaultUri.value]"
         },
         "tenantId": {
             "type": "string",
@@ -501,23 +555,23 @@
         },
         "serviceUrl": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), reference(variables('platformResourceId'), '2017-05-10').outputs.serviceUrl.value, '')]"
+            "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, '')]"
         },
         "clusterName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterName.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterName.value, '')]"
         },
         "aksControlPlaneUrl": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.aksControlPlaneUrl.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.aksControlPlaneUrl.value, '')]"
         },
         "clusterAdminGroupObjectId": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminGroupObjectId.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterAdminGroupObjectId.value, '')]"
         },
         "clusterAdminGroupName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterResourceId')).outputs.clusterAdminGroupName.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterAdminGroupName.value, '')]"
         }
     }
 }

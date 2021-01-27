@@ -217,8 +217,8 @@
         "keyVaultResourceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
         "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
-        "workbookConfigurationResourceName":  "[concat('deploy.workbook.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "configurationResourceName": "config.minimum"
+        "workbookConfigurationResourceName":  "required.workbook",
+        "configurationResourceName": "required.configuration"
     },
     "resources": [
         {
@@ -238,9 +238,7 @@
                     "name": "[parameters('keyVaultSkuName')]",
                     "family": "A"
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Log Analytics instance for platform and services.",
@@ -256,9 +254,7 @@
                 "features": {
                     "searchVersion": 1
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Application insights instance for the platform.",
@@ -271,9 +267,7 @@
             "properties": {
                 "Application_Type": "web",
                 "ApplicationId": "[parameters('appInsightsName')]"
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Azure IoT Hub used by the platform",
@@ -433,9 +427,7 @@
                     },
                     "keySource": "Microsoft.Storage"
                 }
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Azure CosmosDb",
@@ -463,9 +455,7 @@
                 },
                 "capabilities": [
                 ]
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Azure Service Bus Namespace",
@@ -478,9 +468,7 @@
                 "name": "[parameters('serviceBusSkuTier')]"
             },
             "properties": {
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Monitoring workbook as dashboard for the platform and services",

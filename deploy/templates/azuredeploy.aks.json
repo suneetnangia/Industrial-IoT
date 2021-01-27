@@ -177,7 +177,7 @@
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
         "aksClusterIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksClusterIdentityName'))]",
-        "aksClusterIdentityRoleAssignmentsName": "[concat('rbac.aks.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksClusterIdentityRoleAssignmentsName": "aks.rbac",
         "aksClusterIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterIdentityRoleAssignmentsName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     },

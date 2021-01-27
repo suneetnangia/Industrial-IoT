@@ -86,7 +86,7 @@
         "eventHubNamespaceResourceId": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]",
         "eventHubResourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
         "eventHubUxConsumerGroup": "telemetryux",
-        "configurationResourceName": "config.standard"
+        "configurationResourceName": "optional.configuration"
     },
     "resources": [
         {
