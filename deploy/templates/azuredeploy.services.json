@@ -151,7 +151,7 @@
         "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
         "helmChartsInstallScriptResourceName": "[concat('services.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "publicIpDeploymentName": "services.ip",
-        "publicIpDeploymentId": "[resourceId(subscription().id, parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
+        "publicIpDeploymentId": "[resourceId(parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
         "configurationResourceName": "services.configuration"
     },
