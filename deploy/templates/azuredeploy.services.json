@@ -38,11 +38,11 @@
                 "description": "The admin managed identity resource to access the cluster."
             }
         },
-        "helmRepoUrl": {
+        "helmChartName": {
             "type": "string",
-            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "defaultValue": "azure-industrial-iot",
             "metadata": {
-                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+                "description": "The name of the helm chart if it is different than the official released one."
             }
         },
         "helmChartVersion": {
@@ -50,6 +50,20 @@
             "defaultValue": "0.3.1",
             "metadata": {
                 "description": "Version of azure-industrial-iot Helm chart to use"
+            }
+        },
+        "helmRepoUrl": {
+            "type": "string",
+            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "metadata": {
+                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
             }
         },
         "dockerServer": {
@@ -243,13 +257,19 @@
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --resource_group ', '\"', resourceGroup().name, '\"', ' --aks_cluster ', '\"', parameters('aksClusterName'), '\"', ' --load_balancer_ip ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --public_ip_dns_label ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', ' --helm_repo_url ', '\"', parameters('helmRepoUrl'), '\"', ' --helm_chart_version ', '\"', parameters('helmChartVersion'), '\"', ' --managed_identity_id ', '\"', variables('managedIdentityResourceId'), '\"', ' --managed_identity_name ', '\"', parameters('managedIdentityName'), '\"', ' --managed_identity_client_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant_id ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', ' --image_tag ', '\"', parameters('imagesTag'), '\"', ' --image_ns ', '\"', parameters('imagesNamespace'), '\"', ' --docker_server ', '\"', parameters('dockerServer'), '\"', ' --docker_user ', '\"', parameters('dockerUser'), '\"', ' --docker_password ', '\"', parameters('dockerPassword'), '\"', ' --key_vault_uri ', '\"',  parameters('keyVaultUri'), '\"', ' --services_hostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"' )]",
+                "arguments": "[concat(' --namespace ', '\"', resourceGroup().name, '\"', ' --resourceGroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', ' --helmRepoUrl ', '\"', if(parameters('helmPullChartFromDockerServer'), '', parameters('helmRepoUrl')), '\"', ' --helmChartName ', '\"', parameters('helmChartName'), '\"', ' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"',  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"',  ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('imagesNamespace'))), concat(' --imagesNamespace ', '\"', parameters('imagesNamespace'), '\"'), ''),  if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''))]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"
                 ],
                 "timeout": "PT1H",
-                "cleanupPreference": "OnSuccess",
+                "environmentVariables": [
+                    {
+                        "name": "dockerPassword",
+                        "secureValue": "[if (not(empty(parameters('dockerPassword'))), parameters('dockerPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnExpiration",
                 "retentionInterval": "P1D"
             },
             "dependsOn": [

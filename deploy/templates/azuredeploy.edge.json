@@ -312,9 +312,7 @@
                         }
                     }
                 ]
-            },
-            "dependsOn": [
-            ]
+            }
         },
         {
             "comments": "Network interface for edge virtual machine to use.",

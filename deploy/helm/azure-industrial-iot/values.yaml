@@ -42,8 +42,16 @@ loadConfFromKeyVault: false
 
 # Details of Azure resources that components of Azure Industrial IoT solution will connect to.
 azure:
+
   # azure.tenantId is Guid TenantId of the tenant that contains Azure resources.
   tenantId: null
+
+  # Those are details of the managed identity for services to use.
+  managedIdentity:
+    # azure.managedIdentity.clientId is clientId of the managed identity.
+    clientId: null
+    # azure.managedIdentity.tenantId is Guid TenantId of the tenant that contains the managed identity.
+    tenantId: null
 
   # Details of Azure IoT Hub that microservices will communicate with.
   iotHub:
