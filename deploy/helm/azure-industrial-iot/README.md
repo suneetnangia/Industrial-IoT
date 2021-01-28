@@ -216,14 +216,11 @@ $ az eventhubs eventhub create --resource-group MyResourceGroup --namespace-name
 
 ##### Azure Event Hub Consumer Groups
 
-Please create two consumer groups for the Event Hub. For example, you can call them `telemetry_cdm` and
-`telemetry_ux`. These can be created with the commands bellow. More details about the command and its
+Please create a consumer group for the Event Hub. For example, you can call it `telemetry_ux`. It can be created with the commands bellow. More details about the command and its
 parameters can be found
 [here](https://docs.microsoft.com/cli/azure/eventhubs/eventhub/consumer-group?view=azure-cli-latest#az-eventhubs-eventhub-consumer-group-create).
 
 ```bash
-$ az eventhubs eventhub consumer-group create --resource-group MyResourceGroup --namespace-name mynamespace --eventhub-name myeventhub --name telemetry_cdm
-
 $ az eventhubs eventhub consumer-group create --resource-group MyResourceGroup --namespace-name mynamespace --eventhub-name myeventhub --name telemetry_ux
 ```
 
@@ -283,7 +280,6 @@ Configuration parameter for data protection key in Azure Key Vault is `azure.key
 Required for:
 
 * `engineeringTool`
-* `telemetryCdmProcessor`
 
 Details of AAD App Registration are required if you want to enable authentication for components of
 Azure Industrial IoT solution. If authentication is enabled, web APIs of components will require an Access Token for
@@ -460,49 +456,6 @@ The following details of the Azure Log Analytics Workspace would be required:
 
   Either one of the keys would work.
 
-#### Azure Data Lake Storage Gen2
-
-Required for:
-
-* `telemetryCdmProcessor`
-
-Azure Data Lake Storage Gen2 is used by `telemetryCdmProcessor` component, which receives events from the
-secondary telemetry event hub and publishes these events to the configured Azure Data Lake Storage resource.
-It also ensures that the necessary [Common Data Model Schema](https://docs.microsoft.com/common-data-model/model-json)
-files are created so that consumers such as Power Apps and Power BI can access the data and metadata.
-
-**Documentation**: [Common Data Model](https://docs.microsoft.com/common-data-model/)
-
-You would need to have an existing Azure Storage account. Here are the steps to
-[create an Azure Storage account](https://docs.microsoft.com/azure/storage/common/storage-account-create).
-Please note that for this feature we require:
-
-* `Account kind` to be set to `StorageV2 (general-purpose v2)`, step 7
-* `Hierarchical namespace` to be `Enabled`, step 8
-
-The following details of the Azure Storage account would be required:
-
-* Connection string for Azure Storage account.
-  This can be obtained with the following command:
-
-  ```bash
-  $ az storage account show-connection-string --name MyStorageAccount --query "connectionString"
-  "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=MyStorageAccount;AccountKey=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-  ```
-
-* Details of Azure Storage Account Container that should be used for Common Data Model storage:
-
-  * Container Name. You can either manually create a blob container and pass its name to the chart, or
-    specify desired name of the container. Then it will be automatically created by the
-    `telemetryCdmProcessor`. If container name is not set, then it defaults to `powerbi` and will be created
-    automatically.
-
-    Configuration parameter for this is `azure.adlsg2.container.cdm.name`.
-  
-  * Root folder within the container. Defaults to `IIoTDataFlow`.
-
-    Configuration parameter for this is `azure.adlsg2.container.cdm.rootFolder`.
-
 ## Installing the Chart
 
 This chart installs `2.8.2` version of components by default.
@@ -541,7 +494,6 @@ $ helm install azure-iiot azure-iiot/azure-industrial-iot --namespace azure-iiot
   --set azure.storageAccount.connectionString=<StorageAccountConnectionString> \
   --set azure.eventHubNamespace.sharedAccessPolicies.rootManageSharedAccessKey.connectionString=<EventHubNamespaceConnectionString> \
   --set azure.eventHubNamespace.eventHub.name=<EventHubName> \
-  --set azure.eventHubNamespace.eventHub.consumerGroup.telemetryCdm=<EventHubTelemetryCdmConsumerGroup> \
   --set azure.eventHubNamespace.eventHub.consumerGroup.telemetryUx=<EventHubTelemetryUxConsumerGroup> \
   --set azure.serviceBusNamespace.sharedAccessPolicies.rootManageSharedAccessKey.connectionString=<ServiceBusNamespaceConnectionString> \
   --set azure.keyVault.uri=<KeyVaultURI> \
@@ -585,12 +537,8 @@ values.
 | `azure.cosmosDB.connectionString`                                                           | Cosmos DB connection string with read-write permissions                                          | `null`                               |
 | `azure.storageAccount.connectionString`                                                     | Storage account connection string                                                                | `null`                               |
 | `azure.storageAccount.container.dataProtection.name`                                        | Name of storage account container for [data protection](#data-protection-container-(optional))   | `dataprotection`                     |
-| `azure.adlsg2.connectionString`                                                             | ADLS Gen2 account connection string                                                              | `null`                               |
-| `azure.adlsg2.container.cdm.name`                                                           | Name of ADLS Gen2 blob container for CDM storage                                                 | `powerbi`                            |
-| `azure.adlsg2.container.cdm.rootFolder`                                                     | CDM root folder within CDM blob container                                                        | `IIoTDataFlow`                       |
 | `azure.eventHubNamespace.sharedAccessPolicies.rootManageSharedAccessKey.connectionString`   | Connection string of `RootManageSharedAccessKey` key of Event Hub namespace                      | `null`                               |
 | `azure.eventHubNamespace.eventHub.name`                                                     | Name of secondary Event Hub within Event Hub Namespace                                           | `null`                               |
-| `azure.eventHubNamespace.eventHub.consumerGroup.telemetryCdm`                               | Name of the consumer group for `telemetryCdmProcessor`                                           | `null`                               |
 | `azure.eventHubNamespace.eventHub.consumerGroup.telemetryUx`                                | Name of the consumer group for `telemetryUxProcessor`                                            | `null`                               |
 | `azure.serviceBusNamespace.sharedAccessPolicies.rootManageSharedAccessKey.connectionString` | Connection string of `RootManageSharedAccessKey` key of Service Bus namespace                    | `null`                               |
 | `azure.keyVault.uri`                                                                        | Key Vault URI, also referred as DNS Name                                                         | `null`                               |
@@ -713,7 +661,6 @@ following aspects of application runtime for microservices:
 |-------------------------------------------------|----------------------------------------------------------------------------------|-------------------|
 | `apps.urlPathBase.registry`                     | URL path base for `registry` component                                           | `/registry`       |
 | `apps.urlPathBase.twin`                         | URL path base for `twin` component                                               | `/twin`           |
-| `apps.urlPathBase.history`                      | URL path base for `history` component                                            | `/history`        |
 | `apps.urlPathBase.publisher`                    | URL path base for `publisher` component                                          | `/publisher`      |
 | `apps.urlPathBase.edgeJobs`                     | URL path base for `edgeJobs` component                                           | `/edge/publisher` |
 | `apps.urlPathBase.events`                       | URL path base for `events` component                                             | `/events`         |
@@ -739,20 +686,18 @@ resource only for one micro-service (`registry`). Please consult `values.yaml` f
 parameters.
 
 Here is the list of all Azure Industrial IoT components that are deployed by this chart. Currently only
-`engineeringTool` and `telemetryCdmProcessor` are disabled by default.
+`engineeringTool` is disabled by default.
 
 | Name in `values.yaml`   | Description                                                                 | Enabled by Default |
 |-------------------------|-----------------------------------------------------------------------------|--------------------|
 | `registry`              | [Registry Microservice](../../../docs/services/registry.md)                 | `true`             |
 | `sync`                  | [Registry Synchronization Agent](../../../docs/services/registry-sync.md)   | `true`             |
 | `twin`                  | [OPC Twin Microservice](../../../docs/services/twin.md)                     | `true`             |
-| `history`               | [OPC Historian Access Microservice](../../../docs/services/twin-history.md) | `true`             |
 | `publisher`             | [OPC Publisher Service](../../../docs/services/publisher.md)                | `true`             |
 | `events`                | [Events Service](../../../docs/services/events.md)                          | `true`             |
 | `edgeJobs`              | [Publisher jobs orchestrator service](../../../docs/services/publisher.md)  | `true`             |
 | `onboarding`            | [Onboarding Processor](../../../docs/services/processor-onboarding.md)      | `true`             |
 | `eventsProcessor`       | [Edge Event Processor](../../../docs/services/processor-events.md)          | `true`             |
-| `telemetryCdmProcessor` | [Datalake export](../../../docs/services/processor-telemetry-cdm.md)        | `false`            |
 | `telemetryProcessor`    | [Edge Telemetry processor](../../../docs/services/processor-telemetry.md)   | `true`             |
 | `engineeringTool`       | [Engineering Tool](../../../docs/services/engineeringtool.md)               | `false`            |
 
@@ -783,13 +728,11 @@ Those are the values of `imageRepository` for all components:
 | `deployment.microServices.registry.imageRepository`                | `iot/opc-registry-service`                     |
 | `deployment.microServices.sync.imageRepository`                    | `iot/opc-registry-sync-service`                |
 | `deployment.microServices.twin.imageRepository`                    | `iot/opc-twin-service`                         |
-| `deployment.microServices.history.imageRepository`                 | `iot/opc-history-service`                      |
 | `deployment.microServices.publisher.imageRepository`               | `iot/opc-publisher-service`                    |
 | `deployment.microServices.edgeJobs.imageRepository`                | `iot/opc-publisher-edge-service`               |
 | `deployment.microServices.events.imageRepository`                  | `iot/industrial-iot-events-service`            |
 | `deployment.microServices.onboarding.imageRepository`              | `iot/opc-onboarding-service`                   |
 | `deployment.microServices.eventsProcessor.imageRepository`         | `iot/industrial-iot-events-processor`          |
-| `deployment.microServices.telemetryCdmProcessor.imageRepository`   | `iot/industrial-iot-telemetry-cdm-processor`   |
 | `deployment.microServices.telemetryProcessor.imageRepository`      | `iot/industrial-iot-telemetry-processor`       |
 | `deployment.microServices.engineeringTool.imageRepository`         | `iot/industrial-iot-frontend`                  |
 
@@ -818,7 +761,6 @@ Those are the service ports exposed by components:
 |--------------------------------------------------------------|----------------------|
 | `deployment.microServices.registry.service.port`             | `9042`               |
 | `deployment.microServices.twin.service.port`                 | `9041`               |
-| `deployment.microServices.history.service.port`              | `9043`               |
 | `deployment.microServices.publisher.service.port`            | `9045`               |
 | `deployment.microServices.edgeJobs.service.port`             | `9046`               |
 | `deployment.microServices.events.service.port`               | `9050`               |
@@ -843,7 +785,6 @@ in `values.yaml`. Note that Ingress is disabled by default.
 | `deployment.ingress.tls`                   | Ingress [TLS configuration](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls)           | `[]`              |
 | `deployment.ingress.paths.registry`        | Path on which `registry` component should be exposed. Should be set to enable for `registry`.               | `/registry`       |
 | `deployment.ingress.paths.twin`            | Path on which `twin` component should be exposed. Should be set to enable for `twin`.                       | `/twin`           |
-| `deployment.ingress.paths.history`         | Path on which `history` component should be exposed. Should be set to enable for `history`.                 | `/history`        |
 | `deployment.ingress.paths.publisher`       | Path on which `publisher` component should be exposed. Should be set to enable for `publisher`.             | `/publisher`      |
 | `deployment.ingress.paths.events`          | Path on which `events` component should be exposed. Should be set to enable for `events`.                   | `/events`         |
 | `deployment.ingress.paths.edgeJobs`        | Path on which `edgeJobs` component should be exposed. Should be set to enable for `edgeJobs`.               | `/edge/publisher` |
@@ -926,7 +867,6 @@ azure:
     eventHub:
       name: <EventHubName>
       consumerGroup:
-        telemetryCdm: <EventHubTelemetryCdmConsumerGroup>
         telemetryUx: <EventHubTelemetryUxConsumerGroup>
 
   serviceBusNamespace:
@@ -982,24 +922,6 @@ You can specify the name of the key in Azure Key Vault to be used or the value w
 If it doesn't already exist, this key in Azure Key Vault will be created automatically on startup of `engineeringTool` component
 Configuration parameter for data protection key in Azure Key Vault is `azure.keyVault.key.dataProtection`.
 
-### Common Data Model
-
-> **NOTE:** This feature is in preview.
-
-`telemetryCdmProcessor` component can consume events from the secondary telemetry Event Hub and publish
-these events to the configured Azure Data Lake Storage Gen2 resource. It also ensures that the necessary
-[Common Data Model Schema](https://docs.microsoft.com/common-data-model/model-json) files are created so
-that consumers such as Power Apps and Power BI can access the data and metadata. You would have to explicitly
-enable `telemetryCdmProcessor` to use this feature, since it is disabled by default.
-
-Please note, that `telemetryCdmProcessor` requires authentication to be enabled. It also requires additional
-API permissions for `ServicesApp` AAD App Registration. Namely, it needs Delegated `user_impersonation`
-permission on `Azure Storage`. Please follow these steps to
-[add API permissions](https://docs.microsoft.com/graph/notifications-integration-app-registration#api-permissions).
-
-Here is a tutorial on
-[how to connect Power BI with Azure Data Lake Storage Gen2 and visualize publisher telemetry](../../../docs/tutorials/tut-power-bi-cdm.md).
-
 ### Swagger
 
 Ten of our components provide Swagger interfaces for trying out APIs. URL path for Swagger has the
@@ -1042,7 +964,6 @@ Here is the full list of components with Swagger UIs:
 |-----------------|----------------------|-------------------------------------|
 | `registry`      | `9042`               | `/registry/swagger/index.html`      |
 | `twin`          | `9041`               | `/twin/swagger/index.html`          |
-| `history`       | `9043`               | `/history/swagger/index.html`       |
 | `publisher`     | `9045`               | `/publisher/swagger/index.html`     |
 | `events`        | `9050`               | `/events/swagger/index.html`        |
 | `edgeJobs`      | `9051`               | `/edge/publisher/swagger/index.html`|

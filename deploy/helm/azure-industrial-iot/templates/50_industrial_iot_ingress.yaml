@@ -48,12 +48,6 @@ spec:
           serviceName: {{ template "azure-industrial-iot.twin.fullname" . }}
           servicePort: {{ .Values.deployment.microServices.twin.service.port }}
 {{- end }}
-{{- if and .Values.deployment.microServices.history.enabled .Values.deployment.ingress.paths.history }}
-      - path: {{ .Values.deployment.ingress.paths.history }}
-        backend:
-          serviceName: {{ template "azure-industrial-iot.history.fullname" . }}
-          servicePort: {{ .Values.deployment.microServices.history.service.port }}
-{{- end }}
 {{- if and .Values.deployment.microServices.publisher.enabled .Values.deployment.ingress.paths.publisher }}
       - path: {{ .Values.deployment.ingress.paths.publisher }}
         backend:
