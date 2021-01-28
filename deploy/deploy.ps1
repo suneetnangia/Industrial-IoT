@@ -237,7 +237,7 @@ if (![string]::IsNullOrEmpty($branchName) -and
     $script:SourceUri = "https://raw.githubusercontent.com/Azure/Industrial-IoT"
 }
 
-# Select version of the docker images to deploy 
+# Select version of the docker images to deploy
 if ([string]::IsNullOrEmpty($script:Version)) {
     if (![string]::IsNullOrEmpty($branchName) -and 
         ($branchName.StartsWith("release/"))) {
@@ -245,10 +245,15 @@ if ([string]::IsNullOrEmpty($script:Version)) {
         # default docker server is mcr so no need to set it here
     }
     else {
+        # master or development preview
         $script:Version = "preview"
         if ([string]::IsNullOrEmpty($script:DockerServer)) {
             $script:DockerServer = "industrialiotdev.azurecr.io"
         }
+
+        # Pull preview charts from development server
+        $templateParameters.Add("helmPullChartFromDockerServer", $true)
+        $templateParameters.Add("helmChartVersion", $script:Version)
     }
 }
 
