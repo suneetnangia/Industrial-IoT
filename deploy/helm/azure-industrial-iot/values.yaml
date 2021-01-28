@@ -5,7 +5,7 @@ image:
   # image.registry is URL of Docker registry from where images will be pulled.
   registry: mcr.microsoft.com
   # image.tag defines which version of Docker images to pull.
-  tag: 2.8.2
+  tag: 2.8.0
   # image.pullPolicy defines value of imagePullPolicy of deployments.
   pullPolicy: IfNotPresent
   # image.pullSecrets defined docker-registry secrets that should be used for private container registries.
@@ -30,10 +30,9 @@ image:
 # Note that additional values provided through the chart will override those coming from Azure Key Vault.
 #
 # If loadConfFromKeyVault is set to true, then only the following values of azure.* value group are required:
-#   - azure.tenantId
 #   - azure.keyVault.uri
-#   - azure.auth.servicesApp.appId
-#   - azure.auth.servicesApp.secret
+#   - azure.managedIdentity.clientId
+#   - azure.managedIdentity.tenantId
 #
 # NOTE: externalServiceUrl should still be set so that correct URL for jobs orchestrator service (edgeJobs) is generated.
 # NOTE: Values defining Kubernetes resources or deployment logic will not be affected by loadConfFromKeyVault.
