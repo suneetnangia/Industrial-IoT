@@ -20,6 +20,9 @@ DOCKER_SERVER=
 DOCKER_USER=
 TENANT_ID=
 KEY_VAULT_URI=
+MANAGED_IDENTITY_ID=
+MANAGED_IDENTITY_NAME=
+MANAGED_IDENTITY_CLIENT_ID=
 SERVICES_HOSTNAME=
 SERVICES_APP_ID=
 #SERVICES_APP_SECRET= # allow passing from environment
@@ -28,25 +31,28 @@ SERVICES_APP_ID=
 # -------------------------------------------------------------------------------
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --namespace)            NAMESPACE="$2" ;;
-        --aksCluster)           AKS_CLUSTER="$2" ;;
-        --resourceGroup)        RESOURCE_GROUP="$2" ;;
-        --loadBalancerIp)       LOAD_BALANCER_IP="$2" ;;
-        --publicIpDnsLabel)     PUBLIC_IP_DNS_LABEL="$2" ;;
-        --helmRepoUrl)          HELM_REPO_URL="$2" ;;
-        --helmChartName)        HELM_CHART_NAME="$2" ;;
-        --helmChartVersion)     HELM_CHART_VERSION="$2" ;;
-        --imagesNamespace)      IMAGES_NAMESPACE="$2" ;;
-        --imagesTag)            IMAGES_TAG="$2" ;;
-        --dockerServer)         DOCKER_SERVER="$2" ;;
-        --dockerUser)           DOCKER_USER="$2" ;;
-        --dockerPassword)       DOCKER_PASSWORD="$2" ;;
-        --keyVaultUri)          KEY_VAULT_URI="$2" ;;
-        --servicesHostname)     SERVICES_HOSTNAME="$2" ;;
-        --tenant)               TENANT_ID="$2" ;;
-        --role)                 ROLE="$2" ;;
-        --servicesAppId)        SERVICES_APP_ID="$2" ;;
-        --servicesAppSecret)    SERVICES_APP_SECRET="$2" ;;
+        --namespace)                NAMESPACE="$2" ;;
+        --aksCluster)               AKS_CLUSTER="$2" ;;
+        --resourceGroup)            RESOURCE_GROUP="$2" ;;
+        --loadBalancerIp)           LOAD_BALANCER_IP="$2" ;;
+        --publicIpDnsLabel)         PUBLIC_IP_DNS_LABEL="$2" ;;
+        --helmRepoUrl)              HELM_REPO_URL="$2" ;;
+        --helmChartName)            HELM_CHART_NAME="$2" ;;
+        --helmChartVersion)         HELM_CHART_VERSION="$2" ;;
+        --imagesNamespace)          IMAGES_NAMESPACE="$2" ;;
+        --imagesTag)                IMAGES_TAG="$2" ;;
+        --dockerServer)             DOCKER_SERVER="$2" ;;
+        --dockerUser)               DOCKER_USER="$2" ;;
+        --dockerPassword)           DOCKER_PASSWORD="$2" ;;
+        --managedIdentityId)        MANAGED_IDENTITY_ID="$2" ;;
+        --managedIdentityName)      MANAGED_IDENTITY_NAME="$2" ;;
+        --managedIdentityClientId)  MANAGED_IDENTITY_CLIENT_ID="$2" ;;
+        --tenant)                   TENANT_ID="$2" ;;
+        --keyVaultUri)              KEY_VAULT_URI="$2" ;;
+        --servicesHostname)         SERVICES_HOSTNAME="$2" ;;
+        --role)                     ROLE="$2" ;;
+        --servicesAppId)            SERVICES_APP_ID="$2" ;;
+        --servicesAppSecret)        SERVICES_APP_SECRET="$2" ;;
     esac
     shift
 done
@@ -76,6 +82,9 @@ echo "DOCKER_SERVER=$DOCKER_SERVER"
 echo "DOCKER_USER=$DOCKER_SERVER"
 echo "TENANT_ID=$TENANT_ID"
 echo "KEY_VAULT_URI=$KEY_VAULT_URI"
+echo "MANAGED_IDENTITY_ID=$MANAGED_IDENTITY_ID"
+echo "MANAGED_IDENTITY_NAME=$MANAGED_IDENTITY_NAME"
+echo "MANAGED_IDENTITY_CLIENT_ID=$MANAGED_IDENTITY_CLIENT_ID"
 echo "SERVICES_HOSTNAME=$SERVICES_HOSTNAME"
 echo "SERVICES_APP_ID=$SERVICES_APP_ID"
 
@@ -213,6 +222,10 @@ extra_settings=""
 if [[ -n "$SERVICES_APP_ID" ]] ; then
     extra_settings=$extra_settings' --set azure.auth.servicesApp.appId="'$SERVICES_APP_ID'"'
     extra_settings=$extra_settings' --set azure.auth.servicesApp.secret="'$SERVICES_APP_SECRET'"'
+fi
+if [[ -n "$MANAGED_IDENTITY_CLIENT_ID" ]] ; then
+    extra_settings=$extra_settings' --set azure.managedIdentity.clientId="'$MANAGED_IDENTITY_CLIENT_ID'"'
+    extra_settings=$extra_settings' --set azure.managedIdentity.tenantId="'$TENANT_ID'"'
 fi
 
 # Install aiiot/azure-industrial-iot Helm chart

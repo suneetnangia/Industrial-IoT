@@ -131,12 +131,19 @@ fi
 
 # ---------- add owners ---------------------------------------------------------
 for id in "${owners[@]}" ; do
-    az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners/\$ref \
-        --headers Content-Type=application/json --body '{
+    existing=$(az rest --method get \
+        --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners \
+        --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
+    if [[ "$existing" == "$id" ]] ; then
+        echo "'$id' already owner of group $groupId ..."
+    else
+        az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners/\$ref \
+            --headers Content-Type=application/json --body '{
 "@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
-    }'
-    echo "Added '$id' to group $groupId as owner..."
+        }'
+        echo "Added '$id' to group $groupId as owner..."
+    fi
 done
 
 # ---------- add members --------------------------------------------------------
@@ -145,12 +152,19 @@ if [[ -n "$principalId" ]] && \
     members+="$principalId"
 fi
 for id in "${members[@]}" ; do
-    az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/members/\$ref \
-        --headers Content-Type=application/json --body '{
+    existing=$(az rest --method get \
+        --uri https://graph.microsoft.com/v1.0/groups/$groupId/members \
+        --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
+    if [[ "$existing" == "$id" ]] ; then
+        echo "'$id' already member of group $groupId ..."
+    else
+        az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/groups/$groupId/members/\$ref \
+            --headers Content-Type=application/json --body '{
 "@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
-    }'
-    echo "Added '$id' to group $groupId as member..."
+        }'
+        echo "Added '$id' to group $groupId as member..."
+    fi
 done
 
 # get display name
