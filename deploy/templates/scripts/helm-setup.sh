@@ -132,62 +132,58 @@ echo "Repos updated."
 
 # -------------------------------------------------------------------------------
 # Create ingress-nginx namespace
-echo "Install ingress-nginx/ingress-nginx Helm chart..."
-kubectl create namespace ingress-nginx
-
-# Install ingress-nginx/ingress-nginx Helm chart
-helm install --atomic ingress-nginx ingress-nginx/ingress-nginx \
-    --namespace ingress-nginx \
-    --version 3.20.1 --timeout 30m0s \
-    --set controller.replicaCount=2 \
-    --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
-    --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
-    --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$PUBLIC_IP_DNS_LABEL \
-    --set controller.config.compute-full-forward-for='"true"' \
-    --set controller.config.use-forward-headers='"true"' \
-    --set controller.config.proxy-buffer-size='"32k"' \
-    --set controller.config.client-header-buffer-size='"32k"' \
-    --set controller.metrics.enabled=true \
-    --set defaultBackend.enabled=true \
-    --set defaultBackend.nodeSelector."beta\.kubernetes\.io\/os"=linux
-echo "Ingress controller installed."
+if ! kubectl create namespace $NAMESPACE-ingress-nginx ; then
+    echo "Ingress controller namespace exists."
+    # todo: Upgrade
+else
+    echo "Install ingress-nginx/ingress-nginx Helm chart..."
+    # Install ingress-nginx/ingress-nginx Helm chart
+    helm install --atomic ingress-nginx ingress-nginx/ingress-nginx \
+        --namespace $NAMESPACE-ingress-nginx \
+        --version 3.20.1 --timeout 30m0s \
+        --set controller.replicaCount=2 \
+        --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
+        --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
+        --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$PUBLIC_IP_DNS_LABEL \
+        --set controller.config.compute-full-forward-for='"true"' \
+        --set controller.config.use-forward-headers='"true"' \
+        --set controller.config.proxy-buffer-size='"32k"' \
+        --set controller.config.client-header-buffer-size='"32k"' \
+        --set controller.metrics.enabled=true \
+        --set defaultBackend.enabled=true \
+        --set defaultBackend.nodeSelector."beta\.kubernetes\.io\/os"=linux
+    echo "Ingress controller installed."
+fi
 
 # -------------------------------------------------------------------------------
 # Create cert-manager namespace
-echo "Install jetstack/cert-manager Helm chart..."
-kubectl create namespace cert-manager
+if ! kubectl create namespace $NAMESPACE-cert-manager ; then
+    echo "Cert manager namespace already exists."
+    # todo: Upgrade
+else
+    echo "Install jetstack/cert-manager Helm chart..."
+    # Install jetstack/cert-manager Helm chart
+    helm install --atomic cert-manager jetstack/cert-manager \
+        --namespace $NAMESPACE-cert-manager \
+        --version v1.1.0 --timeout 30m0s \
+        --set installCRDs=true
 
-# Install jetstack/cert-manager Helm chart
-helm install --atomic cert-manager jetstack/cert-manager \
-    --namespace cert-manager \
-    --version v1.1.0 --timeout 30m0s \
-    --set installCRDs=true
+    # Create Let's Encrypt ClusterIssuer
+    n=0
+    iterations=20
+    until [[ $n -ge $iterations ]]; do
+        kubectl apply -f "$CWD/letsencrypt.yaml" && break
+        n=$[$n+1]
 
-# Create Let's Encrypt ClusterIssuer
-n=0
-iterations=20
-until [[ $n -ge $iterations ]]; do
-    kubectl apply -f "$CWD/letsencrypt.yaml" && break
-    n=$[$n+1]
-
-    echo "Trying to create Let's Encrypt ClusterIssuer again in 15 seconds"
-    sleep 15
-done
-if [[ $n -eq $iterations ]]; then
-    echo "Failed to create Let's Encrypt ClusterIssuer"
-    exit 1
+        echo "Trying to create Let's Encrypt ClusterIssuer again in 15 seconds"
+        sleep 15
+    done
+    if [[ $n -eq $iterations ]]; then
+        echo "Failed to create Let's Encrypt ClusterIssuer"
+        exit 1
+    fi
+    echo "Cert manager installed."
 fi
-echo "Cert manager installed."
-
-# -------------------------------------------------------------------------------
-# Create namespace
-echo "Install aad-pod-identity Helm chart..."
-kubectl create namespace $NAMESPACE
-
-# Install per-pod identities into the namespace
-helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-    --namespace $NAMESPACE
-echo "Per pod identity support installed."
 
 # -------------------------------------------------------------------------------
 # Install azure iiot services chart
@@ -226,6 +222,20 @@ fi
 if [[ -n "$MANAGED_IDENTITY_CLIENT_ID" ]] ; then
     extra_settings=$extra_settings' --set azure.managedIdentity.clientId="'$MANAGED_IDENTITY_CLIENT_ID'"'
     extra_settings=$extra_settings' --set azure.managedIdentity.tenantId="'$TENANT_ID'"'
+fi
+
+# Create namespace
+if ! kubectl create namespace $NAMESPACE ; then
+    echo "Namespace already exists.  Performing upgrade"
+    # todo: Upgrade
+else
+    echo "Install aad-pod-identity Helm chart..."
+
+    # Install per-pod identities into the namespace
+    helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
+        --namespace $NAMESPACE
+        
+    echo "Per pod identity support installed."
 fi
 
 # Install aiiot/azure-industrial-iot Helm chart
