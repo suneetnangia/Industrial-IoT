@@ -132,7 +132,7 @@ fi
 # ---------- add owners ---------------------------------------------------------
 for id in "${owners[@]}" ; do
     existing=$(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners \
+        --uri https://graph.microsoft.com/beta/groups/$groupId/owners \
         --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
     if [[ "$existing" == "$id" ]] ; then
         echo "'$id' already owner of group $groupId ..."
@@ -153,7 +153,7 @@ if [[ -n "$principalId" ]] && \
 fi
 for id in "${members[@]}" ; do
     existing=$(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/groups/$groupId/members \
+        --uri https://graph.microsoft.com/beta/groups/$groupId/members \
         --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
     if [[ "$existing" == "$id" ]] ; then
         echo "'$id' already member of group $groupId ..."
