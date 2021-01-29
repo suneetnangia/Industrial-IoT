@@ -234,33 +234,33 @@ else
     # Install per-pod identities into the namespace
     helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
         --namespace $NAMESPACE
-        
-    echo "Per pod identity support installed."
-fi
 
-# Install aiiot/azure-industrial-iot Helm chart
-helm install --atomic azure-industrial-iot $helm_chart_location  \
-    --namespace $NAMESPACE \
-    --version $HELM_CHART_VERSION --timeout 30m0s $extra_settings \
-    --set image.tag=$IMAGES_TAG \
-    --set loadConfFromKeyVault=true \
-    --set azure.keyVault.uri=$KEY_VAULT_URI \
-    --set azure.tenantId=$TENANT_ID \
-    --set externalServiceUrl="https://$SERVICES_HOSTNAME" \
-    --set deployment.microServices.engineeringTool.enabled=false \
-    --set deployment.microServices.telemetryCdmProcessor.enabled=false \
-    --set deployment.ingress.enabled=true \
-    --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx \
-    --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/affinity"=cookie \
-    --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-name"=affinity \
-    --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-expires"=14400 \
-    --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-max-age"=14400 \
-    --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-read-timeout"=3600 \
-    --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-send-timeout"=3600 \
-    --set deployment.ingress.annotations."cert-manager\.io\/cluster-issuer"=letsencrypt-prod \
-    --set deployment.ingress.tls[0].hosts[0]=$SERVICES_HOSTNAME \
-    --set deployment.ingress.tls[0].secretName=tls-secret \
-    --set deployment.ingress.hostName=$SERVICES_HOSTNAME
+    echo "Per pod identity support installed."
+
+    # Install aiiot/azure-industrial-iot Helm chart
+    helm install --atomic azure-industrial-iot $helm_chart_location  \
+        --namespace $NAMESPACE \
+        --version $HELM_CHART_VERSION --timeout 30m0s $extra_settings \
+        --set image.tag=$IMAGES_TAG \
+        --set loadConfFromKeyVault=true \
+        --set azure.keyVault.uri=$KEY_VAULT_URI \
+        --set azure.tenantId=$TENANT_ID \
+        --set externalServiceUrl="https://$SERVICES_HOSTNAME" \
+        --set deployment.microServices.engineeringTool.enabled=false \
+        --set deployment.microServices.telemetryCdmProcessor.enabled=false \
+        --set deployment.ingress.enabled=true \
+        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx \
+        --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/affinity"=cookie \
+        --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-name"=affinity \
+        --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-expires"=14400 \
+        --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-max-age"=14400 \
+        --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-read-timeout"=3600 \
+        --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-send-timeout"=3600 \
+        --set deployment.ingress.annotations."cert-manager\.io\/cluster-issuer"=letsencrypt-prod \
+        --set deployment.ingress.tls[0].hosts[0]=$SERVICES_HOSTNAME \
+        --set deployment.ingress.tls[0].secretName=tls-secret \
+        --set deployment.ingress.hostName=$SERVICES_HOSTNAME
+fi
 
 echo "Done"
 # -------------------------------------------------------------------------------
