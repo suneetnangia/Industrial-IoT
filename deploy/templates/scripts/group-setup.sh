@@ -129,44 +129,34 @@ if [[ -z "$groupId" ]] ; then
     fi
 fi
 
-# ---------- add owners ---------------------------------------------------------
-for id in "${owners[@]}" ; do
-    # bug - need to use beta api since v1.0 does not return SP members
+# ---------- add owners and members ---------------------------------------------
+# add reference to members or owners
+add_group_ref(){
+    # bug - need to use beta api since v1.0 does not return SP references
     existing=$(az rest --method get \
-        --uri https://graph.microsoft.com/beta/groups/$groupId/owners \
-        --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
-    if [[ "$existing" == "$id" ]] ; then
-        echo "'$id' already owner of group $groupId ..."
+        --uri https://graph.microsoft.com/beta/groups/$1/$3 \
+        --query "value[?id=='$2'].id" -o tsv | tr -d '\r')
+    if [[ "$existing" == "$2" ]] ; then
+        echo "'$2' already part of the $3 of group $1 ..."
     else
         az rest --method post \
-            --uri https://graph.microsoft.com/v1.0/groups/$groupId/owners/\$ref \
+            --uri https://graph.microsoft.com/v1.0/groups/$1/$3/\$ref \
             --headers Content-Type=application/json --body '{
-"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
+"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$2"'"
         }'
-        echo "Added '$id' to group $groupId as owner..."
+        echo "Added '$2' to group $1 $3..."
     fi
-done
+}
 
-# ---------- add members --------------------------------------------------------
+for id in "${owners[@]}" ; do
+    add_group_ref $groupId $id "owners"
+done
 if [[ -n "$principalId" ]] && \
    [[ -n "$principalPassword" ]] ; then
     members+="$principalId"
 fi
 for id in "${members[@]}" ; do
-    # bug - need to use beta api since v1.0 does not return SP members
-    existing=$(az rest --method get \
-        --uri https://graph.microsoft.com/beta/groups/$groupId/members \
-        --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
-    if [[ "$existing" == "$id" ]] ; then
-        echo "'$id' already member of group $groupId ..."
-    else
-        az rest --method post \
-            --uri https://graph.microsoft.com/v1.0/groups/$groupId/members/\$ref \
-            --headers Content-Type=application/json --body '{
-"@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/'"$id"'"
-        }'
-        echo "Added '$id' to group $groupId as member..."
-    fi
+    add_group_ref $groupId $id "members"
 done
 
 # get display name
