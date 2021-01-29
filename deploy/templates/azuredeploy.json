@@ -58,11 +58,11 @@
                 "description": "Whether to deploy engineering tool frontend."
             }
         },
-        "helmRepoUrl": {
+        "helmChartName": {
             "type": "string",
-            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "defaultValue": "azure-industrial-iot",
             "metadata": {
-                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+                "description": "The name of the helm chart if it is different than the official released one."
             }
         },
         "helmChartVersion": {
@@ -70,6 +70,20 @@
             "defaultValue": "0.3.1",
             "metadata": {
                 "description": "Version of azure-industrial-iot Helm chart to use"
+            }
+        },
+        "helmRepoUrl": {
+            "type": "string",
+            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "metadata": {
+                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
             }
         },
         "numberOfSimulations": {
@@ -374,6 +388,12 @@
                     },
                     "helmChartVersion": {
                         "value": "[parameters('helmChartVersion')]"
+                    },
+                    "helmChartName": {
+                        "value": "[parameters('helmChartName')]"
+                    },
+                    "helmPullChartFromDockerServer": {
+                        "value": "[parameters('helmPullChartFromDockerServer')]"
                     },
                     "helmRepoUrl": {
                         "value": "[parameters('helmRepoUrl')]"
