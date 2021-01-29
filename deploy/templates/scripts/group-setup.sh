@@ -131,6 +131,7 @@ fi
 
 # ---------- add owners ---------------------------------------------------------
 for id in "${owners[@]}" ; do
+    # bug - need to use beta api since v1.0 does not return SP members
     existing=$(az rest --method get \
         --uri https://graph.microsoft.com/beta/groups/$groupId/owners \
         --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
@@ -152,6 +153,7 @@ if [[ -n "$principalId" ]] && \
     members+="$principalId"
 fi
 for id in "${members[@]}" ; do
+    # bug - need to use beta api since v1.0 does not return SP members
     existing=$(az rest --method get \
         --uri https://graph.microsoft.com/beta/groups/$groupId/members \
         --query "value[?id=='$id'].id" -o tsv | tr -d '\r')
