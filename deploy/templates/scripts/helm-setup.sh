@@ -58,13 +58,20 @@ while [ "$#" -gt 0 ]; do
 done
 
 # -------------------------------------------------------------------------------
-if [[ -n "$HELM_CHART_NAME" ]]; then
+if [[ -z "$HELM_CHART_NAME" ]]; then
     HELM_CHART_NAME="azure-industrial-iot"
 fi
-if [[ -n "$ROLE" ]]; then
+if [[ -z "$HELM_CHART_VERSION" ]]; then
+    if [[ -n "$HELM_REPO_URL" ]]; then
+        HELM_CHART_VERSION="0.4.0"
+    else
+        HELM_CHART_VERSION="preview"
+    fi
+fi
+if [[ -z "$ROLE" ]]; then
     ROLE="AzureKubernetesServiceClusterUserRole"
 fi
-if [[ -n "$NAMESPACE" ]]; then
+if [[ -z "$NAMESPACE" ]]; then
     NAMESPACE="azure-industrial-iot"
 fi
 
