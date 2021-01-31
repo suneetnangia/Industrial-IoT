@@ -594,7 +594,7 @@ while ($true) {
     }
     catch {
         $ex = $_
-        Write-Host $_.Exception
+        $ex | ConvertTo-Json | Out-Host 
         Write-Host "Deployment failed."
         Get-AzDeploymentOperation -DeploymentName $deploymentName `
             -ErrorAction SilentlyContinue

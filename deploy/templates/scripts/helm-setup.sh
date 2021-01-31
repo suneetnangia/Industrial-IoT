@@ -196,6 +196,7 @@ fi
 # Install azure iiot services chart
 
 if [[ -z "$HELM_REPO_URL" ]] ; then
+    export HELM_EXPERIMENTAL_OCI=1
     # docker server is the oci registry from where to consume the helm chart
     # the repo is the path and name of the chart
     chart="$DOCKER_SERVER/$HELM_CHART_NAME:$HELM_CHART_VERSION"
