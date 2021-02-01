@@ -315,7 +315,7 @@ if [[ -z "$HELM_REPO_URL" ]] ; then
     # docker server is the oci registry from where to consume the helm chart
     # the repo is the path and name of the chart
     chart="$DOCKER_SERVER/$HELM_CHART_NAME:$HELM_CHART_VERSION"
-    helm chart remove $chart
+    helm chart remove $chart && echo "No charts to remove."
     # lpg into the server
     if [[ -n "$DOCKER_USER" ]] && [[ -n "$DOCKER_PASSWORD" ]] ; then
         if ! helm registry login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" ; then

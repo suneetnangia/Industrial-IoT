@@ -90,7 +90,7 @@ Function Add-AppRole() {
     # there is a delay to when the service principal is visible in the graph to assign to
     for ($a = 1; !$(Get-MgServicePrincipal -ServicePrincipalId $principalId `
         -ErrorAction SilentlyContinue); $a++) {
-        if ($a -gt 5) {
+        if ($a -gt 40) {
             throw "Timeout: Service principal did not replicate to graph in time."
         }
         Write-Warning "Waiting for service principal creation..."
