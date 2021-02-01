@@ -96,23 +96,23 @@
         },
         "imagesTag": {
             "type": "string",
-            "defaultValue": "2.7.199",
+            "defaultValue": "2.7",
             "metadata": {
                 "description": "Specifies the image version tag to use for all images."
             }
         },
         "managedIdentityName": {
             "type": "string",
-            "defaultValue": "[concat('msi', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "defaultValue": "[concat('services-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5), '-msi')]",
             "metadata": {
                 "description": "The name of the managed identity the micro services will use to access azure services."
             }
         },
         "publicIpName": {
             "type": "string",
-            "defaultValue": "[concat('services-ip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "defaultValue": "[concat(resourceGroup().name, '-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5), '-ip')]",
             "metadata": {
-                "description": "Public Ip resource name."
+                "description": "Name of the public ip resource in the node resource group of the cluster."
             }
         },
         "publicIpSku": {
@@ -257,7 +257,7 @@
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --namespace ', '\"', resourceGroup().name, '\"', ' --resourceGroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('imagesNamespace'))), concat(' --imagesNamespace ', '\"', parameters('imagesNamespace'), '\"'), ''),  if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''))]",
+                "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourceGroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('imagesNamespace'))), concat(' --imagesNamespace ', '\"', parameters('imagesNamespace'), '\"'), ''),  if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''))]",
                 "supportingScriptUris": [
                     "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]",
                     "[concat(parameters('templateUrl'), 'config/letsencrypt.yaml')]"

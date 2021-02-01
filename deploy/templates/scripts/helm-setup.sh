@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 # -------------------------------------------------------------------------------
-set -e
-# set -x
+if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then set -ex; else set -e; fi
 
 CWD=$(pwd)
 RESOURCE_GROUP=
@@ -25,6 +24,7 @@ MANAGED_IDENTITY_NAME=
 MANAGED_IDENTITY_CLIENT_ID=
 SERVICES_HOSTNAME=
 SERVICES_APP_ID=
+
 #SERVICES_APP_SECRET= # allow passing from environment
 #DOCKER_PASSWORD= # allow passing from environment
 
@@ -32,8 +32,10 @@ SERVICES_APP_ID=
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --namespace)                NAMESPACE="$2" ;;
-        --aksCluster)               AKS_CLUSTER="$2" ;;
+        -n)                         NAMESPACE="$2" ;;
         --resourceGroup)            RESOURCE_GROUP="$2" ;;
+        -g)                         RESOURCE_GROUP="$2" ;;
+        --aksCluster)               AKS_CLUSTER="$2" ;;
         --loadBalancerIp)           LOAD_BALANCER_IP="$2" ;;
         --publicIpDnsLabel)         PUBLIC_IP_DNS_LABEL="$2" ;;
         --helmRepoUrl)              HELM_REPO_URL="$2" ;;
@@ -58,23 +60,126 @@ while [ "$#" -gt 0 ]; do
 done
 
 # -------------------------------------------------------------------------------
+
+if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
+    az login --identity
+fi
+
+if [[ -z "$NAMESPACE" ]]; then
+    echo "Missing namespace name."
+    exit 1
+fi
+if [[ -z "$RESOURCE_GROUP" ]]; then
+    echo "Missing resource group name."
+    exit 1
+fi
+if [[ -z "$AKS_CLUSTER" ]]; then
+    AKS_CLUSTER=$(az aks list -g $RESOURCE_GROUP \
+        --query [0].name -o tsv | tr -d '\r')
+    if [[ -z "$AKS_CLUSTER" ]]; then
+        echo "Missing aks cluster name."
+        echo "Ensure one was created in resource group $RESOURCE_GROUP."
+        exit 1
+    fi
+fi
+if [[ -z "$KEY_VAULT_URI" ]]; then
+    KEY_VAULT_URI=$(az keyvault list  -g $RESOURCE_GROUP \
+        --query [0].properties.vaultUri -o tsv | tr -d '\r')
+    if [[ -z "$KEY_VAULT_URI" ]]; then
+        echo "Unable to retrieve platform keyvault uri."
+        echo "Ensure it was created in '$RESOURCE_GROUP' group."
+        exit 1
+    fi
+fi
+if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
+    MANAGED_IDENTITY_ID=$(az identity list -g $RESOURCE_GROUP \
+        --query "[?starts_with(name, 'services-')].id)" -o tsv | tr -d '\r')
+    if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
+        echo "Unable to find platform msi in '$RESOURCE_GROUP' group."
+        echo "Ensure it was created before running this script."
+        exit 1
+    fi
+fi
+if [[ -z "$MANAGED_IDENTITY_CLIENT_ID" ]] || \
+   [[ -z "$TENANT_ID" ]] ; then
+    IFS=$'\n'; msi=($(az identity show --ids $MANAGED_IDENTITY_ID \
+        --query "[name, clientId, tenantId, principalId]" \
+        -o tsv | tr -d '\r')); unset IFS;
+
+    MANAGED_IDENTITY_NAME=${msi[0]}
+    MANAGED_IDENTITY_CLIENT_ID=${msi[1]}
+    TENANT_ID=${msi[2]}
+    if [[ -z "$MANAGED_IDENTITY_CLIENT_ID" ]]; then
+        echo "Unable to get properties from msi $msiId."
+        exit 1
+    fi
+fi
+
+# Get public ip information if not provided 
+if [[ -z "$LOAD_BALANCER_IP" ]] || \
+   [[ -z "$PUBLIC_IP_DNS_LABEL" ]] || \
+   [[ -z "$SERVICES_HOSTNAME" ]] ; then
+    # public ip domain label should be namespace name
+    publicIpId=$(az network public-ip list \
+        --query "[?dnsSettings.domainNameLabel=='$NAMESPACE']" \
+        -o tsv | tr -d '\r')
+    if [[ -z "$publicIpId" ]] ; then
+        # If not then public ip name starts with resource group name
+        publicIpId=$(az network public-ip list \
+            --query "[?starts_with(name, '$RESOURCE_GROUP')]" \
+            -o tsv | tr -d '\r')
+    fi
+    if [[ -z "$publicIpId" ]] ; then
+        echo "Unable to find public ip for '$NAMESPACE' label."
+        echo "Ensure it exists in the node resource group of the cluster."
+        exit 1
+    fi
+    IFS=$'\n'; publicIp=($(az network public-ip show --ids $publicIpId \
+        --query "[dnsSettings.fqdn, ipAddress, domainNameLabel]" \
+        -o tsv | tr -d '\r')); unset IFS;
+
+    SERVICES_HOSTNAME=${publicIp[0]}
+    LOAD_BALANCER_IP=${publicIp[1]}
+    PUBLIC_IP_DNS_LABEL=${publicIp[2]}
+    if [[ -z "$SERVICES_HOSTNAME" ]] ; then
+        echo "Unable to get public ip properties from $publicIpId."
+        exit 1
+    fi
+fi
+if [[ -n "$SERVICES_APP_ID" ]]; then
+    if [[ -z "$SERVICES_APP_SECRET" ]]; then
+        echo "Missing service app secret. "
+        echo "Must be provided if app id is provided"
+        exit 1
+    fi
+fi
 if [[ -z "$HELM_CHART_NAME" ]]; then
     HELM_CHART_NAME="azure-industrial-iot"
 fi
 if [[ -z "$HELM_CHART_VERSION" ]]; then
     if [[ -n "$HELM_REPO_URL" ]]; then
         HELM_CHART_VERSION="0.4.0"
+        if [[ -z "$IMAGES_TAG" ]]; then
+            IMAGES_TAG="2.7"
+        fi
+        if [[ -z "$DOCKER_SERVER" ]]; then
+            DOCKER_SERVER="mcr.microsoft.com"
+        fi
     else
+        if [[ -z "$IMAGES_TAG" ]]; then
+            IMAGES_TAG="preview"
+        fi
         HELM_CHART_VERSION="preview"
+        if [[ -z "$DOCKER_SERVER" ]]; then
+            DOCKER_SERVER="industrialiotdev.azurecr.io"
+        fi
     fi
 fi
 if [[ -z "$ROLE" ]]; then
     ROLE="AzureKubernetesServiceClusterUserRole"
 fi
-if [[ -z "$NAMESPACE" ]]; then
-    NAMESPACE="azure-industrial-iot"
-fi
 
+echo ""
 echo "RESOURCE_GROUP=$RESOURCE_GROUP"
 echo "NAMESPACE=$NAMESPACE"
 echo "AKS_CLUSTER=$AKS_CLUSTER"
@@ -94,6 +199,7 @@ echo "MANAGED_IDENTITY_NAME=$MANAGED_IDENTITY_NAME"
 echo "MANAGED_IDENTITY_CLIENT_ID=$MANAGED_IDENTITY_CLIENT_ID"
 echo "SERVICES_HOSTNAME=$SERVICES_HOSTNAME"
 echo "SERVICES_APP_ID=$SERVICES_APP_ID"
+echo ""
 
 # echo "DOCKER_PASSWORD=$DOCKER_PASSWORD"
 # echo "SERVICES_APP_SECRET=$SERVICES_APP_SECRET"
@@ -111,6 +217,15 @@ echo "Install Helm..."
 az acr helm install-cli --client-version "3.3.4" -y
 echo "Prerequisites installed - getting credentials..."
 
+# Add user as member to admin group to get access
+if [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
+    principalId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+    ./group-setup.sh \
+--description "Administrator group for $AKS_CLUSTER in resource group $RESOURCE_GROUP" \
+        --display "$AKS_CLUSTER Administrators" \
+        --member $principalId \
+        --name "$AKS_CLUSTER" 
+fi
 # Get AKS credentials
 if [[ "$ROLE" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
     az aks get-credentials --resource-group $RESOURCE_GROUP \
@@ -211,14 +326,14 @@ if [[ -z "$HELM_REPO_URL" ]] ; then
     echo "Download $chart..."
     helm chart pull $chart
     helm chart export $chart --destination ./aiiot
-    helm_chart_location="./aiiot"
+    helm_chart_location="./aiiot/$HELM_CHART_NAME"
     echo "Helm chart $chart downloaded."
 else
     # add the repo
     echo "Configure Helm chart repository configured..."
     helm repo add aiiot $HELM_REPO_URL
     helm repo update
-    helm_chart_location="aiiot/$HELM_CHART_NAME"
+    helm_chart_location="aiiot/$HELM_CHART_NAME --version $HELM_CHART_VERSION"
     echo "Install $HELM_REPO_URL/$HELM_CHART_NAME Helm chart..."
 fi
 
@@ -237,18 +352,19 @@ if ! kubectl create namespace $NAMESPACE ; then
     echo "Namespace already exists.  Performing upgrade"
     # todo: Upgrade
 else
-    echo "Install aad-pod-identity Helm chart..."
-
-    # Install per-pod identities into the namespace
-    helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-        --namespace $NAMESPACE
-
-    echo "Per pod identity support installed."
+    if [[ -n "$MANAGED_IDENTITY_ID" ]] ; then
+        echo "Install aad-pod-identity Helm chart..."
+        # Install per-pod identities into the namespace
+        helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
+            --namespace $NAMESPACE
+        echo "Per pod identity support installed."
+    fi
 
     # Install aiiot/azure-industrial-iot Helm chart
-    helm install --atomic azure-industrial-iot $helm_chart_location  \
+    echo "Install Helm chart from $helm_chart_location into $NAMESPACE..."
+    helm install --atomic azure-industrial-iot $helm_chart_location \
         --namespace $NAMESPACE \
-        --version $HELM_CHART_VERSION --timeout 30m0s $extra_settings \
+        --timeout 30m0s $extra_settings \
         --set image.tag=$IMAGES_TAG \
         --set loadConfFromKeyVault=true \
         --set azure.keyVault.uri=$KEY_VAULT_URI \
