@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash
 
 ADMIN=$USER
 IMAGES_NAMESPACE=

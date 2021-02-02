@@ -47,6 +47,8 @@ azure:
 
   # Those are details of the managed identity for services to use.
   managedIdentity:
+    # azure.managedIdentity.name is name of the managed identity.
+    name: null
     # azure.managedIdentity.clientId is clientId of the managed identity.
     clientId: null
     # azure.managedIdentity.tenantId is Guid TenantId of the tenant that contains the managed identity.

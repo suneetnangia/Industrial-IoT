@@ -298,7 +298,11 @@
                         "value": "[variables('aksClusterIdentityResourceId')]"
                     },
                     "assignRoles": {
-                         "value": [ "NetworkContributor", "ManagedIdentityOperator" ]
+                        "value": [ 
+                            "NetworkContributor", 
+                            "ManagedIdentityOperator",
+                            "VirtualMachineContributor"
+                         ]
                     },
                     "scope":{
                          "value": "[resourceGroup().id]"

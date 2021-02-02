@@ -1,8 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
+# must be run as sudo
 # -------------------------------------------------------------------------------
-if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then set -ex; else set -e; fi
-
 CWD=$(pwd)
 RESOURCE_GROUP=
 NAMESPACE=
@@ -18,6 +17,8 @@ IMAGES_NAMESPACE=
 DOCKER_SERVER=
 DOCKER_USER=
 TENANT_ID=
+USER_EMAIL=
+USER_ID=
 KEY_VAULT_URI=
 MANAGED_IDENTITY_ID=
 MANAGED_IDENTITY_NAME=
@@ -36,6 +37,8 @@ while [ "$#" -gt 0 ]; do
         --resourceGroup)            RESOURCE_GROUP="$2" ;;
         -g)                         RESOURCE_GROUP="$2" ;;
         --aksCluster)               AKS_CLUSTER="$2" ;;
+        --email)                    USER_EMAIL="$2" ;;
+        --user)                     USER_ID="$2" ;;
         --loadBalancerIp)           LOAD_BALANCER_IP="$2" ;;
         --publicIpDnsLabel)         PUBLIC_IP_DNS_LABEL="$2" ;;
         --helmRepoUrl)              HELM_REPO_URL="$2" ;;
@@ -93,7 +96,7 @@ if [[ -z "$KEY_VAULT_URI" ]]; then
 fi
 if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
     MANAGED_IDENTITY_ID=$(az identity list -g $RESOURCE_GROUP \
-        --query "[?starts_with(name, 'services-')].id)" -o tsv | tr -d '\r')
+        --query "[?starts_with(name, 'services-')].id" -o tsv | tr -d '\r')
     if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
         echo "Unable to find platform msi in '$RESOURCE_GROUP' group."
         echo "Ensure it was created before running this script."
@@ -121,12 +124,12 @@ if [[ -z "$LOAD_BALANCER_IP" ]] || \
    [[ -z "$SERVICES_HOSTNAME" ]] ; then
     # public ip domain label should be namespace name
     publicIpId=$(az network public-ip list \
-        --query "[?dnsSettings.domainNameLabel=='$NAMESPACE']" \
+        --query "[?dnsSettings.domainNameLabel=='$NAMESPACE'].id" \
         -o tsv | tr -d '\r')
     if [[ -z "$publicIpId" ]] ; then
         # If not then public ip name starts with resource group name
         publicIpId=$(az network public-ip list \
-            --query "[?starts_with(name, '$RESOURCE_GROUP')]" \
+            --query "[?starts_with(name, '$RESOURCE_GROUP')].id" \
             -o tsv | tr -d '\r')
     fi
     if [[ -z "$publicIpId" ]] ; then
@@ -135,7 +138,7 @@ if [[ -z "$LOAD_BALANCER_IP" ]] || \
         exit 1
     fi
     IFS=$'\n'; publicIp=($(az network public-ip show --ids $publicIpId \
-        --query "[dnsSettings.fqdn, ipAddress, domainNameLabel]" \
+        --query "[dnsSettings.fqdn, ipAddress, dnsSettings.domainNameLabel]" \
         -o tsv | tr -d '\r')); unset IFS;
 
     SERVICES_HOSTNAME=${publicIp[0]}
@@ -146,6 +149,18 @@ if [[ -z "$LOAD_BALANCER_IP" ]] || \
         exit 1
     fi
 fi
+if [[ -z "$USER_EMAIL" ]] || \
+   [[ -z "$USER_ID" ]] ; then
+    IFS=$'\n'; user=($(az ad signed-in-user show \
+        --query "[objectId, mail]" -o tsv | tr -d '\r')); unset IFS;
+    if [[ -z "$USER_ID" ]]; then
+        USER_ID=${user[0]}
+    fi
+    if [[ -z "$USER_EMAIL" ]]; then
+        USER_EMAIL=${user[1]}
+    fi
+fi
+
 if [[ -n "$SERVICES_APP_ID" ]]; then
     if [[ -z "$SERVICES_APP_SECRET" ]]; then
         echo "Missing service app secret. "
@@ -199,33 +214,42 @@ echo "MANAGED_IDENTITY_NAME=$MANAGED_IDENTITY_NAME"
 echo "MANAGED_IDENTITY_CLIENT_ID=$MANAGED_IDENTITY_CLIENT_ID"
 echo "SERVICES_HOSTNAME=$SERVICES_HOSTNAME"
 echo "SERVICES_APP_ID=$SERVICES_APP_ID"
+echo "USER_ID=$USER_ID"
+echo "USER_EMAIL=$USER_EMAIL"
 echo ""
 
 # echo "DOCKER_PASSWORD=$DOCKER_PASSWORD"
 # echo "SERVICES_APP_SECRET=$SERVICES_APP_SECRET"
 
 # -------------------------------------------------------------------------------
-# Go to home.
-cd ~
-
-# Install utilities
-apk update
-apk add gettext
-echo "Install kubectl..."
-az aks install-cli
-echo "Install Helm..."
-az acr helm install-cli --client-version "3.3.4" -y
-echo "Prerequisites installed - getting credentials..."
-
 # Add user as member to admin group to get access
 if [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    principalId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
-    ./group-setup.sh \
+    if [[ -n "$USER_ID" ]] ; then
+        source $CWD/group-setup.sh \
 --description "Administrator group for $AKS_CLUSTER in resource group $RESOURCE_GROUP" \
-        --display "$AKS_CLUSTER Administrators" \
-        --member $principalId \
-        --name "$AKS_CLUSTER" 
+            --display "$AKS_CLUSTER Administrators" \
+            --member "$USER_ID" \
+            --name "$AKS_CLUSTER" 
+    fi
 fi
+# Go to home.
+cd ~
+if ! kubectl version > /dev/null 2>&1 ; then
+    echo "Install kubectl..."
+    if ! az aks install-cli > /dev/null 2>&1; then 
+        echo "Failed to install kubectl.  Are you running as sudo?"
+        exit 1
+    fi
+fi
+if ! helm version > /dev/null 2>&1 ; then
+    echo "Install Helm..."
+    if ! az acr helm install-cli --client-version "3.3.4" -y > /dev/null 2>&1; then
+        echo "Failed to install helm.  Are you running as sudo?"
+        exit 1
+    fi
+fi
+echo "Prerequisites installed - getting credentials for the cluster..."
+
 # Get AKS credentials
 if [[ "$ROLE" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
     az aks get-credentials --resource-group $RESOURCE_GROUP \
@@ -234,81 +258,38 @@ else
     az aks get-credentials --resource-group $RESOURCE_GROUP \
         --name $AKS_CLUSTER
 fi
-echo "Credentials acquired."
+echo "Credentials for AKS cluster acquired."
 
 # -------------------------------------------------------------------------------
 # Configure omsagent
-kubectl apply -f "$CWD/omsagent.yaml"
-echo "OMS installed."
+if [[ -f "$CWD/omsagent.yaml" ]];then
+    if ! kubectl apply -f "$CWD/omsagent.yaml" ; then
+        echo "Failed to install OMS agent."
+    else
+        echo "Azure monitor OMS agent support installed."
+    fi
+else
+    echo "Missing omsagent.yml configuration."
+    echo "Skipping installation of OMS agent."
+fi
 
 # -------------------------------------------------------------------------------
 # Add Helm repos
-helm repo add ingress-nginx \
-    https://kubernetes.github.io/ingress-nginx
-helm repo add jetstack \
-    https://charts.jetstack.io
-helm repo add aad-pod-identity \
-    https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
-helm repo update
-echo "Repos updated."
-
-# -------------------------------------------------------------------------------
-# Create ingress-nginx namespace
-if ! kubectl create namespace $NAMESPACE-ingress-nginx ; then
-    echo "Ingress controller namespace exists."
-    # todo: Upgrade
-else
-    echo "Install ingress-nginx/ingress-nginx Helm chart..."
-    # Install ingress-nginx/ingress-nginx Helm chart
-    helm install --atomic ingress-nginx ingress-nginx/ingress-nginx \
-        --namespace $NAMESPACE-ingress-nginx \
-        --version 3.20.1 --timeout 30m0s \
-        --set controller.replicaCount=2 \
-        --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
-        --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
-        --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$PUBLIC_IP_DNS_LABEL \
-        --set controller.config.compute-full-forward-for='"true"' \
-        --set controller.config.use-forward-headers='"true"' \
-        --set controller.config.proxy-buffer-size='"32k"' \
-        --set controller.config.client-header-buffer-size='"32k"' \
-        --set controller.metrics.enabled=true \
-        --set defaultBackend.enabled=true \
-        --set defaultBackend.nodeSelector."beta\.kubernetes\.io\/os"=linux
-    echo "Ingress controller installed."
+if ! helm repo add jetstack \
+    https://charts.jetstack.io ; then
+    echo "Failed to add jetstack repo."
+    exit 1
 fi
-
-# -------------------------------------------------------------------------------
-# Create cert-manager namespace
-if ! kubectl create namespace $NAMESPACE-cert-manager ; then
-    echo "Cert manager namespace already exists."
-    # todo: Upgrade
-else
-    echo "Install jetstack/cert-manager Helm chart..."
-    # Install jetstack/cert-manager Helm chart
-    helm install --atomic cert-manager jetstack/cert-manager \
-        --namespace $NAMESPACE-cert-manager \
-        --version v1.1.0 --timeout 30m0s \
-        --set installCRDs=true
-
-    # Create Let's Encrypt ClusterIssuer
-    n=0
-    iterations=20
-    until [[ $n -ge $iterations ]]; do
-        kubectl apply -f "$CWD/letsencrypt.yaml" && break
-        n=$[$n+1]
-
-        echo "Trying to create Let's Encrypt ClusterIssuer again in 15 seconds"
-        sleep 15
-    done
-    if [[ $n -eq $iterations ]]; then
-        echo "Failed to create Let's Encrypt ClusterIssuer"
-        exit 1
-    fi
-    echo "Cert manager installed."
+if ! helm repo add ingress-nginx \
+    https://kubernetes.github.io/ingress-nginx ; then
+    echo "Failed to add ingress-nginx repo."
+    exit 1
 fi
-
-# -------------------------------------------------------------------------------
-# Install azure iiot services chart
+if ! helm repo add aad-pod-identity \
+    https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts ; then
+    echo "Failed to add aad-pod-identity repo."
+    exit 1
+fi
 
 if [[ -z "$HELM_REPO_URL" ]] ; then
     export HELM_EXPERIMENTAL_OCI=1
@@ -324,18 +305,27 @@ if [[ -z "$HELM_REPO_URL" ]] ; then
         fi
     fi
     echo "Download $chart..."
-    helm chart pull $chart
+    if ! helm chart pull $chart ; then
+        echo "Failed to download $chart."
+        exit 1
+    fi
     helm chart export $chart --destination ./aiiot
     helm_chart_location="./aiiot/$HELM_CHART_NAME"
-    echo "Helm chart $chart downloaded."
+    echo "Downloaded Helm chart $chart will be installed..."
 else
     # add the repo
     echo "Configure Helm chart repository configured..."
-    helm repo add aiiot $HELM_REPO_URL
-    helm repo update
+    if ! helm repo add aiiot $HELM_REPO_URL ; then
+        echo "Failed to add azure-industrial-iot repo."
+        exit 1
+    fi
     helm_chart_location="aiiot/$HELM_CHART_NAME --version $HELM_CHART_VERSION"
-    echo "Install $HELM_REPO_URL/$HELM_CHART_NAME Helm chart..."
+    echo "Helm chart from $HELM_REPO_URL/$HELM_CHART_NAME will be installed..."
 fi
+helm repo update
+
+# -------------------------------------------------------------------------------
+# Install ingress controller and azure iiot services chart
 
 extra_settings=""
 if [[ -n "$SERVICES_APP_ID" ]] ; then
@@ -348,43 +338,157 @@ if [[ -n "$MANAGED_IDENTITY_CLIENT_ID" ]] ; then
 fi
 
 # Create namespace
-if ! kubectl create namespace $NAMESPACE ; then
-    echo "Namespace already exists.  Performing upgrade"
+if ! kubectl create namespace $NAMESPACE > /dev/null 2>&1 ; then
+    echo "Namespace $NAMESPACE already exists.  Performing upgrade..."
+    # todo: Upgrade
+    # todo: Upgrade
+    # todo: Upgrade
     # todo: Upgrade
 else
-    if [[ -n "$MANAGED_IDENTITY_ID" ]] ; then
-        echo "Install aad-pod-identity Helm chart..."
-        # Install per-pod identities into the namespace
-        helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-            --namespace $NAMESPACE
-        echo "Per pod identity support installed."
+    echo ""
+    echo "Installing aad-pod-identity Helm chart..."
+    # Install per-pod identities into the namespace
+    helm install --atomic $NAMESPACE-identity aad-pod-identity/aad-pod-identity \
+        --namespace $NAMESPACE --version 3.0.0 --timeout 30m0s \
+        --set forceNamespaced="true"
+    if [ $? -eq 0 ]; then
+        cat <<EOF | kubectl apply -f -
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentity
+metadata:
+  name: $MANAGED_IDENTITY_NAME
+  namespace: $NAMESPACE
+  annotations:
+    aadpodidentity.k8s.io/Behavior: namespaced
+spec:
+  type: 0
+  resourceID: $MANAGED_IDENTITY_ID
+  clientID: $MANAGED_IDENTITY_CLIENT_ID
+EOF
+        cat <<EOF | kubectl apply -f -
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentityBinding
+metadata:
+  name: $MANAGED_IDENTITY_NAME-binding
+  namespace: $NAMESPACE
+spec:
+  azureIdentity: $MANAGED_IDENTITY_NAME
+  selector: $NAMESPACE-identity
+EOF
+        # -set nmi.allowNetworkPluginKubenet=true
+        echo "Per pod identity support installed into $NAMESPACE."
+    else
+        echo "Failed to install per-pod identity support into $NAMESPACE."
+        kubectl delete namespaces $NAMESPACE > /dev/null 2>&1
+        exit 1
+    fi
+
+    # Install jetstack/cert-manager Helm chart and create Let's encrypt issuer
+    echo ""
+    echo "Installing jetstack/cert-manager Helm chart..."
+    helm install --atomic $NAMESPACE-cert-manager jetstack/cert-manager \
+        --namespace $NAMESPACE --version v1.1.0 --timeout 30m0s \
+        --set installCRDs=true 
+    n=0
+    iterations=0
+    if [ $? -eq 0 ]; then
+        echo "Create Let's Encrypt Issuer in $NAMESPACE..."
+        email=""
+        if [[ -n "$USER_EMAIL" ]] ; then
+            email="    email: $USER_EMAIL"
+        fi
+        iterations=20
+        until [[ $n -ge $iterations ]] ; do
+            cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-$NAMESPACE
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+$email
+    privateKeySecretRef:
+      name: letsencrypt-$NAMESPACE
+    solvers:
+    - http01:
+        ingress:
+          class: nginx-$NAMESPACE
+EOF
+
+            if [ $? -eq 0 ]; then
+                break
+            fi
+            n=$[$n+1]
+            echo "Trying to create Let's Encrypt Issuer again in 15 seconds"
+            sleep 15
+        done
+    fi
+    if [[ $n -eq $iterations ]]; then
+        echo "Failed to install Let's Encrypt issuer into $NAMESPACE."
+        kubectl delete namespaces $NAMESPACE > /dev/null 2>&1
+        exit 1
+    else
+        echo "Let's Encrypt issuer installed into $NAMESPACE."
+    fi
+
+    # Install ingress-nginx/ingress-nginx Helm chart
+    echo ""
+    echo "Installing ingress controller class nginx-$NAMESPACE for $LOAD_BALANCER_IP..."
+    helm install --atomic $NAMESPACE-ingress ingress-nginx/ingress-nginx \
+        --namespace $NAMESPACE --version 3.20.1 --timeout 30m0s \
+        --set controller.ingressClass=nginx-$NAMESPACE \
+        --set controller.replicaCount=2 \
+        --set controller.podLabels.aadpodidbinding=$MANAGED_IDENTITY_NAME \
+        --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
+        --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
+        --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$PUBLIC_IP_DNS_LABEL \
+        --set controller.config.compute-full-forward-for='"true"' \
+        --set controller.config.use-forward-headers='"true"' \
+        --set controller.config.proxy-buffer-size='"32k"' \
+        --set controller.config.client-header-buffer-size='"32k"' \
+        --set controller.metrics.enabled=true \
+        --set defaultBackend.enabled=true \
+        --set defaultBackend.nodeSelector."beta\.kubernetes\.io\/os"=linux 
+      # --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-load-balancer-internal"=true \
+    if [ $? -eq 0 ]; then
+        echo "Ingress controller class nginx-$NAMESPACE installed."
+    else
+        echo "Failed to install ingress controller into $NAMESPACE."
+        kubectl delete namespaces $NAMESPACE > /dev/null 2>&1
+        exit 1
     fi
 
     # Install aiiot/azure-industrial-iot Helm chart
-    echo "Install Helm chart from $helm_chart_location into $NAMESPACE..."
+    echo ""
+    echo "Installing Helm chart from $helm_chart_location into $NAMESPACE..."
     helm install --atomic azure-industrial-iot $helm_chart_location \
-        --namespace $NAMESPACE \
-        --timeout 30m0s $extra_settings \
+        --namespace $NAMESPACE --timeout 30m0s $extra_settings \
         --set image.tag=$IMAGES_TAG \
         --set loadConfFromKeyVault=true \
         --set azure.keyVault.uri=$KEY_VAULT_URI \
         --set azure.tenantId=$TENANT_ID \
         --set externalServiceUrl="https://$SERVICES_HOSTNAME" \
         --set deployment.microServices.engineeringTool.enabled=false \
-        --set deployment.microServices.telemetryCdmProcessor.enabled=false \
         --set deployment.ingress.enabled=true \
-        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx \
+        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$NAMESPACE \
         --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/affinity"=cookie \
         --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-name"=affinity \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-expires"=14400 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-max-age"=14400 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-read-timeout"=3600 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-send-timeout"=3600 \
-        --set deployment.ingress.annotations."cert-manager\.io\/cluster-issuer"=letsencrypt-prod \
+        --set deployment.ingress.annotations."cert-manager\.io\/issuer"=letsencrypt-$NAMESPACE \
         --set deployment.ingress.tls[0].hosts[0]=$SERVICES_HOSTNAME \
         --set deployment.ingress.tls[0].secretName=tls-secret \
         --set deployment.ingress.hostName=$SERVICES_HOSTNAME
+    if [ $? -eq 0 ]; then
+        echo "Helm chart from $helm_chart_location installed into $NAMESPACE."
+    else
+        echo "Failed to install helm chart from $helm_chart_location."
+        kubectl delete namespaces $NAMESPACE > /dev/null 2>&1
+        exit 1
+    fi
 fi
-
 echo "Done"
 # -------------------------------------------------------------------------------

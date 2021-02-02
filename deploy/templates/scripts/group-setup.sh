@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # -------------------------------------------------------------------------------
-if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then set -ex; else set -e; fi
-
 usage(){
     echo '
 Usage: '"$0"' 
@@ -132,6 +130,9 @@ fi
 # ---------- add owners and members ---------------------------------------------
 # add reference to members or owners
 add_group_ref(){
+    if [[ -z "$2" ]] ; then
+        return
+    fi
     # bug - need to use beta api since v1.0 does not return SP references
     existing=$(az rest --method get \
         --uri https://graph.microsoft.com/beta/groups/$1/$3 \

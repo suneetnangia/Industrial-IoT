@@ -12,6 +12,9 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     app.kubernetes.io/component: {{ template "azure-industrial-iot.twin.component" . }}
     app.kubernetes.io/part-of: azure-industrial-iot
+{{- if .Values.azure.managedIdentity.name }}
+    aadpodidbinding: {{ .Values.azure.managedIdentity.name }}
+{{- end }}
 {{- if .Values.deployment.microServices.twin.extraLabels }}
 {{ toYaml .Values.deployment.microServices.twin.extraLabels | indent 4 }}
 {{- end }}
