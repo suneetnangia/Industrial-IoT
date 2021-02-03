@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # -------------------------------------------------------------------------------
-set -e
 usage(){
     echo '
 Usage: '"$0"'  
@@ -51,6 +50,10 @@ if [[ -z "$resourcegroup" ]]; then
         results=($(az ad sp create-for-rbac --role Contributor \
             --query "[appId, name, password, tenant]" -o tsv | tr -d '\r'))
     fi
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create service principal."
+        exit 1
+    fi
     unset IFS;
     principalId=$(az ad sp show --id ${results[0]} \
         --query objectId -o tsv | tr -d '\r')
@@ -72,13 +75,20 @@ else
         rg=$(az group create -g $resourcegroup -l $location \
             --query id -o tsv | tr -d '\r')
     fi
-
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create resource group."
+        exit 1
+    fi
     # create or update identity and get service principal object id
     principalId=$(az identity show -g $resourcegroup -n $name \
         --query principalId -o tsv 2> /dev/null | tr -d '\r')
     if [[ -z "$principalId" ]]; then 
         principalId=$(az identity create -g $resourcegroup -n $name \
             --query principalId -o tsv | tr -d '\r')
+        if [ $? -ne 0 ]; then
+            echo "ERROR: Failed to create managed identity."
+            exit 1
+        fi
     fi
 fi
 
@@ -87,7 +97,7 @@ assign_app_role(){
     appRoleId=$(az ad sp show --id $2 \
         --query "appRoles[?value=='$3'].id" -o tsv | tr -d '\r')
     if [[ -z "$appRoleId" ]]; then 
-        echo "Unexpected: App role '$3' does not exist in '$2'."
+        echo "FATAL: App role '$3' does not exist in '$2'."
         exit 1
     fi
     roleAssignmentId=$(az rest --method get \
@@ -120,7 +130,7 @@ assign_app_role(){
 # We need the graph API principal id first.
 graphSpId=$(az ad sp list --filter "DisplayName eq 'Microsoft Graph'" \
     --query [0].objectId -o tsv | tr -d '\r')
-if [[ -z "$resourcegroup" ]]; then 
+if [[ -z "$graphSpId" ]]; then 
     echo "Unexpected: No Microsoft Graph service principal found."; exit 1
 fi
 

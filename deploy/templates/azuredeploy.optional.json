@@ -26,6 +26,63 @@
                 "description": "The name of the Event Hub namespace created as part of the deployment."
             }
         },
+        "signalRName": {
+            "type": "string",
+            "defaultValue": "[concat('signalr-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the signalR endpoint created as part of this deployment."
+            }
+        },
+        "signalRSkuTier": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Free",
+                "Standard",
+                "Premium"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service SKU Tier to use."
+            }
+        },
+        "signalRSkuName": {
+            "type": "string",
+            "defaultValue": "Standard_S1",
+            "allowedValues": [
+                "Free_F1",
+                "Standard_S1"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service SKU to use."
+            }
+        },
+        "signalRServiceMode": {
+            "type": "string",
+            "defaultValue": "Default",
+            "allowedValues": [
+                "Default",
+                "Serverless"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service mode to use. Defaults to Classic."
+            }
+        },
+        "signalRSkuCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "allowedValues": [
+                1,
+                2,
+                5,
+                10,
+                20,
+                50,
+                100
+            ],
+            "metadata": {
+                "description": "The Azure SignalR SKU Capacity"
+            }
+        },
         "eventHubName": {
             "type": "string",
             "defaultValue": "[concat('eventhub-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
@@ -85,6 +142,7 @@
         "eventHubKeyResourceId": "[resourceId('Microsoft.EventHub/namespaces/AuthorizationRules', parameters('eventHubNamespaceName'), variables('eventHubKeyName'))]",
         "eventHubNamespaceResourceId": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]",
         "eventHubResourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
+        "signalRResourceId": "[resourceId('Microsoft.SignalRService/SignalR', parameters('signalRName'))]",
         "eventHubUxConsumerGroup": "telemetryux",
         "configurationResourceName": "optional.configuration"
     },
@@ -123,6 +181,33 @@
             ]
         },
         {
+            "comments": "SignalR service for UX and API events",
+            "type": "Microsoft.SignalRService/SignalR",
+            "name": "[parameters('signalRName')]",
+            "apiVersion": "2018-10-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "hostNamePrefix": "[parameters('signalRName')]",
+                "features": [
+                    {
+                        "flag": "ServiceMode",
+                        "value": "[parameters('signalRServiceMode')]"
+                    }
+                ],
+                "cors": {
+                    "allowedOrigins": [
+                        "*"
+                    ]
+                }
+            },
+            "sku": {
+                "name": "[parameters('signalRSkuName')]",
+                "tier": "[parameters('signalRSkuTier')]",
+                "capacity": "[parameters('signalRSkuCapacity')]"
+            }
+        },
+        {
             "comments": "Consumer Group for UX and API telemetry consumers",
             "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
             "apiVersion": "2017-04-01",
@@ -150,6 +235,14 @@
                     "configuration": {
                         "value": [
                             {
+                                "key": "PCS_SIGNALR_CONNSTRING",
+                                "value": "[listkeys(parameters('signalRName'), '2018-10-01').primaryConnectionString]"
+                            },
+                            {
+                                "key": "PCS_SIGNALR_MODE",
+                                "value": "[parameters('signalRServiceMode')]"
+                            },
+                            {
                                 "key": "PCS_EVENTHUB_CONNSTRING",
                                 "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.', parameters('serviceBusEndpointSuffix'), '/;SharedAccessKeyName=', variables('eventHubKeyName'), ';SharedAccessKey=', listkeys(variables('eventHubKeyResourceId'), '2017-04-01').primaryKey, ';')]"
                             },
@@ -169,6 +262,7 @@
                 }
             },
             "dependsOn": [
+                "[variables('signalRResourceId')]",
                 "[variables('eventHubResourceId')]"
             ]
         }
