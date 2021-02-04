@@ -1,4 +1,5 @@
 {
     "name": "iot/industrial-iot-events-service",
-    "exposes": "9050"
+    "exposes": "9050",
+    "buildAlways": true
 }

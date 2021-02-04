@@ -1,4 +1,5 @@
 {
     "name": "iot/opc-registry-service",
-    "exposes": [9042]
+    "exposes": [9042],
+    "buildAlways": true
 }

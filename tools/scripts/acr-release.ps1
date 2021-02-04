@@ -20,7 +20,7 @@
 #>
 
 Param(
-    [string] $Registry = "industrialiot",
+    [string] $Registry = "industrialiotdev",
     [string] $Subscription = "IOT_GERMANY",
     [Parameter(Mandatory = $true)]
     [string] $Version

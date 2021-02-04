@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ADMIN=$USER
-IMAGES_NAMESPACE=
 IMAGES_TAG=
 DOCKER_SERVER=
 DOCKER_USER=
@@ -18,7 +17,6 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --admin)                ADMIN="$2" ;;
         --name)                 DOCKER_COMPOSE_FILE="$2.yml" ;;
-        --imagesNamespace)      IMAGES_NAMESPACE="$2" ;;
         --imagesTag)            IMAGES_TAG="$2" ;;
         --dockerServer)         DOCKER_SERVER="$2" ;;
         --dockerUser)           DOCKER_USER="$2" ;;
@@ -68,11 +66,7 @@ fi
 chown -R $ADMIN ${APP_PATH}
 cd ${APP_PATH}
 rm -f ${ENVVARS}
-if [ -z "$IMAGES_NAMESPACE" ]; then
-    echo "REPOSITORY=${DOCKER_SERVER}" >> ${ENVVARS}
-else
-    echo "REPOSITORY=${DOCKER_SERVER}/${IMAGES_NAMESPACE}" >> ${ENVVARS}
-fi
+echo "REPOSITORY=${DOCKER_SERVER}" >> ${ENVVARS}
 if [ -z "$IMAGES_TAG" ]; then
     echo -e "Using latest version of images as defined in compose file."
 else

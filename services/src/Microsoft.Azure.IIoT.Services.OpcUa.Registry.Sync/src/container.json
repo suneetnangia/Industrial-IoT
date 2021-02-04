@@ -1,3 +1,4 @@
 {
-    "name": "iot/opc-registry-sync-service"
+    "name": "iot/opc-registry-sync-service",
+    "buildAlways": true
 }

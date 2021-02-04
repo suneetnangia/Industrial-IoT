@@ -42,13 +42,6 @@
                 "description": "Specifies the password to use for a private Container Registry."
             }
         },
-        "imagesNamespace": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies the namespace prefix for the images in the Container Registry."
-            }
-        },
         "imagesTag": {
             "type": "string",
             "defaultValue": "latest",
@@ -92,7 +85,7 @@
     "variables": {
 		"hostingPlanResourceId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
         "appSiteResourceId": "[resourceId('Microsoft.Web/sites', parameters('siteName'))]",
-        "appContainerImageName": "[concat(if(empty(parameters('imagesNamespace')), '', concat(parameters('imagesNamespace'), '/')), 'iot/industrial-iot-frontend', ':', parameters('imagesTag'))]"
+        "appContainerImageName": "[concat('iot/industrial-iot-frontend', ':', parameters('imagesTag'))]"
     },
     "resources": [
         {

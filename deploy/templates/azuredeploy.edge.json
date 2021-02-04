@@ -191,13 +191,6 @@
                 "description": "Specifies the password to the Container Registry."
             }
         },
-        "imagesNamespace": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies the namespace prefix for the images in the Container Registry."
-            }
-        },
         "imagesTag": {
             "type": "string",
             "defaultValue": "latest",
@@ -473,7 +466,7 @@
                                     ]
                                 },
                                 "protectedSettings": {
-                                    "commandToExecute": "[concat('sudo bash simulation.sh ', ' --admin ', parameters('edgeUsername'), ' --name ', parameters('simulationProfile'), ' --imagesNamespace ', concat('\"', parameters('imagesNamespace'), '\"'), ' --imagesTag ', concat('\"', parameters('imagesTag'), '\"'), ' --dockerServer ', concat('\"', parameters('dockerServer'), '\"'), ' --dockerUser ', concat('\"', parameters('dockerUser'), '\"'), ' --dockerPassword ', concat('\"', parameters('dockerPassword'), '\"'))]"
+                                    "commandToExecute": "[concat('sudo bash simulation.sh ', ' --admin ', parameters('edgeUsername'), ' --name ', parameters('simulationProfile'), ' --imagesTag ', concat('\"', parameters('imagesTag'), '\"'), ' --dockerServer ', concat('\"', parameters('dockerServer'), '\"'), ' --dockerUser ', concat('\"', parameters('dockerUser'), '\"'), ' --dockerPassword ', concat('\"', parameters('dockerPassword'), '\"'))]"
                                 }
                             },
                             "dependsOn": [

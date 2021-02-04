@@ -134,13 +134,6 @@
                 "description": "Specifies the password to use for a private Container Registry."
             }
         },
-        "imagesNamespace": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Specifies the namespace prefix for the images in the Container Registry."
-            }
-        },
         "imagesTag": {
             "type": "string",
             "defaultValue": "latest",
@@ -229,9 +222,6 @@
                     "dockerPassword": {
                         "value": "[parameters('dockerPassword')]"
                     },
-                    "imagesNamespace": {
-                        "value": "[parameters('imagesNamespace')]"
-                    },
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"
                     },
@@ -303,9 +293,6 @@
                     },
                     "dockerPassword": {
                         "value": "[parameters('dockerPassword')]"
-                    },
-                    "imagesNamespace": {
-                        "value": "[parameters('imagesNamespace')]"
                     },
                     "imagesTag": {
                         "value": "[parameters('imagesTag')]"

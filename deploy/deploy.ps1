@@ -3,48 +3,61 @@
   Deploys Industrial IoT platform to Azure.
 
  .DESCRIPTION
-  Deploys the Industrial IoT platform and dependencies in an 
-  interactive way to Azure subscriptions.  
+  Deploys the Industrial IoT platform and dependencies in an interactive 
+  way to Azure subscriptions.  The deployment is made up of the Azure
+  services required.  As default an AKS cluster will also be deployed.
 
  .PARAMETER Type
   The type of deployment (minimum, local, simulation, all).
   Defaults to all.
-
  .PARAMETER Version
-  Set to a version number that corresponds to an mcr image tag
-  of the concrete release you want to deploy.
-  If not set deploys current master branch ("preview").
+  Set to a version number that corresponds to an mcr image tag of the 
+  concrete release you want to deploy.
+  If not provided the version will be "preview".  
 
  .PARAMETER DockerServer
-  An optional name of an Azure container registry to deploy 
-  containers from.
+  An optional name of an Azure container registry to deploy containers
+  from. If not set and run from a release branch the script deploys the 
+  release corresponding to the branch from mcr.microosft.com.
+  If the resource group provided by name contains a Azure Container 
+  registry the registry is used. Otherwise the developer registry is used. 
 
  .PARAMETER SourceUri
   Source uri where the deployment scripts and template artifacts can be
   found.  Defaults to github repo if not provided.
 
- .PARAMETER AadPreConfiguration
-  The aad configuration object (use aad-register.ps1 to create object).
-  If not provided, calls aad-register.ps1.
-
- .PARAMETER SimulationProfile
-  If you are deploying a simulation, the simulation profile to use
-  If not provided, uses default.
-
- .PARAMETER NumberOfSimulationsPerEdge
-  Number of simulations to deploy per edge.
-
- .PARAMETER NumberOfLinuxGateways
-  Number of Linux gateways to deploy into the simulation.
-
- .PARAMETER NumberOfWindowsGateways
-  Number of Windows gateways to deploy into the simulation.
+ .PARAMETER ResourceGroupName
+  Name of an existing or resource group to create. 
+  If not provided or in incorrect format the script will prompt
+  for a name.
+ .PARAMETER ResourceGroupLocation
+  Azure region to deploy into.  
+  If not set script will ask to select a region from a list of possible
+  regions.
 
  .PARAMETER TenantId
   An optional tenant id that should be used to access the subscriptions.
-
+ .PARAMETER Subscription
+  An identifier of a subscription, either name or id. If not provided or
+  not valid, will prompt user to select.
  .PARAMETER EnvironmentName
   The cloud environment to use, defaults to AzureCloud.
+
+ .PARAMETER AadPreConfiguration
+  The aad configuration object (use aad-register.ps1 to create object).
+  If not provided, calls graph-register.ps1 which can be found in the 
+  the same folder as this script.
+
+ .PARAMETER SimulationProfile
+  If you are deploying a simulation, the simulation profile to use.
+  If not provided, uses default simulation profile consisting of 
+  simulated OPC UA PLC servers.
+ .PARAMETER NumberOfSimulationsPerEdge
+  Number of simulations to deploy per edge.
+ .PARAMETER NumberOfLinuxGateways
+  Number of Linux gateways to deploy into the simulation.
+ .PARAMETER NumberOfWindowsGateways
+  Number of Windows gateways to deploy into the simulation.
 #>
 
 param(
@@ -52,6 +65,8 @@ param(
     [string] $Type = "all",
     [string] $Version = $null,
     [string] $DockerServer = $null,
+    [string] $ResourceGroupName = $null,
+    [string] $ResourceGroupLocation = $null,
     [string] $SourceUri = $null,
     [object] $AadPreConfiguration = $null,
     [string] $SimulationProfile = $null,
@@ -62,9 +77,10 @@ param(
     [string] $EnvironmentName = "AzureCloud"
 )
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 Set-Item Env:\SuppressAzurePowerShellBreakingChangeWarnings "true"
 Import-Module Az 
+Import-Module Az.ContainerRegistry
 Import-Module Az.ManagedServiceIdentity -WarningAction SilentlyContinue
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
 Remove-Module pwsh-setup -ErrorAction SilentlyContinue
@@ -84,8 +100,8 @@ $script:requiredProviders = @(
     "microsoft.containerservice",
     "microsoft.containerregistry"
 )
-# -------------------------------------------------------------------------------
 
+# -------------------------------------------------------------------------
 # Filter locations for provider and resource type
 Function Select-ResourceGroupLocations() {
     param (
@@ -196,7 +212,7 @@ Function Get-EnvironmentVariables() {
     }
 }
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 $templateParameters = @{ }
 
 # Select branch component - default to master
@@ -210,7 +226,7 @@ if (![string]::IsNullOrEmpty($branchName)) {
         $branchName = $null
     }
 }
-# Try to use git to get a branch name and repo to deploy from 
+# Try to use git to get a branch name and repo to deploy from
 if ([string]::IsNullOrEmpty($branchName)) {
     try {
         $argumentList = @("rev-parse", "--abbrev-ref", "@{upstream}")
@@ -233,7 +249,6 @@ if ([string]::IsNullOrEmpty($branchName)) {
 }
 if (![string]::IsNullOrEmpty($branchName) -and
     ([string]::IsNullOrEmpty($script:SourceUri))) {
-    # deploy from the named branch on github
     $script:SourceUri = "https://raw.githubusercontent.com/Azure/Industrial-IoT"
 }
 
@@ -242,15 +257,11 @@ if ([string]::IsNullOrEmpty($script:Version)) {
     if (![string]::IsNullOrEmpty($branchName) -and 
         ($branchName.StartsWith("release/"))) {
         $script:Version = $branchName.Replace("release/", "")
-        # default docker server is mcr so no need to set it here
+        $script:DockerServer = "mcr.microsoft.com"
     }
     else {
         # master or development preview
         $script:Version = "preview"
-        if ([string]::IsNullOrEmpty($script:DockerServer)) {
-            $script:DockerServer = "industrialiotdev.azurecr.io"
-        }
-
         # Pull preview charts from development server
         $templateParameters.Add("helmPullChartFromDockerServer", $true)
         $templateParameters.Add("helmChartVersion", $script:Version)
@@ -260,9 +271,8 @@ if ([string]::IsNullOrEmpty($script:Version)) {
 Write-Host "Using '$($script:Version)' version..."
 # Get or create new resource group for deployment
 $first = $true
-$resourceGroupName = $null
-while ([string]::IsNullOrEmpty($resourceGroupName) `
-        -or ($resourceGroupName -notmatch "^[a-z0-9-_]*$")) {
+while ([string]::IsNullOrEmpty($script:ResourceGroupName) `
+        -or ($script:ResourceGroupName -notmatch "^[a-z0-9-_]*$")) {
     if ($first -eq $false) {
         Write-Host "Use alphanumeric characters as well as '-' or '_'."
     }
@@ -271,7 +281,7 @@ while ([string]::IsNullOrEmpty($resourceGroupName) `
         Write-Host "Please provide a name for the resource group."
         $first = $false
     }
-    $resourceGroupName = Read-Host -Prompt ">"
+    $script:ResourceGroupName = Read-Host -Prompt ">"
 }
 
 # Select application name
@@ -279,7 +289,7 @@ $applicationName = $null
 if (($script:Type -eq "local") -or ($script:Type -eq "simulation")) {
     if ([string]::IsNullOrEmpty($applicationName) `
             -or ($applicationName -notmatch "^[a-z0-9-]*$")) {
-        $applicationName = $resourceGroupName.Replace('_', '-')
+        $applicationName = $script:ResourceGroupName.Replace('_', '-')
     }
     if ($script:Type -eq "local") {
         $templateParameters.Add("deployOptionalServices", $true)
@@ -301,12 +311,12 @@ else {
             Write-Host "Please specify a name for your application."
             $first = $false
         }
-        if ($resourceGroupName -match "^[a-z0-9-]*$") {
-            Write-Host "Hit enter to use $($resourceGroupName)."
+        if ($script:ResourceGroupName -match "^[a-z0-9-]*$") {
+            Write-Host "Hit enter to use $($script:ResourceGroupName)."
         }
         $applicationName = Read-Host -Prompt ">"
         if ([string]::IsNullOrEmpty($applicationName)) {
-            $applicationName = $resourceGroupName
+            $applicationName = $script:ResourceGroupName
         }
     }
 }
@@ -316,7 +326,7 @@ $templateParameters.Add("applicationName", $applicationName)
 
 # Select source of the scripts and templates consumed during deployment
 if (![string]::IsNullOrEmpty($branchName)) {
-    Write-Host "... Deploying using artifacts in GitHub branch '$($branchName)' at '$($script:SourceUri)'."
+    Write-Host "... Deploying from GitHub branch '$($branchName)' at '$($script:SourceUri)'."
     $script:SourceUri = "$($script:SourceUri)/$($branchName)"
 }
 else {
@@ -328,13 +338,10 @@ $templateParameters.Add("templateUrl", $templateUrl)
 
 # Select containers to deploy and where from.
 if ($script:Type -ne "local") {
-    if (![string]::IsNullOrEmpty($script:Version)) {
-        $templateParameters.Add("imagesTag", $script:Version)
-    }
+    Write-Host "... Deploying $($script:Version) tagged containers ..."
     if (![string]::IsNullOrEmpty($script:DockerServer)) {
-        $templateParameters.Add("dockerServer", $script:DockerServer)
+        Write-Host "... pulled from $($script:DockerServer)."
     }
-    Write-Host "... Deploying $($script:Version) tagged containers from $($script:DockerServer)."
 }
 else {
     Write-Host "... Local development deployment - no containers will be deployed."
@@ -369,10 +376,10 @@ if ($script:Type -eq "simulation") {
     $templateParameters.Add("numberOfLinuxGateways", $script:NumberOfLinuxGateways)
     $templateParameters.Add("numberOfWindowsGateways", $script:NumberOfWindowsGateways)
     $templateParameters.Add("numberOfSimulations", $script:NumberOfSimulationsPerEdge)
-    Write-Host "... Deploying simulation."
+    Write-Host "... Deploying $script:SimulationProfile simulation."
 }
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 # Log in - allow user to switch subscription
 Write-Host "Preparing deployment..."
@@ -384,8 +391,7 @@ $subscriptionId = $context.Subscription.Id
 Write-Host "... Subscription $subscriptionName ($subscriptionId) selected."
 
 # Create resource group
-$resourceGroupLocation = $null
-$resourceGroup = Get-AzResourceGroup -Name $resourceGroupName `
+$resourceGroup = Get-AzResourceGroup -Name $script:ResourceGroupName `
     -ErrorAction SilentlyContinue
 if (!$resourceGroup) {
     # Filter resource namespaces
@@ -404,36 +410,41 @@ if (!$resourceGroup) {
     $locations = Select-ResourceGroupLocations -locations $locations `
         -provider "microsoft.insights" -typeName "components"
 
-    Write-Host "Please choose a location for your deployment from this list (using its Index):"
-    $script:index = 0
-    $locations | Format-Table -AutoSize -property `
-    @{Name = "Index"; Expression = { ($script:index++) } }, `
-    @{Name = "Location"; Expression = { $_.DisplayName } } `
-    | Out-Host
-    while ($true) {
-        $option = Read-Host -Prompt ">"
-        try {
-            if ([int]$option -ge 1 -and [int]$option -le $locations.Count) {
-                break
+    if (($($locations | Select-Object -ExpandProperty DisplayName) `
+            -inotcontains $script:ResourceGroupLocation) -or
+        ($($locations | Select-Object -ExpandProperty Location) `
+            -inotcontains $script:ResourceGroupLocation)) {
+Write-Host "Please choose a location for your deployment from this list (using its Index):"
+        $script:index = 0
+        $locations | Format-Table -AutoSize -property `
+        @{Name = "Index"; Expression = { ($script:index++) } }, `
+        @{Name = "Location"; Expression = { $_.DisplayName } } `
+        | Out-Host
+        while ($true) {
+            $option = Read-Host -Prompt ">"
+            try {
+                if ([int]$option -ge 1 -and [int]$option -le $locations.Count) {
+                    break
+                }
             }
+            catch {
+                Write-Host "Invalid index '$($option)' provided."
+            }
+Write-Host "Choose from the list using an index between 1 and $($locations.Count)."
         }
-        catch {
-            Write-Host "Invalid index '$($option)' provided."
-        }
-        Write-Host "Choose from the list using an index between 1 and $($locations.Count)."
+        $script:ResourceGroupLocation = $locations[$option - 1].Location
     }
-    $resourceGroupLocation = $locations[$option - 1].Location
-    $resourceGroup = New-AzResourceGroup -Name $resourceGroupName `
-        -Location $resourceGroupLocation
+    $resourceGroup = New-AzResourceGroup -Name $script:ResourceGroupName `
+        -Location $script:ResourceGroupLocation
     Write-Host `
-        "... Created new resource group $($resourceGroupName) in $($resourceGroup.Location)."
-    Set-ResourceGroupTags -rgName $resourceGroupName -state "Created"
+"... Created new resource group $($script:ResourceGroupName) in $($resourceGroup.Location)."
+    Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Created"
     $script:deleteOnErrorPrompt = $True
 }
 else {
-    Set-ResourceGroupTags -rgName $resourceGroupName -state "Updating"
-    $resourceGroupLocation = $resourceGroup.Location
-    Write-Host "... Using existing resource group $($resourceGroupName)..."
+    Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Updating"
+    $script:ResourceGroupLocation = $resourceGroup.Location
+    Write-Host "... Using existing resource group $($script:ResourceGroupName)..."
     $script:deleteOnErrorPrompt = $False
 }
 
@@ -443,13 +454,13 @@ if ($script:Type -eq "simulation") {
     # Get all vm skus available in the location and in the account
     $availableVms = Get-AzComputeResourceSku | Where-Object {
         ($_.ResourceType.Contains("virtualMachines")) -and `
-        ($_.Locations -icontains $resourceGroupLocation) -and `
+        ($_.Locations -icontains $script:ResourceGroupLocation) -and `
         ($_.Restrictions.Count -eq 0)
     }
     # Sort based on sizes and filter minimum requirements
     $availableVmNames = $availableVms  | Select-Object -ExpandProperty Name -Unique
     # We will use VM with at least 2 cores and 8 GB of memory as gateway host.
-    $edgeVmSizes = Get-AzVMSize $resourceGroupLocation `
+    $edgeVmSizes = Get-AzVMSize $script:ResourceGroupLocation `
     | Where-Object { $availableVmNames -icontains $_.Name } `
     | Where-Object {
         ($_.NumberOfCores -ge 2) -and `
@@ -466,8 +477,8 @@ if ($script:Type -eq "simulation") {
         $templateParameters.Add("edgeVmSize", $edgeVmSize)
     }
 
-    # We will use VM with at least 1 core and 2 GB of memory for hosting PLC simulation containers.
-    $simulationVmSizes = Get-AzVMSize $resourceGroupLocation `
+    # We will use VM with at least 1 core and 2 GB of memory for hosting PLC containers.
+    $simulationVmSizes = Get-AzVMSize $script:ResourceGroupLocation `
     | Where-Object { $availableVmNames -icontains $_.Name } `
     | Where-Object {
         ($_.NumberOfCores -ge 1) -and `
@@ -485,22 +496,44 @@ if ($script:Type -eq "simulation") {
     }
 }
 
-# Configure aad registration
+# Configure aad registration either with service principal or preconfiguration
 if (!$script:AadPreConfiguration) {
     $msi = & (Join-Path $script:ScriptDir "create-sp.ps1") -Context $context `
-        -Name "deploy_aad_msi" -ResourceGroup $resourceGroupName  `
-        -Location $resourceGroupLocation -Subscription $subscriptionId
+        -Name "deploy_aad_msi" -ResourceGroup $script:ResourceGroupName  `
+        -Location $script:ResourceGroupLocation -Subscription $subscriptionId
     if ([string]::IsNullOrWhiteSpace($msi.aadPrincipalId)) {
         Write-Error "Failed to create managed service identity for application registration."
         throw $($msi | ConvertTo-Json)
     }
     $templateParameters.Add("aadPrincipalId", $msi.aadPrincipalId)
 }
-elseif (($script:AadPreConfiguration -is [string]) -and (Test-Path $script:AadPreConfiguration)) {
+elseif (($script:AadPreConfiguration -is [string]) -and `
+    (Test-Path $script:AadPreConfiguration)) {
     # read configuration from file
     $script:AadPreConfiguration = Get-Content -Raw -Path $script:AadPreConfiguration `
         | ConvertFrom-Json
     $templateParameters.Add("aadPreConfiguration", $script:AadPreConfiguration)
+}
+
+# Select containers to deploy and where from.
+if ($script:Type -ne "local") {
+    if ([string]::IsNullOrEmpty($script:DockerServer)) {
+        # see if there is a registry in the resource group already and use it.
+        $registry = Get-AzContainerRegistry -ResourceGroupName $resourceGroup 
+        if ($registry) {
+            $script:DockerServer = $registry.LoginServer
+            $creds = Get-AzContainerRegistryCredential -Registry $registry
+            if ($creds) {
+                $templateParameters.Add("dockerUser", $creds.Username)
+                $templateParameters.Add("dockerPassword", $creds.Password)
+            }
+        }
+        else {
+            $script:DockerServer = "industrialiotdev.azurecr.io"
+        }
+    }
+    $templateParameters.Add("dockerServer", $script:DockerServer)
+    $templateParameters.Add("imagesTag", $script:Version)
 }
 
 # Add IoTSuiteType tag. This tag will be applied for all resources.
@@ -516,9 +549,10 @@ else {
 }
 
 # Update tags to show deploying
-Set-ResourceGroupTags -rgName $resourceGroupName -state "Deploying" -version $branchName
+Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Deploying" `
+    -version $script:Version
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 # Do the deployment
 $deploymentName = "$($applicationName)-deployment"
@@ -536,19 +570,20 @@ while ($true) {
         Write-Host "... Using deployment name $deploymentName."
 
         # Start the deployment from template Url
-        $deployment = New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName `
+        $deployment = New-AzResourceGroupDeployment `
+            -ResourceGroupName $script:ResourceGroupName `
             -TemplateUri "$($templateUrl)azuredeploy.json" `
             -DeploymentName $deploymentName `
             -SkipTemplateParameterPrompt -TemplateParameterObject $templateParameters
         if ($deployment.ProvisioningState -ne "Succeeded") {
-            Set-ResourceGroupTags -rgName $resourceGroupName -state "Failed"
+            Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Failed"
             throw "Deployment $($deployment.ProvisioningState)."
         }
 
         $elapsedTime = $(Get-Date) - $StartTime
         Write-Host "... Elapsed time (hh:mm:ss): $($elapsedTime.ToString("hh\:mm\:ss"))" 
 
-        Set-ResourceGroupTags -rgName $resourceGroupName -state "Complete"
+        Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Complete"
         Get-AzDeploymentOperation -DeploymentName $deploymentName
 
         Write-Host "Deployment succeeded."
@@ -575,7 +610,7 @@ while ($true) {
         }
 
         if ($writeFile) {
-            Get-EnvironmentVariables -rgName $resourceGroupName `
+            Get-EnvironmentVariables -rgName $script:ResourceGroupName `
                 -deployment $deployment | Out-File -Encoding ascii -FilePath $ENVVARS
             Write-Host
             Write-Host ".env file created in $rootDir."
@@ -587,7 +622,7 @@ while ($true) {
             Write-Host
         }
         else {
-            Get-EnvironmentVariables -rgName $resourceGroupName `
+            Get-EnvironmentVariables -rgName $script:ResourceGroupName `
                 -deployment $deployment | Out-Default
         }
         return
@@ -610,8 +645,8 @@ while ($true) {
         }
         if ($deleteResourceGroup) {
             try {
-                Write-Host "Removing resource group $($resourceGroupName)..."
-                Remove-AzResourceGroup -ResourceGroupName $resourceGroupName -Force
+                Write-Host "Removing resource group $($script:ResourceGroupName)..."
+                Remove-AzResourceGroup -ResourceGroupName $script:ResourceGroupName -Force
             }
             catch {
                 Write-Warning $_.Exception.Message
@@ -620,4 +655,4 @@ while ($true) {
         throw $ex
     }
 }
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------

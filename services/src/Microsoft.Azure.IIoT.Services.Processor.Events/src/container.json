@@ -1,3 +1,4 @@
 {
-    "name": "iot/industrial-iot-events-processor"
+    "name": "iot/industrial-iot-events-processor",
+    "buildAlways": true
 }

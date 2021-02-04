@@ -18,139 +18,137 @@ if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] && [ $EUID -ne 0 ]; then
 fi
 
 CWD=$(pwd)
-RESOURCE_GROUP=
-NAMESPACE=
-AKS_CLUSTER=
-ROLE=
-LOAD_BALANCER_IP=
-PUBLIC_IP_DNS_LABEL=
-HELM_REPO_URL=
-HELM_CHART_NAME=
-HELM_CHART_VERSION=
-IMAGES_TAG=
-IMAGES_NAMESPACE=
-DOCKER_SERVER=
-DOCKER_USER=
-TENANT_ID=
-USER_EMAIL=
-USER_ID=
-KEY_VAULT_URI=
-MANAGED_IDENTITY_ID=
-MANAGED_IDENTITY_NAME=
-MANAGED_IDENTITY_CLIENT_ID=
-SERVICES_HOSTNAME=
-SERVICES_APP_ID=
+resourcegroup=
+namespace=
+aksCluster=
+roleName=
+loadBalancerIp=
+publicIpDnsLabel=
+helmRepoUrl=
+helmChartName=
+helmChartVersion=
+imagesTag=
+dockerServer=
+dockerUser=
+userEmail=
+userId=
+keyVaultUri=
+managedIdentityId=
+managedIdentityName=
+managedIdentityClientId=
+managedIdentityTenantId=
+servicesHostname=
+servicesAppId=
 
-#SERVICES_APP_SECRET= # allow passing from environment
-#DOCKER_PASSWORD= # allow passing from environment
+#servicesAppSecret= # allow passing from environment
+#dockerPassword= # allow passing from environment
 
 [ $# -eq 0 ] && usage
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help)                     usage ;;
-        --namespace)                NAMESPACE="$2" ;;
-        -n)                         NAMESPACE="$2" ;;
-        --resourcegroup)            RESOURCE_GROUP="$2" ;;
-        -g)                         RESOURCE_GROUP="$2" ;;
+        --namespace)                namespace="$2" ;;
+        -n)                         namespace="$2" ;;
+        --resourcegroup)            resourcegroup="$2" ;;
+        -g)                         resourcegroup="$2" ;;
         # automation...
-        --aksCluster)               AKS_CLUSTER="$2" ;;
-        --email)                    USER_EMAIL="$2" ;;
-        --user)                     USER_ID="$2" ;;
-        --loadBalancerIp)           LOAD_BALANCER_IP="$2" ;;
-        --publicIpDnsLabel)         PUBLIC_IP_DNS_LABEL="$2" ;;
-        --helmRepoUrl)              HELM_REPO_URL="$2" ;;
-        --helmChartName)            HELM_CHART_NAME="$2" ;;
-        --helmChartVersion)         HELM_CHART_VERSION="$2" ;;
-        --imagesNamespace)          IMAGES_NAMESPACE="$2" ;;
-        --imagesTag)                IMAGES_TAG="$2" ;;
-        --dockerServer)             DOCKER_SERVER="$2" ;;
-        --dockerUser)               DOCKER_USER="$2" ;;
-        --dockerPassword)           DOCKER_PASSWORD="$2" ;;
-        --managedIdentityId)        MANAGED_IDENTITY_ID="$2" ;;
-        --managedIdentityName)      MANAGED_IDENTITY_NAME="$2" ;;
-        --managedIdentityClientId)  MANAGED_IDENTITY_CLIENT_ID="$2" ;;
-        --tenant)                   TENANT_ID="$2" ;;
-        --keyVaultUri)              KEY_VAULT_URI="$2" ;;
-        --servicesHostname)         SERVICES_HOSTNAME="$2" ;;
-        --role)                     ROLE="$2" ;;
-        --servicesAppId)            SERVICES_APP_ID="$2" ;;
-        --servicesAppSecret)        SERVICES_APP_SECRET="$2" ;;
+        --aksCluster)               aksCluster="$2" ;;
+        --email)                    userEmail="$2" ;;
+        --user)                     userId="$2" ;;
+        --loadBalancerIp)           loadBalancerIp="$2" ;;
+        --publicIpDnsLabel)         publicIpDnsLabel="$2" ;;
+        --helmRepoUrl)              helmRepoUrl="$2" ;;
+        --helmChartName)            helmChartName="$2" ;;
+        --helmChartVersion)         helmChartVersion="$2" ;;
+        --imagesTag)                imagesTag="$2" ;;
+        --dockerServer)             dockerServer="$2" ;;
+        --dockerUser)               dockerUser="$2" ;;
+        --dockerPassword)           dockerPassword="$2" ;;
+        --managedIdentityId)        managedIdentityId="$2" ;;
+        --managedIdentityName)      managedIdentityName="$2" ;;
+        --managedIdentityClientId)  managedIdentityClientId="$2" ;;
+        --tenant)                   managedIdentityTenantId="$2" ;;
+        --keyVaultUri)              keyVaultUri="$2" ;;
+        --servicesHostname)         servicesHostname="$2" ;;
+        --role)                     roleName="$2" ;;
+        --servicesAppId)            servicesAppId="$2" ;;
+        --servicesAppSecret)        servicesAppSecret="$2" ;;
     esac
     shift
 done
 
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     az login --identity
 fi
 
-if [[ -z "$NAMESPACE" ]]; then
+if [[ -z "$namespace" ]]; then
     echo "ERROR: Missing namespace name. You must use --namespace parameter."
     usage
 fi
-if [[ -z "$RESOURCE_GROUP" ]]; then
+if [[ -z "$resourcegroup" ]]; then
     echo "ERROR: Missing resource group name.  Use --resourcegroup parameter."
     usage
 fi
-if [[ -z "$AKS_CLUSTER" ]]; then
-    AKS_CLUSTER=$(az aks list -g $RESOURCE_GROUP \
+if [[ -z "$aksCluster" ]]; then
+    aksCluster=$(az aks list -g $resourcegroup \
         --query [0].name -o tsv | tr -d '\r')
-    if [[ -z "$AKS_CLUSTER" ]]; then
+    if [[ -z "$aksCluster" ]]; then
         echo "ERROR: Missing aks cluster name."
-        echo "ERROR: Ensure one was created in resource group $RESOURCE_GROUP."
+        echo "ERROR: Ensure one was created in resource group $resourcegroup."
         exit 1
     fi
 fi
-if [[ -z "$KEY_VAULT_URI" ]]; then
-    KEY_VAULT_URI=$(az keyvault list  -g $RESOURCE_GROUP \
+if [[ -z "$keyVaultUri" ]]; then
+    keyVaultUri=$(az keyvault list  -g $resourcegroup \
         --query [0].properties.vaultUri -o tsv | tr -d '\r')
-    if [[ -z "$KEY_VAULT_URI" ]]; then
+    if [[ -z "$keyVaultUri" ]]; then
         echo "ERROR: Unable to retrieve platform keyvault uri."
-        echo "ERROR: Ensure it was created in '$RESOURCE_GROUP' group."
+        echo "ERROR: Ensure it was created in '$resourcegroup' group."
         exit 1
     fi
 fi
-if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
-    MANAGED_IDENTITY_ID=$(az identity list -g $RESOURCE_GROUP \
+if [[ -z "$managedIdentityId" ]] ; then
+    managedIdentityId=$(az identity list -g $resourcegroup \
         --query "[?starts_with(name, 'services-')].id" -o tsv | tr -d '\r')
-    if [[ -z "$MANAGED_IDENTITY_ID" ]] ; then
-        echo "ERROR: Unable to find platform msi in '$RESOURCE_GROUP' group."
+    if [[ -z "$managedIdentityId" ]] ; then
+        echo "ERROR: Unable to find platform msi in '$resourcegroup' group."
         echo "ERROR: Ensure it was created before running this script."
         exit 1
     fi
 fi
-if [[ -z "$MANAGED_IDENTITY_CLIENT_ID" ]] || \
-   [[ -z "$TENANT_ID" ]] ; then
-    IFS=$'\n'; msi=($(az identity show --ids $MANAGED_IDENTITY_ID \
+if [[ -z "$managedIdentityClientId" ]] || \
+   [[ -z "$managedIdentityTenantId" ]] ; then
+    IFS=$'\n'; msi=($(az identity show --ids $managedIdentityId \
         --query "[name, clientId, tenantId, principalId]" \
         -o tsv | tr -d '\r')); unset IFS;
 
-    MANAGED_IDENTITY_NAME=${msi[0]}
-    MANAGED_IDENTITY_CLIENT_ID=${msi[1]}
-    TENANT_ID=${msi[2]}
-    if [[ -z "$MANAGED_IDENTITY_CLIENT_ID" ]]; then
+    managedIdentityName=${msi[0]}
+    managedIdentityClientId=${msi[1]}
+    managedIdentityTenantId=${msi[2]}
+    if [[ -z "$managedIdentityClientId" ]]; then
         echo "ERROR: Unable to get properties from msi $msiId."
         exit 1
     fi
 fi
 
 # Get public ip information if not provided 
-if [[ -z "$LOAD_BALANCER_IP" ]] || \
-   [[ -z "$PUBLIC_IP_DNS_LABEL" ]] || \
-   [[ -z "$SERVICES_HOSTNAME" ]] ; then
+if [[ -z "$loadBalancerIp" ]] || \
+   [[ -z "$publicIpDnsLabel" ]] || \
+   [[ -z "$servicesHostname" ]] ; then
     # public ip domain label should be namespace name
     publicIpId=$(az network public-ip list \
-        --query "[?dnsSettings.domainNameLabel=='$NAMESPACE'].id" \
+        --query "[?dnsSettings.domainNameLabel=='$namespace'].id" \
         -o tsv | tr -d '\r')
     if [[ -z "$publicIpId" ]] ; then
         # If not then public ip name starts with resource group name
         publicIpId=$(az network public-ip list \
-            --query "[?starts_with(name, '$RESOURCE_GROUP')].id" \
+            --query "[?starts_with(name, '$resourcegroup')].id" \
             -o tsv | tr -d '\r')
     fi
     if [[ -z "$publicIpId" ]] ; then
-        echo "Unable to find public ip for '$NAMESPACE' label."
+        echo "Unable to find public ip for '$namespace' label."
         echo "Ensure it exists in the node resource group of the cluster."
         exit 1
     fi
@@ -158,99 +156,124 @@ if [[ -z "$LOAD_BALANCER_IP" ]] || \
         --query "[dnsSettings.fqdn, ipAddress, dnsSettings.domainNameLabel]" \
         -o tsv | tr -d '\r')); unset IFS;
 
-    SERVICES_HOSTNAME=${publicIp[0]}
-    LOAD_BALANCER_IP=${publicIp[1]}
-    PUBLIC_IP_DNS_LABEL=${publicIp[2]}
-    if [[ -z "$SERVICES_HOSTNAME" ]] ; then
+    servicesHostname=${publicIp[0]}
+    loadBalancerIp=${publicIp[1]}
+    publicIpDnsLabel=${publicIp[2]}
+    if [[ -z "$servicesHostname" ]] ; then
         echo "ERROR: Unable to get public ip properties from $publicIpId."
         exit 1
     fi
 fi
-if [[ -z "$USER_EMAIL" ]] || \
-   [[ -z "$USER_ID" ]] ; then
+if [[ -z "$userEmail" ]] || \
+   [[ -z "$userId" ]] ; then
     IFS=$'\n'; user=($(az ad signed-in-user show \
         --query "[objectId, mail]" -o tsv | tr -d '\r')); unset IFS;
-    if [[ -z "$USER_ID" ]]; then
-        USER_ID=${user[0]}
+    if [[ -z "$userId" ]]; then
+        userId=${user[0]}
     fi
-    if [[ -z "$USER_EMAIL" ]]; then
-        USER_EMAIL=${user[1]}
+    if [[ -z "$userEmail" ]]; then
+        userEmail=${user[1]}
     fi
 fi
 
-if [[ -n "$SERVICES_APP_ID" ]]; then
-    if [[ -z "$SERVICES_APP_SECRET" ]]; then
+if [[ -n "$servicesAppId" ]]; then
+    if [[ -z "$servicesAppSecret" ]]; then
         echo "ERROR: Missing service app secret. "
         echo "ERROR: Must be provided if app id is provided"
         exit 1
     fi
 fi
-if [[ -z "$HELM_CHART_NAME" ]]; then
-    HELM_CHART_NAME="azure-industrial-iot"
+if [[ -z "$helmChartName" ]]; then
+    helmChartName="azure-industrial-iot"
 fi
-if [[ -z "$HELM_CHART_VERSION" ]]; then
-    if [[ -n "$HELM_REPO_URL" ]]; then
-        HELM_CHART_VERSION="0.4.0"
-        if [[ -z "$IMAGES_TAG" ]]; then
-            IMAGES_TAG="2.7"
+if [[ -z "$helmChartVersion" ]]; then
+    if [[ -n "$helmRepoUrl" ]]; then
+        helmChartVersion="0.4.0"
+        if [[ -z "$imagesTag" ]]; then
+            imagesTag="2.7"
         fi
-        if [[ -z "$DOCKER_SERVER" ]]; then
-            DOCKER_SERVER="mcr.microsoft.com"
+        if [[ -z "$dockerServer" ]]; then
+            dockerServer="mcr.microsoft.com"
         fi
     else
-        if [[ -z "$IMAGES_TAG" ]]; then
-            IMAGES_TAG="preview"
+        # See if there is a registry in the resource group 
+        IFS=$'\n'; registry=($(az acr list -g $resourcegroup \
+            --query "[[0].name,[0].loginServer]" \
+            -o tsv | tr -d '\r')); unset IFS;
+        dockerServer=${registry[1]}
+        # pick the first if there is and get credentials.
+        if [[ -n "$dockerServer" ]] ; then
+            IFS=$'\n'; creds=($(az acr credential show \
+                --name ${registry[0]} -g $resourcegroup \
+                --query "[username, passwords[0].value]" \
+                -o tsv | tr -d '\r')); unset IFS;
+            dockerUser=${creds[0]}
+            dockerPassword=${creds[1]}
+            if [[ -z "$imagesTag" ]]; then
+                imagesTag="preview"
+            fi
+            echo "Using $imagesTag images from $dockerServer."
+        else 
+            # if there is not, use default preview registry
+            dockerServer="industrialiotdev.azurecr.io"
+            if [[ -z "$imagesTag" ]]; then
+                imagesTag="preview"
+            fi
         fi
-        HELM_CHART_VERSION="preview"
-        if [[ -z "$DOCKER_SERVER" ]]; then
-            DOCKER_SERVER="industrialiotdev.azurecr.io"
-        fi
+        helmChartVersion=$imagesTag
     fi
 fi
-if [[ -z "$ROLE" ]]; then
-    ROLE="AzureKubernetesServiceClusterUserRole"
+if [[ -z "$roleName" ]]; then
+    roleName="AzureKubernetesServiceClusterUserRole"
 fi
 
 echo ""
-echo "RESOURCE_GROUP=$RESOURCE_GROUP"
-echo "NAMESPACE=$NAMESPACE"
-echo "AKS_CLUSTER=$AKS_CLUSTER"
-echo "ROLE=$ROLE"
-echo "LOAD_BALANCER_IP=$LOAD_BALANCER_IP"
-echo "PUBLIC_IP_DNS_LABEL=$PUBLIC_IP_DNS_LABEL"
-echo "HELM_REPO_URL=$HELM_REPO_URL"
-echo "HELM_CHART_VERSION=$HELM_CHART_VERSION"
-echo "IMAGES_TAG=$IMAGES_TAG"
-echo "IMAGES_NAMESPACE=$IMAGES_NAMESPACE"
-echo "DOCKER_SERVER=$DOCKER_SERVER"
-echo "DOCKER_USER=$DOCKER_SERVER"
-echo "TENANT_ID=$TENANT_ID"
-echo "KEY_VAULT_URI=$KEY_VAULT_URI"
-echo "MANAGED_IDENTITY_ID=$MANAGED_IDENTITY_ID"
-echo "MANAGED_IDENTITY_NAME=$MANAGED_IDENTITY_NAME"
-echo "MANAGED_IDENTITY_CLIENT_ID=$MANAGED_IDENTITY_CLIENT_ID"
-echo "SERVICES_HOSTNAME=$SERVICES_HOSTNAME"
-echo "SERVICES_APP_ID=$SERVICES_APP_ID"
-echo "USER_ID=$USER_ID"
-echo "USER_EMAIL=$USER_EMAIL"
+echo "  resourcegroup=$resourcegroup"
+echo "  namespace=$namespace"
+echo "  aksCluster=$aksCluster"
+echo "  roleName=$roleName"
+echo "  loadBalancerIp=$loadBalancerIp"
+echo "  publicIpDnsLabel=$publicIpDnsLabel"
+echo "  helmRepoUrl=$helmRepoUrl"
+echo "  helmChartVersion=$helmChartVersion"
+echo "  imagesTag=$imagesTag"
+echo "  dockerServer=$dockerServer"
+echo "  dockerUser=$dockerUser"
+if [[ -n "$dockerPassword" ]] ; then 
+echo "  dockerPassword=********"
+else
+echo "  dockerPassword="
+fi
+echo "  keyVaultUri=$keyVaultUri"
+echo "  managedIdentityId=$managedIdentityId"
+echo "  managedIdentityName=$managedIdentityName"
+echo "  managedIdentityClientId=$managedIdentityClientId"
+echo "  managedIdentityTenantId=$managedIdentityTenantId"
+echo "  servicesHostname=$servicesHostname"
+echo "  servicesAppId=$servicesAppId"
+if [[ -n "$servicesAppSecret" ]] ; then 
+echo "  servicesAppSecret=********"
+else
+echo "  servicesAppSecret="
+fi
+echo "  userId=$userId"
+echo "  userEmail=$userEmail"
 echo ""
 
-# echo "DOCKER_PASSWORD=$DOCKER_PASSWORD"
-# echo "SERVICES_APP_SECRET=$SERVICES_APP_SECRET"
-
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Add user as member to admin group to get access
 if [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    if [[ -n "$USER_ID" ]] ; then
+    if [[ -n "$userId" ]] ; then
         source $CWD/group-setup.sh \
---description "Administrator group for $AKS_CLUSTER in resource group $RESOURCE_GROUP" \
-            --display "$AKS_CLUSTER Administrators" \
-            --member "$USER_ID" \
-            --name "$AKS_CLUSTER" 
+--description "Administrator group for $aksCluster in resource group $resourcegroup" \
+            --display "$aksCluster Administrators" \
+            --member "$userId" \
+            --name "$aksCluster" 
     fi
 fi
 # Go to home.
 cd ~
+
 if ! kubectl version > /dev/null 2>&1 ; then
     echo "Install kubectl..."
     if ! az aks install-cli > /dev/null 2>&1; then 
@@ -268,16 +291,16 @@ fi
 echo "Prerequisites installed - getting credentials for the cluster..."
 
 # Get AKS credentials
-if [[ "$ROLE" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
-    az aks get-credentials --resource-group $RESOURCE_GROUP \
-        --name $AKS_CLUSTER --admin
+if [[ "$roleName" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
+    az aks get-credentials --resource-group $resourcegroup \
+        --name $aksCluster --admin
 else
-    az aks get-credentials --resource-group $RESOURCE_GROUP \
-        --name $AKS_CLUSTER
+    az aks get-credentials --resource-group $resourcegroup \
+        --name $aksCluster
 fi
 echo "Credentials for AKS cluster acquired."
 
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Configure omsagent
 if [[ -f "$CWD/omsagent.yaml" ]];then
     if ! kubectl apply -f "$CWD/omsagent.yaml" ; then
@@ -290,34 +313,39 @@ else
     echo "WARNING: Skipping installation of OMS agent."
 fi
 
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 # Add Helm repos
-if ! helm repo add jetstack https://charts.jetstack.io 
+if ! helm repo add jetstack \
+    https://charts.jetstack.io 
 then
     echo "ERROR: Failed to add jetstack repo."
     exit 1
 fi
-if ! helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 
+if ! helm repo add ingress-nginx \
+    https://kubernetes.github.io/ingress-nginx 
 then
     echo "ERROR: Failed to add ingress-nginx repo."
     exit 1
 fi
-if ! helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts 
+if ! helm repo add aad-pod-identity \
+    https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts 
 then
     echo "ERROR: Failed to add aad-pod-identity repo."
     exit 1
 fi
 
-if [[ -z "$HELM_REPO_URL" ]] ; then
+if [[ -z "$helmRepoUrl" ]] ; then
     export HELM_EXPERIMENTAL_OCI=1
     # docker server is the oci registry from where to consume the helm chart
     # the repo is the path and name of the chart
-    chart="$DOCKER_SERVER/$HELM_CHART_NAME:$HELM_CHART_VERSION"
-    helm chart remove $chart && echo "No charts to remove."
+    chart="$dockerServer/$helmChartName:$helmChartVersion"
+    helm chart remove $chart > /dev/null 2>&1 && echo "No charts to remove."
     # lpg into the server
-    if [[ -n "$DOCKER_USER" ]] && [[ -n "$DOCKER_PASSWORD" ]] ; then
-        if ! helm registry login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" ; then
+    if [[ -n "$dockerUser" ]] && [[ -n "$dockerPassword" ]] ; then
+        echo $dockerPassword | helm registry login $dockerServer \
+            -u "$dockerUser" --password-stdin
+        if [ $? -ne 0 ]; then
             echo "ERROR: Failed to log into registry using user and password"
             exit 1
         fi
@@ -328,21 +356,21 @@ if [[ -z "$HELM_REPO_URL" ]] ; then
         exit 1
     fi
     helm chart export $chart --destination ./aiiot
-    helm_chart_location="./aiiot/$HELM_CHART_NAME"
+    helm_chart_location="./aiiot/$helmChartName"
     echo "Downloaded Helm chart $chart will be installed..."
 else
     # add the repo
     echo "Configure Helm chart repository configured..."
-    if ! helm repo add aiiot $HELM_REPO_URL ; then
+    if ! helm repo add aiiot $helmRepoUrl ; then
         echo "ERROR: Failed to add azure-industrial-iot repo."
         exit 1
     fi
-    helm_chart_location="aiiot/$HELM_CHART_NAME --version $HELM_CHART_VERSION"
-    echo "Helm chart from $HELM_REPO_URL/$HELM_CHART_NAME will be installed..."
+    helm_chart_location="aiiot/$helmChartName --version $helmChartVersion"
+    echo "Helm chart from $helmRepoUrl/$helmChartName will be installed..."
 fi
 helm repo update
 
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 # Install jetstack/cert-manager Helm chart if not already installed
 echo ""
@@ -406,73 +434,67 @@ else
     fi
 fi
 
-extra_settings=""
-if [[ -n "$SERVICES_APP_ID" ]] ; then
-    extra_settings=$extra_settings' --set azure.auth.servicesApp.appId="'$SERVICES_APP_ID'"'
-    extra_settings=$extra_settings' --set azure.auth.servicesApp.secret="'$SERVICES_APP_SECRET'"'
-fi
-
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 
 # Create namespace to deploy into
-if ! kubectl create namespace $NAMESPACE > /dev/null 2>&1 ; then
-    echo "Namespace $NAMESPACE already exists..."
+if ! kubectl create namespace $namespace > /dev/null 2>&1 ; then
+    echo "Namespace $namespace already exists..."
 fi
 
 # Create identity for the supplied managed service identity and
 # a binding to the scheduled pods if it does not yet exist.
-if ! kubectl get AzureIdentity $MANAGED_IDENTITY_NAME -A -o=name > /dev/null 2>&1 ; then
-    echo "Creating managed identity $MANAGED_IDENTITY_NAME..."
+if ! kubectl get AzureIdentity $managedIdentityName -A -o=name > /dev/null 2>&1 ; then
+    echo "Creating managed identity $managedIdentityName..."
 
     cat <<EOF | kubectl apply -f -
 apiVersion: "aadpodidentity.k8s.io/v1"
 kind: AzureIdentity
 metadata:
-  name: $MANAGED_IDENTITY_NAME
-  namespace: $NAMESPACE
+  name: $managedIdentityName
+  namespace: $namespace
   annotations:
     aadpodidentity.k8s.io/Behavior: namespaced
 spec:
   type: 0
-  resourceID: $MANAGED_IDENTITY_ID
-  clientID: $MANAGED_IDENTITY_CLIENT_ID
+  resourceID: $managedIdentityId
+  clientID: $managedIdentityClientId
 ---
 apiVersion: "aadpodidentity.k8s.io/v1"
 kind: AzureIdentityBinding
 metadata:
-  name: $MANAGED_IDENTITY_NAME-binding
-  namespace: $NAMESPACE
+  name: $managedIdentityName-binding
+  namespace: $namespace
 spec:
-  azureIdentity: $MANAGED_IDENTITY_NAME
-  selector: $MANAGED_IDENTITY_NAME
+  azureIdentity: $managedIdentityName
+  selector: $managedIdentityName
 EOF
 
     if [ $? -eq 0 ]; then
-        echo "Per pod identity $MANAGED_IDENTITY_NAME installed."
+        echo "Per pod identity $managedIdentityName installed."
     else
-        echo "ERROR: Failed to install identity $MANAGED_IDENTITY_NAME."
+        echo "ERROR: Failed to install identity $managedIdentityName."
         exit 1
     fi
 else
-    echo "Per pod identity $MANAGED_IDENTITY_NAME exists."
+    echo "Per pod identity $managedIdentityName exists."
 fi
 
 # https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/#multiple-ingress-nginx-controllers
 # Install ingress-nginx/ingress-nginx Helm chart into the namespace giving it a class name that applies 
 # to the public ip.
 echo ""
-controller_name=${PUBLIC_IP_DNS_LABEL:0:25}
+controller_name=${publicIpDnsLabel:0:25}
 releases=($(helm ls -f $controller_name -A -q))
 if [[ -z "$releases" ]]; then
-    echo "Installing nginx-ingress $controller_name with class nginx-$NAMESPACE for $LOAD_BALANCER_IP into $NAMESPACE..."
+    echo "Installing nginx-ingress $controller_name with class nginx-$namespace for $loadBalancerIp into $namespace..."
     helm install --atomic $controller_name ingress-nginx/ingress-nginx \
-        --namespace $NAMESPACE --version 3.20.1 --timeout 30m0s \
-        --set controller.ingressClass=nginx-$NAMESPACE \
+        --namespace $namespace --version 3.20.1 --timeout 30m0s \
+        --set controller.ingressClass=nginx-$namespace \
         --set controller.replicaCount=2 \
-        --set controller.podLabels.aadpodidbinding=$MANAGED_IDENTITY_NAME \
+        --set controller.podLabels.aadpodidbinding=$managedIdentityName \
         --set controller.nodeSelector."beta\.kubernetes\.io\/os"=linux \
-        --set controller.service.loadBalancerIP=$LOAD_BALANCER_IP \
-        --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$PUBLIC_IP_DNS_LABEL \
+        --set controller.service.loadBalancerIP=$loadBalancerIp \
+        --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-dns-label-name"=$publicIpDnsLabel \
         --set controller.config.compute-full-forward-for='"true"' \
         --set controller.config.use-forward-headers='"true"' \
         --set controller.config.proxy-buffer-size='"32k"' \
@@ -483,26 +505,26 @@ if [[ -z "$releases" ]]; then
         > /dev/null 2>&1
     # --set controller.service.annotations."service\.beta\.kubernetes\.io\/azure-load-balancer-internal"=true \
     if [ $? -eq 0 ]; then
-        echo "Completed installation of nginx-ingress controller $controller_name with class nginx-$NAMESPACE."
+        echo "Completed installation of nginx-ingress controller $controller_name with class nginx-$namespace."
     else
-        echo "ERROR: Failed to install Ingress controller $controller_name into $NAMESPACE."
+        echo "ERROR: Failed to install Ingress controller $controller_name into $namespace."
         exit 1
     fi
 else
     releases=($(helm ls -f $controller_name -A -o table))
     ns=${releases[9]} # the namespace of the first line in the table
-    if [[ "$ns" != "$NAMESPACE" ]] ; then 
-        echo "Updating release $controller_name release in $ns with ingress class nginx-$NAMESPACE."
+    if [[ "$ns" != "$namespace" ]] ; then 
+        echo "Updating release $controller_name release in $ns with ingress class nginx-$namespace."
         helm upgrade--atomic $controller_name ingress-nginx/ingress-nginx \
             --namespace $ns --version 3.20.1 --timeout 30m0s --reuse-values \
-            --set controller.ingressClass=nginx-$NAMESPACE \
+            --set controller.ingressClass=nginx-$namespace \
             > /dev/null 2>&1
         if [ $? -eq 0 ]; then
-            echo "Upgraded $controller_name to ingress class nginx-$NAMESPACE."
+            echo "Upgraded $controller_name to ingress class nginx-$namespace."
             echo "WARNING: $ns will not work anymore until updated back."
         else
             echo "ERROR: Failed to upgrade $controller_name release."
-            echo "ERROR: Use a new, seperate public ip for namespace $NAMESPACE."
+            echo "ERROR: Use a new, seperate public ip for namespace $namespace."
             exit 1
         fi
     fi
@@ -510,12 +532,12 @@ fi
 
 # Create Let's encrypt issuer in the namespace if it does not exist.
 # issuer must be in the same namespace as the Ingress for which the certificate is retrieved.
-if ! kubectl get Issuer letsencrypt-$NAMESPACE -o=name > /dev/null 2>&1 ; then
+if ! kubectl get Issuer letsencrypt-$namespace -o=name > /dev/null 2>&1 ; then
     echo ""
-    echo "Create Let's Encrypt Issuer for $NAMESPACE..."
+    echo "Create Let's Encrypt Issuer for $namespace..."
     email=""
-    if [[ -n "$USER_EMAIL" ]] ; then
-        email="    email: $USER_EMAIL"
+    if [[ -n "$userEmail" ]] ; then
+        email="    email: $userEmail"
     fi
     n=0
     iterations=40
@@ -524,19 +546,19 @@ if ! kubectl get Issuer letsencrypt-$NAMESPACE -o=name > /dev/null 2>&1 ; then
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  namespace: $NAMESPACE
-  name: letsencrypt-$NAMESPACE
+  namespace: $namespace
+  name: letsencrypt-$namespace
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
 $email
     privateKeySecretRef:
-      name: letsencrypt-$NAMESPACE
+      name: letsencrypt-$namespace
     solvers:
     - selector: {}
       http01:
         ingress:
-          class: nginx-$NAMESPACE
+          class: nginx-$namespace
 EOF
 
         if [ $? -eq 0 ]; then
@@ -547,69 +569,94 @@ EOF
         sleep 15
     done
     if [[ $n -eq $iterations ]]; then
-        echo "ERROR: Failed to create Let's Encrypt Issuer for $NAMESPACE."
+        echo "ERROR: Failed to create Let's Encrypt Issuer for $namespace."
         exit 1
     else
-        echo "Let's Encrypt issuer created in $NAMESPACE."
+        echo "Let's Encrypt issuer created in $namespace."
     fi
 fi
 
 # Install aiiot/azure-industrial-iot Helm chart
 echo ""
-releases=($(helm ls -f azure-industrial-iot --namespace $NAMESPACE -q))
-if [[ -z "$releases" ]]; then
-    echo "Installing Helm chart from $helm_chart_location into $NAMESPACE..."
+extra_settings=""
+if [[ -n "$servicesAppId" ]] ; then
+    extra_settings="$extra_settings --set azure.auth.servicesApp.appId=$servicesAppId"
+    extra_settings="$extra_settings --set azure.auth.servicesApp.secret=$servicesAppSecret"
+    extra_settings="$extra_settings --set azure.tenantId=$managedIdentityTenantId"
+fi
+if [[ -n "$dockerUser" ]] && [[ -n "$dockerPassword" ]]; then
+    if ! kubectl get secret $dockerUser -o=name > /dev/null 2>&1 ; then
+        echo "Create docker registry secret $dockerUser to use for image pull..."
+        kubectl create secret docker-registry $dockerUser --docker-server=$dockerUser \
+            --docker-username=$dockerUser --docker-password=$dockerPassword 
+        if [ $? -ne 0 ]; then
+            echo "ERROR: Failed to create secret for image pull."
+            exit 1
+        fi
+    else
+        echo "WARNING: Using existing secret $dockerUser for image pull."
+        echo "WARNING: Manually update the secret if the password changed."
+    fi
+    extra_settings="$extra_settings --set image.pullSecrets[0].name=$dockerUser"
+fi
+
+releases=($(helm ls -f azure-industrial-iot --namespace $namespace -q))
+if [[ -z "$releases" ]] ; then
+    echo "Installing Helm chart from $helm_chart_location into $namespace..."
+    set -x
     helm install --atomic azure-industrial-iot $helm_chart_location \
-        --namespace $NAMESPACE --timeout 30m0s $extra_settings \
-        --set image.tag=$IMAGES_TAG \
-        --set image.registry=$DOCKER_SERVER \
-        --set azure.managedIdentity.name=$MANAGED_IDENTITY_NAME \
-        --set azure.managedIdentity.clientId=$MANAGED_IDENTITY_CLIENT_ID \
-        --set azure.managedIdentity.tenantId=$TENANT_ID \
-        --set azure.keyVault.uri=$KEY_VAULT_URI \
-        --set azure.tenantId=$TENANT_ID \
+        --namespace $namespace --timeout 30m0s $extra_settings \
+        --set image.tag="$imagesTag" \
+        --set image.registry="$dockerServer" \
+        --set azure.managedIdentity.name="$managedIdentityName" \
+        --set azure.managedIdentity.clientId="$managedIdentityClientId" \
+        --set azure.managedIdentity.tenantId="$managedIdentityTenantId" \
+        --set azure.keyVault.uri=$keyVaultUri \
         --set loadConfFromKeyVault=true \
-        --set externalServiceUrl="https://$SERVICES_HOSTNAME" \
+        --set externalServiceUrl="https://$servicesHostname" \
         --set deployment.microServices.engineeringTool.enabled=true \
         --set deployment.ingress.enabled=true \
-        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$NAMESPACE \
+        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$namespace \
         --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/affinity"=cookie \
         --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-name"=affinity \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-expires"=14400 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/session-cookie-max-age"=14400 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-read-timeout"=3600 \
         --set-string deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/proxy-send-timeout"=3600 \
-        --set deployment.ingress.annotations."cert-manager\.io\/issuer"=letsencrypt-$NAMESPACE \
-        --set deployment.ingress.tls[0].hosts[0]=$SERVICES_HOSTNAME \
+        --set deployment.ingress.annotations."cert-manager\.io\/issuer"=letsencrypt-$namespace \
+        --set deployment.ingress.tls[0].hosts[0]=$servicesHostname \
         --set deployment.ingress.tls[0].secretName=tls-secret \
-        --set deployment.ingress.hostName=$SERVICES_HOSTNAME \
-        > /dev/null 2>&1
+        --set deployment.ingress.hostName=$servicesHostname
+
+    set +x
     if [ $? -eq 0 ] ; then
-        echo "Helm chart from $helm_chart_location installed into $NAMESPACE as azure-industrial-iot."
+        echo "Helm chart from $helm_chart_location installed into $namespace as azure-industrial-iot."
     else
         echo "ERROR: Failed to install helm chart from $helm_chart_location."
         exit 1
     fi
+    echo "ddd1"
 else
     helm upgrade --atomic azure-industrial-iot $helm_chart_location \
-        --namespace $NAMESPACE --timeout 30m0s --reuse-values $extra_settings \
-        --set image.tag=$IMAGES_TAG \
-        --set azure.managedIdentity.name=$MANAGED_IDENTITY_NAME \
-        --set azure.managedIdentity.clientId=$MANAGED_IDENTITY_CLIENT_ID \
-        --set azure.managedIdentity.tenantId=$TENANT_ID \
-        --set azure.keyVault.uri=$KEY_VAULT_URI \
-        --set azure.tenantId=$TENANT_ID \
+        --namespace $namespace --timeout 30m0s --reuse-values $extra_settings \
+        --set image.tag="$imagesTag" \
+        --set image.registry="$dockerServer" \
+        --set azure.managedIdentity.name="$managedIdentityName" \
+        --set azure.managedIdentity.clientId="$managedIdentityClientId" \
+        --set azure.managedIdentity.tenantId="$managedIdentityTenantId" \
+        --set azure.keyVault.uri=$keyVaultUri \
+        --set azure.tenantId="$managedIdentityTenantId" \
         --set loadConfFromKeyVault=true \
         --set deployment.microServices.engineeringTool.enabled=true \
-        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$NAMESPACE \
-        --set deployment.ingress.hostName=$SERVICES_HOSTNAME \
-        > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "Upgraded release azure-industrial-iot from $helm_chart_location."
+        --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$namespace \
+        --set deployment.ingress.hostName=$servicesHostname > /dev/null 2>&1
+
+    if [ $? -eq 0 ] ; then
+        echo "Upgraded release azure-industrial-iot from $helm_chart_location in $namespace."
     else
         echo "ERROR: Failed to upgrade azure-industrial-iot release."
         exit 1
     fi
 fi
-
-# --------------------------------------------------------------------------------------
+echo "ddd2"
+# -------------------------------------------------------------------------------
