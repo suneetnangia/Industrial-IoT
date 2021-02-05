@@ -630,8 +630,8 @@ while ($true) {
     }
     catch {
         $ex = $_
-        $ex | ConvertTo-Json | Out-Host 
         Write-Host "Deployment failed."
+        $ex.Exception.Message | Out-Host 
         Get-AzDeploymentOperation -DeploymentName $deploymentName `
             -ErrorAction SilentlyContinue
 

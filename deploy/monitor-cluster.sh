@@ -4,8 +4,10 @@
 usage(){
     echo '
 Usage: '"$0"'  
-    --namespace, -n            Namespace to use to install into.
     --resourcegroup, -g        Resource group in which the cluster resides.
+
+    --cluster, -n              (Optional) Cluster to use if more than one 
+                               in the provided resource group.
     --help                     Shows this help.
 '
     exit 1
@@ -18,9 +20,9 @@ if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] && [ $EUID -ne 0 ]; then
 fi
 
 CWD=$(pwd)
-RESOURCE_GROUP=
-AKS_CLUSTER=
-ROLE=
+resourcegroup=
+aksCluster=
+roleName=
 
 #SERVICES_APP_SECRET= # allow passing from environment
 #DOCKER_PASSWORD= # allow passing from environment
@@ -29,10 +31,10 @@ ROLE=
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help)                     usage ;;
-        --resourcegroup)            RESOURCE_GROUP="$2" ;;
-        -g)                         RESOURCE_GROUP="$2" ;;
-        --cluster)                  AKS_CLUSTER="$2" ;;
-        --role)                     ROLE="$2" ;;
+        --resourcegroup)            resourcegroup="$2" ;;
+        -g)                         resourcegroup="$2" ;;
+        --cluster)                  aksCluster="$2" ;;
+        --role)                     roleName="$2" ;;
     esac
     shift
 done
@@ -43,16 +45,16 @@ if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     az login --identity
 fi
 
-if [[ -z "$RESOURCE_GROUP" ]]; then
+if [[ -z "$resourcegroup" ]]; then
     echo "ERROR: Missing resource group name.  Use --resourcegroup parameter."
     usage
 fi
-if [[ -z "$AKS_CLUSTER" ]]; then
-    AKS_CLUSTER=$(az aks list -g $RESOURCE_GROUP \
+if [[ -z "$aksCluster" ]]; then
+    aksCluster=$(az aks list -g $resourcegroup \
         --query [0].name -o tsv | tr -d '\r')
-    if [[ -z "$AKS_CLUSTER" ]]; then
-        echo "ERROR: Missing aks cluster name."
-        echo "ERROR: Ensure one was created in resource group $RESOURCE_GROUP."
+    if [[ -z "$aksCluster" ]]; then
+        echo "ERROR: Unable to determine aks cluster name."
+        echo "ERROR: Ensure one was created in resource group $resourcegroup."
         exit 1
     fi
 fi
@@ -68,12 +70,12 @@ if ! kubectl version > /dev/null 2>&1 ; then
 fi
 
 # Get AKS credentials
-if [[ "$ROLE" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
-    az aks get-credentials --resource-group $RESOURCE_GROUP \
-        --name $AKS_CLUSTER --admin
+if [[ "$roleName" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
+    az aks get-credentials --resource-group $resourcegroup \
+        --name $aksCluster --admin
 else
-    az aks get-credentials --resource-group $RESOURCE_GROUP \
-        --name $AKS_CLUSTER
+    az aks get-credentials --resource-group $resourcegroup \
+        --name $aksCluster
 fi
 
 # install dashboard into the cluster
