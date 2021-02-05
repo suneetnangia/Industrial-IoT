@@ -587,8 +587,9 @@ fi
 if [[ -n "$dockerUser" ]] && [[ -n "$dockerPassword" ]]; then
     if ! kubectl get secret $dockerUser -o=name > /dev/null 2>&1 ; then
         echo "Create docker registry secret $dockerUser to use for image pull..."
-        kubectl create secret docker-registry $dockerUser --docker-server=$dockerUser \
-            --docker-username=$dockerUser --docker-password=$dockerPassword 
+        kubectl create secret docker-registry $dockerUser --docker-server=$dockerServer \
+            --docker-username=$dockerUser --docker-password=$dockerPassword \
+            -n $namespace
         if [ $? -ne 0 ]; then
             echo "ERROR: Failed to create secret for image pull."
             exit 1
@@ -603,7 +604,6 @@ fi
 releases=($(helm ls -f azure-industrial-iot --namespace $namespace -q))
 if [[ -z "$releases" ]] ; then
     echo "Installing Helm chart from $helm_chart_location into $namespace..."
-    set -x
     helm install --atomic azure-industrial-iot $helm_chart_location \
         --namespace $namespace --timeout 30m0s $extra_settings \
         --set image.tag="$imagesTag" \
@@ -628,14 +628,12 @@ if [[ -z "$releases" ]] ; then
         --set deployment.ingress.tls[0].secretName=tls-secret \
         --set deployment.ingress.hostName=$servicesHostname
 
-    set +x
     if [ $? -eq 0 ] ; then
         echo "Helm chart from $helm_chart_location installed into $namespace as azure-industrial-iot."
     else
         echo "ERROR: Failed to install helm chart from $helm_chart_location."
         exit 1
     fi
-    echo "ddd1"
 else
     helm upgrade --atomic azure-industrial-iot $helm_chart_location \
         --namespace $namespace --timeout 30m0s --reuse-values $extra_settings \
@@ -658,5 +656,5 @@ else
         exit 1
     fi
 fi
-echo "ddd2"
+
 # -------------------------------------------------------------------------------

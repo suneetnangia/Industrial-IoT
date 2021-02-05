@@ -97,6 +97,7 @@ $script:requiredProviders = @(
     "microsoft.compute",
     "microsoft.managedidentity",
     "microsoft.insights",
+    "Microsoft.policyinsights",
     "microsoft.containerservice",
     "microsoft.containerregistry"
 )

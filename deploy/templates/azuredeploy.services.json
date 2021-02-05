@@ -183,10 +183,14 @@
                         "value": "[variables('managedIdentityResourceId')]"
                     },
                     "assignRoles": {
-                        "value": [ "KeyVaultSecretOfficer", "StorageBlobDataContributor" ]
+                        "value": [ 
+                            "KeyVaultSecretOfficer",
+                            "StorageBlobDataContributor",
+                            "ManagedIdentityOperator" 
+                        ]
                     },
                     "scope":{
-                         "value": "[resourceGroup().id]"
+                        "value": "[resourceGroup().id]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"

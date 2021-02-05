@@ -108,13 +108,6 @@
                 "description": "Containers DNS server IP address."
             }
         },
-        "aksClusterIdentityName": {
-            "type": "string",
-            "defaultValue": "[concat(parameters('clusterName'), '-msi')]",
-            "metadata": {
-                "description": "Name of the Managed identity resource of the cluster."
-            }
-        },
         "aksDockerBridgeCidr": {
             "type": "string",
             "defaultValue": "172.17.0.1/16",
@@ -155,6 +148,13 @@
                 "description": "Specifies the service tier of the Azure Log Analytics workspace."
             }
         },
+        "aksEnableAzurePolicyAddon": { 
+			"type": "bool", 
+			"defaultValue": true,
+            "metadata": {
+                "description": "Enable azure policy on the cluster."
+            }
+		},
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/templates/')]",
@@ -176,9 +176,7 @@
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]",
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
-        "aksClusterIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksClusterIdentityName'))]",
-        "aksClusterIdentityRoleAssignmentsName": "aks.rbac",
-        "aksClusterIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterIdentityRoleAssignmentsName'))]",
+        "aksClusterKubeletIdentityRoleAssignmentsName": "aks.kubelet.rbac",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     },
     "resources": [
@@ -279,48 +277,6 @@
             ]
         },
         {
-            "comments": "Managed identity of the cluster.",
-            "name": "[parameters('aksClusterIdentityName')]",
-            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-            "apiVersion": "2018-11-30",
-            "location": "[resourceGroup().location]",
-            "tags": "[parameters('tags')]"
-        },
-        {
-            "comments": "Assign permissions to the managed identity of the cluster.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('aksClusterIdentityRoleAssignmentsName')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "managedIdentityResourceId": {
-                        "value": "[variables('aksClusterIdentityResourceId')]"
-                    },
-                    "assignRoles": {
-                        "value": [ 
-                            "NetworkContributor", 
-                            "ManagedIdentityOperator",
-                            "VirtualMachineContributor"
-                         ]
-                    },
-                    "scope":{
-                         "value": "[resourceGroup().id]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
-                }
-            },
-            "dependsOn": [
-                "[variables('aksClusterIdentityResourceId')]"
-            ]
-        },
-        {
             "comments": "Create the Managed Kubernetes cluster instance",
             "type": "Microsoft.ContainerService/managedClusters",
             "name": "[parameters('clusterName')]",
@@ -328,10 +284,7 @@
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                    "[variables('aksClusterIdentityResourceId')]": {}
-                }
+                "type": "SystemAssigned"
             },
             "properties": {
                 "enableRBAC": true,
@@ -367,14 +320,52 @@
                             "logAnalyticsWorkspaceResourceId": "[variables('logAnalyticsWorkspaceResourceId')]"
                         }
                     },
+                    "azurepolicy": {
+                        "enabled": "[parameters('aksEnableAzurePolicyAddon')]",
+                        "config": {
+                            "version": "v2"
+                        }
+                    },
                     "httpApplicationRouting": {
                         "enabled": false
                     }
                 }
             },
             "dependsOn": [
-                "[variables('aksClusterIdentityRoleAssignmentsId')]",
                 "[variables('logAnalyticsWorkspaceResourceId')]"
+            ]
+        },
+        {
+            "comments": "Assign permissions to the kubelet identity used by the cluster.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterKubeletIdentityRoleAssignmentsName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "managedIdentityResourceId": {
+                        "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.resourceId]"
+                    },
+                    "assignRoles": {
+                        "value": [ 
+                            "ManagedIdentityOperator",
+                            "VirtualMachineContributor"
+                         ]
+                    },
+                    "scope":{
+                        "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksResourceId')]"
             ]
         }
     ],

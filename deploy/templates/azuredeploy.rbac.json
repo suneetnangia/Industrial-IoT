@@ -61,7 +61,7 @@
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
                 "principalId": "[reference(parameters('managedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[parameters('scope')]",
+                "scope": "[replace(parameters('scope'), '/resourceGroup', '/resourcegroup')]",
                 "principalType": "ServicePrincipal"
             }
         }
