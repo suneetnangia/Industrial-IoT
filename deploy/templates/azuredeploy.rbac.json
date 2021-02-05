@@ -31,6 +31,7 @@
         }
     },
     "variables": {
+		"scopeId": "[replace(parameters('scope'), '/resourceGroup', '/resourcegroup')]",
         "roleNames": {
             "Contributor": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
             "KeyVaultSecretOfficer": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
@@ -54,14 +55,14 @@
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(parameters('managedIdentityResourceId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(parameters('managedIdentityResourceId'), variables('scopeId'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
                 "principalId": "[reference(parameters('managedIdentityResourceId'), '2018-11-30').principalId]",
-                "scope": "[replace(parameters('scope'), '/resourceGroup', '/resourcegroup')]",
+                "scope": "[variables('scopeId')]",
                 "principalType": "ServicePrincipal"
             }
         }
