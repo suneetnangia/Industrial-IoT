@@ -520,7 +520,7 @@ elseif (($script:AadPreConfiguration -is [string]) -and `
 if ($script:Type -ne "local") {
     if ([string]::IsNullOrEmpty($script:DockerServer)) {
         # see if there is a registry in the resource group already and use it.
-        $registry = Get-AzContainerRegistry -ResourceGroupName $resourceGroup 
+        $registry = Get-AzContainerRegistry -ResourceGroupName $script:ResourceGroupName
         if ($registry) {
             $script:DockerServer = $registry.LoginServer
             $creds = Get-AzContainerRegistryCredential -Registry $registry

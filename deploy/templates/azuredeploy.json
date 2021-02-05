@@ -570,13 +570,13 @@
             "type": "string",
             "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.aksControlPlaneUrl.value, '')]"
         },
-        "clusterAdminGroupObjectId": {
+        "aksAdminGroupObjectId": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterAdminGroupObjectId.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value, '')]"
         },
-        "clusterAdminGroupName": {
+        "aksAdminGroupName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterAdminGroupName.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupName.value, '')]"
         }
     }
 }

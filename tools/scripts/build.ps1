@@ -33,6 +33,7 @@ Param(
     [switch] $Debug
 )
 
+$startTime = $(Get-Date)
 $BuildRoot = & (Join-Path $PSScriptRoot "get-root.ps1") -fileName "*.sln"
 if ([string]::IsNullOrEmpty($script:Path)) {
     $script:Path = $BuildRoot
@@ -148,3 +149,6 @@ Get-ChildItem $script:Path -Recurse -Include "container.json" `
         }
     }
 }
+
+$elapsedTime = $(Get-Date) - $startTime
+Write-Host "Build took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
