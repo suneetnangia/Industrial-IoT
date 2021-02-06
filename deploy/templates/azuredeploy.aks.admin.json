@@ -70,7 +70,7 @@
                 "mode": "Incremental",
                 "parameters": {
                     "principalId": {
-                        "value": "[variables('aksAdminManagedIdentityResourceId')]"
+                        "value": "[reference(variables('aksAdminManagedIdentityResourceId'), '2018-11-30').principalId]"
                     },
                     "assignRoles": {
                          "value": [ "AzureKubernetesServiceClusterAdmin", "Contributor" ]

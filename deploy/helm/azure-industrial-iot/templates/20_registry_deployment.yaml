@@ -59,9 +59,11 @@ spec:
 {{- end }}
     spec:
       serviceAccountName: {{ template "azure-industrial-iot.serviceAccountName" . }}
+{{- if not .Values.serviceAccount.create }}
 {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.image.pullSecrets | indent 6 }}
+{{- end }}
 {{- end }}
       containers:
       - name: {{ template "azure-industrial-iot.registry.component" . }}-container
