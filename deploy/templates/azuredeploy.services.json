@@ -179,8 +179,8 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityResourceId": {
-                        "value": "[variables('managedIdentityResourceId')]"
+                    "principalId": {
+                        "value":  "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]"
                     },
                     "assignRoles": {
                         "value": [ 

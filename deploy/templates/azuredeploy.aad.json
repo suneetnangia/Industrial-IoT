@@ -86,8 +86,8 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityResourceId": {
-                        "value": "[variables('aadAppRegistrationIdentityResourceId')]"
+                    "principalId": {
+                        "value": "[reference(variables('aadAppRegistrationIdentityResourceId'), '2018-11-30').principalId]"
                     },
                     "assignRoles": {
                          "value": [ "Contributor", "KeyVaultSecretOfficer" ]

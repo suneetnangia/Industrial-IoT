@@ -69,7 +69,7 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityResourceId": {
+                    "principalId": {
                         "value": "[variables('aksAdminManagedIdentityResourceId')]"
                     },
                     "assignRoles": {

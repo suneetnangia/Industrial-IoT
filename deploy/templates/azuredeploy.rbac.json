@@ -2,11 +2,10 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "managedIdentityResourceId": {
+        "principalId": {
             "type": "string",
-            "defaultValue": "",
             "metadata": {
-                "description": "The managed identity to assign roles to."
+                "description": "The principal to assign roles to."
             }
         },
         "assignRoles": {
@@ -55,13 +54,13 @@
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(parameters('managedIdentityResourceId'), variables('scopeId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(parameters('principalId'), variables('scopeId'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
-                "principalId": "[reference(parameters('managedIdentityResourceId'), '2018-11-30').principalId]",
+                "principalId": "[parameters('principalId')]",
                 "scope": "[variables('scopeId')]",
                 "principalType": "ServicePrincipal"
             }

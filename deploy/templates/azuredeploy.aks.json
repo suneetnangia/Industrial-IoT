@@ -343,8 +343,8 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
-                    "managedIdentityResourceId": {
-                        "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.resourceId]"
+                    "principalId": {
+                        "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.clientId]"
                     },
                     "assignRoles": {
                         "value": [ 
