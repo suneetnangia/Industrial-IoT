@@ -128,11 +128,11 @@ Function Connect-ToAzure() {
     $subscriptionDetails = $null
     if (![string]::IsNullOrEmpty($SubscriptionName)) {
         $subscriptionDetails = Get-AzSubscription -SubscriptionName `
-            $SubscriptionName -TenantId $TenantId
+            $SubscriptionName -TenantId $TenantId -ErrorAction SilentlyContinue
     }
     if (!$subscriptionDetails -and ![string]::IsNullOrEmpty($SubscriptionId)) {
         $subscriptionDetails = Get-AzSubscription -SubscriptionId `
-            $SubscriptionId -TenantId $TenantId
+            $SubscriptionId -TenantId $TenantId -ErrorAction SilentlyContinue
     }
     if (!$subscriptionDetails) {
         $subscriptions = Get-AzSubscription -TenantId $TenantId `

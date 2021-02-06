@@ -43,6 +43,8 @@
  .PARAMETER EnvironmentName
   The cloud environment to use, defaults to AzureCloud.
 
+ .PARAMETER ApplicationName
+  Name of the application if deploying services.
  .PARAMETER AadPreConfiguration
   The aad configuration object (use aad-register.ps1 to create object).
   If not provided, calls graph-register.ps1 which can be found in the 
@@ -69,11 +71,13 @@ param(
     [string] $ResourceGroupLocation = $null,
     [string] $SourceUri = $null,
     [object] $AadPreConfiguration = $null,
+    [object] $ApplicationName = $null,
     [string] $SimulationProfile = $null,
     [int] $NumberOfLinuxGateways = 0,
     [int] $NumberOfWindowsGateways = 0,
     [int] $NumberOfSimulationsPerEdge = 0,
     [string] $TenantId = $null,
+    [string] $Subscription = $null,
     [string] $EnvironmentName = "AzureCloud"
 )
 
@@ -286,11 +290,10 @@ while ([string]::IsNullOrEmpty($script:ResourceGroupName) `
 }
 
 # Select application name
-$applicationName = $null
 if (($script:Type -eq "local") -or ($script:Type -eq "simulation")) {
-    if ([string]::IsNullOrEmpty($applicationName) `
-            -or ($applicationName -notmatch "^[a-z0-9-]*$")) {
-        $applicationName = $script:ResourceGroupName.Replace('_', '-')
+    if ([string]::IsNullOrEmpty($script:ApplicationName) `
+            -or ($script:ApplicationName -notmatch "^[a-z0-9-]*$")) {
+        $script:ApplicationName = $script:ResourceGroupName.Replace('_', '-')
     }
     if ($script:Type -eq "local") {
         $templateParameters.Add("deployOptionalServices", $true)
@@ -302,8 +305,8 @@ else {
     }
 
     $first = $true
-    while ([string]::IsNullOrEmpty($applicationName) `
-            -or ($applicationName -notmatch "^[a-z0-9-]*$")) {
+    while ([string]::IsNullOrEmpty($script:ApplicationName) `
+            -or ($script:ApplicationName -notmatch "^[a-z0-9-]*$")) {
         if ($first -eq $false) {
             Write-Host "You can only use alphanumeric characters as well as '-'."
         }
@@ -315,15 +318,15 @@ else {
         if ($script:ResourceGroupName -match "^[a-z0-9-]*$") {
             Write-Host "Hit enter to use $($script:ResourceGroupName)."
         }
-        $applicationName = Read-Host -Prompt ">"
-        if ([string]::IsNullOrEmpty($applicationName)) {
-            $applicationName = $script:ResourceGroupName
+        $script:ApplicationName = Read-Host -Prompt ">"
+        if ([string]::IsNullOrEmpty($script:ApplicationName)) {
+            $script:ApplicationName = $script:ResourceGroupName
         }
     }
 }
 
-Write-Host "... Using '$($applicationName)' as name for the deployment."
-$templateParameters.Add("applicationName", $applicationName)
+Write-Host "... Using '$($script:ApplicationName)' as name for the deployment."
+$templateParameters.Add("applicationName", $script:ApplicationName)
 
 # Select source of the scripts and templates consumed during deployment
 if (![string]::IsNullOrEmpty($branchName)) {
@@ -385,7 +388,8 @@ if ($script:Type -eq "simulation") {
 # Log in - allow user to switch subscription
 Write-Host "Preparing deployment..."
 $context = Connect-ToAzure -EnvironmentName $script:EnvironmentName `
-    -TenantId $script:TenantId -SwitchSubscription
+    -TenantId $script:TenantId -SwitchSubscription `
+    -SubscriptionId $script:Subscription -SubscriptionName $script:Subscription
 $script:TenantId = $context.Tenant.Id
 $subscriptionName = $context.Subscription.Name
 $subscriptionId = $context.Subscription.Id
@@ -556,7 +560,7 @@ Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Deploying" `
 # -------------------------------------------------------------------------
 
 # Do the deployment
-$deploymentName = "$($applicationName)-deployment"
+$deploymentName = "$($script:ApplicationName)-deployment"
 $script:requiredProviders | ForEach-Object { `
     $ns = $_
     Write-Host "... Registering $ns..."
