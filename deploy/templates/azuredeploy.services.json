@@ -189,9 +189,6 @@
                             "ManagedIdentityOperator" 
                         ]
                     },
-                    "scope":{
-                        "value": "[resourceGroup().id]"
-                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }

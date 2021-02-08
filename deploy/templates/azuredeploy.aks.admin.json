@@ -2,10 +2,17 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "clusterName": {
+        "aksClusterName": {
             "type": "string",
             "metadata": {
                 "description": "The name of the Managed Cluster resource - must be provided."
+            }
+        },
+        "aksClusterResourceGroupId": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().id]",
+            "metadata": {
+                "description": "The resource group id of the Managed Cluster resource - defaults to current resource group."
             }
         },
         "aadPrincipalId": {
@@ -23,7 +30,7 @@
         },
         "aksAdminManagedIdentityName": {
             "type": "string",
-            "defaultValue": "[concat(parameters('clusterName'), '-admin-msi')]",
+            "defaultValue": "[concat(parameters('aksClusterName'), '-admin-msi')]",
             "metadata": {
                 "description": "Name of the Managed identity resource of the cluster admin."
             }
@@ -70,13 +77,15 @@
                 "mode": "Incremental",
                 "parameters": {
                     "principalId": {
-                        "value": "[reference(variables('aksAdminManagedIdentityResourceId'), '2018-11-30').principalId]"
+                        "value": "[reference(variables('aksAdminManagedIdentityResourceId')).principalId]"
                     },
                     "assignRoles": {
-                         "value": [ "AzureKubernetesServiceClusterAdmin", "Contributor" ]
+                        "value": [ 
+                            "AzureKubernetesServiceClusterAdmin"
+                        ]
                     },
-                    "scope":{
-                         "value": "[resourceGroup().id]"
+                    "scope": {
+                        "value": "[parameters('aksClusterResourceGroupId')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -106,10 +115,10 @@
                 }
             },
             "properties": {
-                "forceUpdateTag": "[parameters('clusterName')]",
+                "forceUpdateTag": "[parameters('aksClusterName')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh')]",
-                "arguments": "[concat(' --description \"Administrator group for ', parameters('clusterName'), ' in resource group ', resourceGroup().name, '\" --display \"', parameters('clusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('clusterName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(variables('useServicePrincipalAuthentication'), '', ' --identity'))]",
+                "arguments": "[concat(' --description \"Administrator group for ', parameters('aksClusterName'), ' in resource group ', resourceGroup().name, '\" --display \"', parameters('aksClusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('aksClusterName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(variables('useServicePrincipalAuthentication'), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -128,7 +137,7 @@
     "outputs": {
         "clusterName": {
             "type": "string",
-            "value": "[parameters('clusterName')]"
+            "value": "[parameters('aksClusterName')]"
         },
         "aksAdminGroupObjectId": {
             "type": "string",

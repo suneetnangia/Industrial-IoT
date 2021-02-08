@@ -14,13 +14,13 @@
                 "description": "Roles to assign."
             }
         },
-		"scope": { 
-			"type": "string", 
-			"defaultValue": "[resourceGroup().id]",
+        "scope": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().id]",
             "metadata": {
                 "description": "Scope of the assingment.  Defaults to resource group."
             }
-		},
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -30,7 +30,6 @@
         }
     },
     "variables": {
-		"scopeId": "[replace(parameters('scope'), '/resourceGroup', '/resourcegroup')]",
         "roleNames": {
             "Contributor": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
             "KeyVaultSecretOfficer": "[resourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]",
@@ -47,21 +46,58 @@
     },
     "resources": [
         {
-            "comments": "Assign specified roles. Every role can only be assigned to a principal once and assignments are idempotent.",
+            "comments": "Assign principal the role over a resource that is not in the current resource group.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "condition": "[not(startsWith(toLower(parameters('scope')), toLower(resourceGroup().id)))]",
+            "name": "[concat('rbac.', take(uniqueString(parameters('principalId'), parameters('scope')), 5))]",
+            "resourceGroup": "[parameters('scope')]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                        {
+                            "comments": "Every role can only be assigned to a principal once and assignments are idempotent",
+                            "type": "Microsoft.Authorization/roleAssignments",
+                            "copy": {
+                                "count": "[length(parameters('assignRoles'))]",
+                                "mode": "Serial",
+                                "name": "roleAssignmentCopy"
+                            },
+                            "name": "[guid(parameters('principalId'), parameters('scope'), string(parameters('assignRoles')[copyIndex()]))]",
+                            "apiVersion": "2020-04-01-preview",
+                            "location": "[resourceGroup().location]",
+                            "tags": "[parameters('tags')]",
+                            "properties": {
+                                "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
+                                "principalId": "[parameters('principalId')]",
+                                "scope": "[parameters('scope')]",
+                                "principalType": "ServicePrincipal"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "comments": "Assign specified roles to principal over current resource group.",
             "type": "Microsoft.Authorization/roleAssignments",
-            "copy":{
+            "condition": "[startsWith(toLower(parameters('scope')), toLower(resourceGroup().id))]",
+            "copy": {
                 "count": "[length(parameters('assignRoles'))]",
                 "mode": "Serial",
                 "name": "roleAssignmentCopy"
             },
-            "name": "[guid(parameters('principalId'), variables('scopeId'), string(parameters('assignRoles')[copyIndex()]))]",
+            "name": "[guid(parameters('principalId'), parameters('scope'), string(parameters('assignRoles')[copyIndex()]))]",
             "apiVersion": "2020-04-01-preview",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
             "properties": {
                 "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
                 "principalId": "[parameters('principalId')]",
-                "scope": "[variables('scopeId')]",
+                "scope": "[parameters('scope')]",
                 "principalType": "ServicePrincipal"
             }
         }

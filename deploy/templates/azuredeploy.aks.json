@@ -350,10 +350,10 @@
                         "value": [ 
                             "ManagedIdentityOperator",
                             "VirtualMachineContributor"
-                         ]
+                        ]
                     },
                     "scope":{
-                        "value": "[concat(subscription().id, '/resourcegroups/', reference(variables('aksResourceId')).nodeResourceGroup)]"
+                        "value": "[concat(subscription().id, '/resourceGroups/', reference(variables('aksResourceId')).nodeResourceGroup)]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
