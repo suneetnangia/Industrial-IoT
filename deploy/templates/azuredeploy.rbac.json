@@ -51,27 +51,64 @@
             "apiVersion": "2019-08-01",
             "condition": "[not(startsWith(toLower(parameters('scope')), toLower(resourceGroup().id)))]",
             "name": "[concat('rbac.', take(uniqueString(parameters('principalId'), parameters('scope')), 5))]",
+            "copy": {
+                "count": "[length(parameters('assignRoles'))]",
+                "mode": "Serial",
+                "name": "roleAssignmentCopy"
+            },
             "resourceGroup": "[parameters('scope')]",
             "properties": {
                 "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "parameters": {
+                    "roleDefinitionId": {
+                        "value": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]"
+                    },
+                    "roleAssignmentId": {
+                        "value": "[guid(parameters('principalId'), parameters('scope'), string(parameters('assignRoles')[copyIndex()]))]"
+                    },
+                    "principalId": {
+                        "value": "[parameters('principalId')]"
+                    },
+                    "scope": {
+                        "value": "[parameters('scope')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
                 "template": {
                     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
                     "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "roleAssignmentId": {
+                            "type": "string"
+                        },
+                        "roleDefinitionId": {
+                            "type": "string"
+                        },
+                        "principalId": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "tags": {
+                            "type": "object"
+                        }
+                    },
                     "resources": [
                         {
-                            "comments": "Every role can only be assigned to a principal once and assignments are idempotent",
+                            "comments": "Every role can only be assigned to a principal once and assignments are idempotent.",
                             "type": "Microsoft.Authorization/roleAssignments",
-                            "copy": {
-                                "count": "[length(parameters('assignRoles'))]",
-                                "mode": "Serial",
-                                "name": "roleAssignmentCopy"
-                            },
-                            "name": "[guid(parameters('principalId'), parameters('scope'), string(parameters('assignRoles')[copyIndex()]))]",
+                            "name": "[parameters('roleAssignmentId')]",
                             "apiVersion": "2020-04-01-preview",
                             "location": "[resourceGroup().location]",
                             "tags": "[parameters('tags')]",
                             "properties": {
-                                "roleDefinitionId": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]",
+                                "roleDefinitionId": "[parameters('roleDefinitionId')]",
                                 "principalId": "[parameters('principalId')]",
                                 "scope": "[parameters('scope')]",
                                 "principalType": "ServicePrincipal"
