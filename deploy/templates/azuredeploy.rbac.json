@@ -50,7 +50,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "condition": "[not(startsWith(toLower(parameters('scope')), toLower(resourceGroup().id)))]",
-            "name": "[concat('rbac.', take(uniqueString(parameters('principalId'), parameters('scope')), 5))]",
+            "name": "[concat('deploy.rbac.', take(uniqueString(parameters('principalId'), parameters('scope')), 5))]",
             "copy": {
                 "count": "[length(parameters('assignRoles'))]",
                 "mode": "Serial",
