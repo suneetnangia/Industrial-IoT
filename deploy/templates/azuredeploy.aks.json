@@ -376,7 +376,7 @@
                         }
                     },
                     "variables": {
-                        "aksClusterKubeletIdentityRoleAssignmentName": "aks.kubelet.rbac",
+                        "aksClusterKubeletIdentityRoleAssignmentName": "aks.kubelet.rbac"
                     },
                     "resources": [
                         {
