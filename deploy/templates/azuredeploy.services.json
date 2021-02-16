@@ -32,6 +32,12 @@
                 "description": "The resource id of the Azure Managed Kubernetes Cluster to deploy the services to."
             }
         },
+        "aksKubeletIdentityPrincipalId": {
+            "type": "string",
+            "metadata": {
+                "description": "The kubelet principal being assigned managed operator role permissions to the resource group."
+            }
+        },
         "aksAdminIdentityResourceId": {
             "type": "string",
             "metadata": {
@@ -156,6 +162,8 @@
         "managedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
         "managedIdentityRoleAssignmentsName": "[concat('services.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
+        "aksClusterKubeletIdentityRoleAssignmentsName": "[concat('services.kubelet.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksClusterKubeletIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterKubeletIdentityRoleAssignmentsId'))]",
         "helmChartsInstallScriptResourceName": "[concat('services.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "publicIpDeploymentName": "services.ip",
         "publicIpDeploymentId": "[resourceId(parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
@@ -172,6 +180,32 @@
             "tags": "[parameters('tags')]"
         },
         {
+            "comments": "Assign permissions to the kubelet to link the service identity into the virtual machines.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterKubeletIdentityRoleAssignmentsName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[parameters('aksKubeletIdentityPrincipalId')]"
+                    },
+                    "assignRoles": {
+                        "value": [
+                            "ManagedIdentityOperator"
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                }
+            }
+        },
+        {
             "comments": "Assign permissions to micro services to access rbac enabled Azure services.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
@@ -185,6 +219,7 @@
                     "assignRoles": {
                         "value": [ 
                             "KeyVaultSecretOfficer",
+                            "KeyVaultCryptoOfficer",
                             "StorageBlobDataContributor",
                             "ManagedIdentityOperator" 
                         ]
@@ -252,9 +287,6 @@
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
                 "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourcegroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''))]",
-                "supportingScriptUris": [
-                    "[concat(parameters('templateUrl'), 'config/omsagent.yaml')]"
-                ],
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
@@ -262,12 +294,13 @@
                         "secureValue": "[if (not(empty(parameters('dockerPassword'))), parameters('dockerPassword'), '')]"
                     }
                 ],
-                "cleanupPreference": "OnExpiration",
+                "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
                 "[variables('configurationResourceId')]",
                 "[variables('publicIpDeploymentId')]",
+                "[variables('aksClusterKubeletIdentityRoleAssignmentsId')]",
                 "[variables('managedIdentityRoleAssignmentsId')]"
             ]
         },

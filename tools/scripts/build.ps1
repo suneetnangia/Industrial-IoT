@@ -27,7 +27,7 @@
 
 Param(
     [string] $Path = $null,
-    [string] $ResourceGroupName = "testgroup3",
+    [string] $ResourceGroupName = $null,
     [string] $ResourceGroupLocation = $null,
     [string] $Subscription = $null,
     [switch] $Debug

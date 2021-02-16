@@ -1,2 +1,3 @@
 #!/bin/bash
-sudo source ./scripts/helm-setup.sh $*
+cd templates/scripts
+sudo ./helm-setup.sh $*

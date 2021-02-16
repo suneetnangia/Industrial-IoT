@@ -346,7 +346,7 @@
                 },
                 "parameters": {
                     "principalId": {
-                        "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.clientId]"
+                        "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.objectId]"
                     },
                     "resourceGroup": {
                         "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
@@ -432,6 +432,10 @@
         "aksNodeResourceGroup": {
             "type": "string",
             "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
+        },
+        "aksKubeletIdentityPrincipalId": {
+            "type": "string",
+            "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.objectId]"
         },
         "logAnalyticsWorkspaceResourceId": {
             "type": "string",

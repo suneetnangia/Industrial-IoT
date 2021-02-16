@@ -589,8 +589,6 @@ while ($true) {
         Write-Host "... Elapsed time (hh:mm:ss): $($elapsedTime.ToString("hh\:mm\:ss"))" 
 
         Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Complete"
-        Get-AzDeploymentOperation -DeploymentName $deploymentName
-
         Write-Host "Deployment succeeded."
 
         # Create environment file
@@ -635,9 +633,10 @@ while ($true) {
     catch {
         $ex = $_
         Write-Host "Deployment failed."
+        $operations = Get-AzResourceGroupDeploymentOperation `
+            -ResourceGroupName $script:ResourceGroupName -DeploymentName $deploymentName
+        $operations | ConvertTo-Json | Out-Host
         $ex.Exception.Message | Out-Host 
-        Get-AzDeploymentOperation -DeploymentName $deploymentName `
-            -ErrorAction SilentlyContinue
 
         $deleteResourceGroup = $false
         $retry = Read-Host -Prompt "Try again? [y/n]"

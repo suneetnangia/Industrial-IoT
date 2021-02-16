@@ -61,9 +61,9 @@ fi
 
 # Go to home.
 cd ~
-if ! kubectl version > /dev/null 2>&1 ; then
+if ! kubectl version --client > /dev/null 2>&1 ; then
     echo "Install kubectl..."
-    if ! az aks install-cli > /dev/null 2>&1; then 
+    if ! az aks install-cli ; then 
         echo "ERROR: Failed to install kubectl."
         exit 1
     fi
@@ -78,6 +78,15 @@ else
         --name $aksCluster
 fi
 
+userId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+if [[ -n "$userId" ]] ; then
+    source $CWD/templates/scripts/group-setup.sh \
+--description "Administrator group for $aksCluster in resource group $resourcegroup" \
+        --display "$aksCluster Administrators" \
+        --member "$userId" \
+        --name "$aksCluster" 
+fi
+            
 # install dashboard into the cluster
 tag="v2.1.0" # v2.0.0, master, etc.
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/$tag/aio/deploy/recommended.yaml

@@ -301,19 +301,6 @@ fi
 echo "Credentials for AKS cluster acquired."
 
 # -------------------------------------------------------------------------------
-# Configure omsagent
-if [[ -f "$CWD/omsagent.yaml" ]];then
-    if ! kubectl apply -f "$CWD/omsagent.yaml" ; then
-        echo "ERROR: Failed to install OMS agent."
-    else
-        echo "Azure monitor OMS agent support installed."
-    fi
-else
-    echo "WARNING: Missing omsagent.yml configuration."
-    echo "WARNING: Skipping installation of OMS agent."
-fi
-
-# -------------------------------------------------------------------------------
 
 # Add Helm repos
 if ! helm repo add jetstack \
@@ -371,6 +358,46 @@ fi
 helm repo update
 
 # -------------------------------------------------------------------------------
+# Configure omsagent
+echo ""
+echo "Configure Azure monitor..."
+
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: container-azm-ms-agentconfig
+  namespace: kube-system
+data:
+  schema-version:
+    v1
+  config-version:
+    ver1
+  log-data-collection-settings: |-
+    [log_collection_settings]
+       [log_collection_settings.stdout]
+          enabled = true
+          exclude_namespaces = ["kube-system"]
+       [log_collection_settings.stderr]
+          enabled = true
+          exclude_namespaces = ["kube-system"]
+       [log_collection_settings.env_var]
+          enabled = true
+       [log_collection_settings.enrich_container_logs]
+          enabled = false
+  prometheus-data-collection-settings: |-
+    [prometheus_data_collection_settings.cluster]
+        interval = "10s"
+        monitor_kubernetes_pods = true
+    [prometheus_data_collection_settings.node]
+        interval = "1m"
+EOF
+
+    if [ $? -eq 0 ]; then
+        echo "ERROR: Failed to configure Azure Monitor agent in cluster."
+    else
+        echo "Azure monitor OMS agent support installed."
+    fi
 
 # Install jetstack/cert-manager Helm chart if not already installed
 echo ""
@@ -585,7 +612,7 @@ if [[ -n "$servicesAppId" ]] ; then
     extra_settings="$extra_settings --set azure.tenantId=$managedIdentityTenantId"
 fi
 if [[ -n "$dockerUser" ]] && [[ -n "$dockerPassword" ]]; then
-    if ! kubectl get secret $dockerUser -o=name > /dev/null 2>&1 ; then
+    if ! kubectl get secret $dockerUser -n $namespace -o=name > /dev/null 2>&1 ; then
         echo "Create docker registry secret $dockerUser to use for image pull..."
         kubectl create secret docker-registry $dockerUser --docker-server=$dockerServer \
             --docker-username=$dockerUser --docker-password=$dockerPassword \

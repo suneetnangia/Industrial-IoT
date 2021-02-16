@@ -90,9 +90,9 @@
                         "value": "[reference(variables('aadAppRegistrationIdentityResourceId'), '2018-11-30').principalId]"
                     },
                     "assignRoles": {
-                        "value": [ 
-                            "Contributor", 
-                            "KeyVaultSecretOfficer" 
+                         "value": [ 
+                             "Contributor", 
+                             "KeyVaultSecretOfficer" 
                         ]
                     },
                     "tags": {
@@ -139,7 +139,7 @@
                         "secureValue": "[if(empty(parameters('aadPreConfiguration')), '', replace(string(parameters('aadPreConfiguration')), '\"', '\\\"'))]"
                     }
                 ],
-                "cleanupPreference": "OnExpiration",
+                "cleanupPreference": "OnSuccess",
                 "retentionInterval": "P1D"
             },
             "dependsOn": [

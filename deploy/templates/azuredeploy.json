@@ -373,6 +373,9 @@
                     "aksNodeResourceGroup": {
                         "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksNodeResourceGroup.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').nodeResourceGroup)]"
                     },
+                    "aksKubeletIdentityPrincipalId": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksKubeletIdentityPrincipalId.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').identityProfile.kubeletidentity.objectId)]"
+                    },
                     "aksAdminIdentityResourceId": {
                         "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminIdentityResourceId.value]"
                     },
