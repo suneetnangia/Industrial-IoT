@@ -148,13 +148,13 @@
                 "description": "Specifies the service tier of the Azure Log Analytics workspace."
             }
         },
-        "aksEnableAzurePolicyAddon": { 
-			"type": "bool", 
-			"defaultValue": true,
+        "aksEnableAzurePolicyAddon": {
+            "type": "bool",
+            "defaultValue": true,
             "metadata": {
                 "description": "Enable azure policy on the cluster."
             }
-		},
+        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy/templates/')]",
@@ -176,7 +176,7 @@
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('nsgName'))]",
         "clusterVnetResourceId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('vnetName'))]",
         "aksResourceId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]",
-        "aksClusterKubeletIdentityRoleAssignmentsName": "aks.kubelet.rbac",
+        "aksClusterKubeletIdentityUpdateName": "aks.kubelet",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
     },
     "resources": [
@@ -336,33 +336,78 @@
             ]
         },
         {
-            "comments": "Assign permissions to the kubelet identity used by the cluster.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('aksClusterKubeletIdentityRoleAssignmentsName')]",
+            "name": "[variables('aksClusterKubeletIdentityUpdateName')]",
             "properties": {
                 "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
                 "parameters": {
                     "principalId": {
                         "value": "[reference(variables('aksResourceId')).identityProfile.kubeletidentity.clientId]"
                     },
-                    "assignRoles": {
-                        "value": [ 
-                            "ManagedIdentityOperator",
-                            "VirtualMachineContributor"
-                        ]
+                    "resourceGroup": {
+                        "value": "[reference(variables('aksResourceId')).nodeResourceGroup]"
                     },
-                    "scope":{
-                        "value": "[concat(subscription().id, '/resourceGroups/', reference(variables('aksResourceId')).nodeResourceGroup)]"
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                "template": {
+                    "parameters": {
+                        "principalId": {
+                            "value": "[parameters('principalId')]"
+                        },
+                        "resourceGroup": {
+                            "value": "[parameters('resourceGroup')]"
+                        },
+                        "templateUrl": {
+                            "value": "[parameters('templateUrl')]"
+                        },
+                        "tags": {
+                            "value": "[parameters('tags')]"
+                        }
+                    },
+                    "variables": {
+                        "aksClusterKubeletIdentityRoleAssignmentName": "aks.kubelet.rbac",
+                    },
+                    "resources": [
+                        {
+                            "comments": "Assign permissions to the kubelet identity used by the cluster.",
+                            "type": "Microsoft.Resources/deployments",
+                            "apiVersion": "2019-08-01",
+                            "name": "[variables('aksClusterKubeletIdentityRoleAssignmentName')]",
+                            "resourceGroup": "[parameters('resourceGroup')]",
+                            "properties": {
+                                "mode": "Incremental",
+                                "parameters": {
+                                    "principalId": {
+                                        "value": "[parameters('principalId')]"
+                                    },
+                                    "assignRoles": {
+                                        "value": [
+                                            "ManagedIdentityOperator",
+                                            "VirtualMachineContributor"
+                                        ]
+                                    },
+                                    "tags": {
+                                        "value": "[parameters('tags')]"
+                                    }
+                                },
+                                "templateLink": {
+                                    "contentVersion": "1.0.0.0",
+                                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                                }
+                            }
+                        }
+                    ]
                 }
+
             },
             "dependsOn": [
                 "[variables('aksResourceId')]"

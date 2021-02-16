@@ -46,82 +46,8 @@
     },
     "resources": [
         {
-            "comments": "Assign principal the role over a resource that is not in the current resource group.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "condition": "[not(startsWith(toLower(parameters('scope')), toLower(resourceGroup().id)))]",
-            "name": "[concat('deploy.rbac.', take(uniqueString(parameters('principalId'), parameters('scope')), 5))]",
-            "copy": {
-                "count": "[length(parameters('assignRoles'))]",
-                "mode": "Serial",
-                "name": "roleAssignmentCopy"
-            },
-            "resourceGroup": "[parameters('scope')]",
-            "properties": {
-                "mode": "Incremental",
-                "expressionEvaluationOptions": {
-                    "scope": "inner"
-                },
-                "parameters": {
-                    "roleDefinitionId": {
-                        "value": "[variables('roleNames')[string(parameters('assignRoles')[copyIndex()])]]"
-                    },
-                    "roleAssignmentId": {
-                        "value": "[guid(parameters('principalId'), parameters('scope'), string(parameters('assignRoles')[copyIndex()]))]"
-                    },
-                    "principalId": {
-                        "value": "[parameters('principalId')]"
-                    },
-                    "scope": {
-                        "value": "[parameters('scope')]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "template": {
-                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-                    "contentVersion": "1.0.0.0",
-                    "parameters": {
-                        "roleAssignmentId": {
-                            "type": "string"
-                        },
-                        "roleDefinitionId": {
-                            "type": "string"
-                        },
-                        "principalId": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "tags": {
-                            "type": "object"
-                        }
-                    },
-                    "resources": [
-                        {
-                            "comments": "Every role can only be assigned to a principal once and assignments are idempotent.",
-                            "type": "Microsoft.Authorization/roleAssignments",
-                            "name": "[parameters('roleAssignmentId')]",
-                            "apiVersion": "2020-04-01-preview",
-                            "location": "[resourceGroup().location]",
-                            "tags": "[parameters('tags')]",
-                            "properties": {
-                                "roleDefinitionId": "[parameters('roleDefinitionId')]",
-                                "principalId": "[parameters('principalId')]",
-                                "scope": "[parameters('scope')]",
-                                "principalType": "ServicePrincipal"
-                            }
-                        }
-                    ]
-                }
-            }
-        },
-        {
             "comments": "Assign specified roles to principal over current resource group.",
             "type": "Microsoft.Authorization/roleAssignments",
-            "condition": "[startsWith(toLower(parameters('scope')), toLower(resourceGroup().id))]",
             "copy": {
                 "count": "[length(parameters('assignRoles'))]",
                 "mode": "Serial",
