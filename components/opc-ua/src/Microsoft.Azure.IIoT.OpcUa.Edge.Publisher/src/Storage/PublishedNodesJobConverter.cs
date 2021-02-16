@@ -139,8 +139,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
                         },
                         WriterGroup = new WriterGroupModel {
                             MessageType = legacyCliModel.MessageEncoding,
-                            WriterGroupId = !string.IsNullOrEmpty(dataSetSourceBatches.First().Connection.Id)
-                                ? $"{dataSetSourceBatches.First().Connection.Id}"
+                            WriterGroupId = !string.IsNullOrEmpty(dataSetSourceBatches.First().Connection.Group)
+                                ? $"{dataSetSourceBatches.First().Connection.Group}"
                                 : $"{dataSetSourceBatches.First().Connection.Endpoint.Url}_" +
                                     $"{new ConnectionIdentifier(dataSetSourceBatches.First().Connection)}",
                             DataSetWriters = dataSetSourceBatches.Select(dataSetSource => new DataSetWriterModel {
