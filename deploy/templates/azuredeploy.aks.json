@@ -359,17 +359,23 @@
                     }
                 },
                 "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
                     "parameters": {
                         "principalId": {
+                            "type": "string",
                             "value": "[parameters('principalId')]"
                         },
                         "resourceGroup": {
+                            "type": "string",
                             "value": "[parameters('resourceGroup')]"
                         },
                         "templateUrl": {
+                            "type": "string",
                             "value": "[parameters('templateUrl')]"
                         },
                         "tags": {
+                            "type": "object",
                             "value": "[parameters('tags')]"
                         }
                     },
