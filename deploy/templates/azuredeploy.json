@@ -265,8 +265,8 @@
                     "aksClusterName": {
                         "value": "[if(empty(parameters('existingAksClusterResourceId')), variables('defaultClusterName'), reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
                     },
-                    "aksClusterResourceGroupId": {
-                        "value": "[if(empty(parameters('existingAksClusterResourceId')), resourceGroup().id, concat(subscription().id, '/resourceGroup/', reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').resourceGroup))]"
+                    "aksClusterResourceGroup": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), resourceGroup().name, reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').resourceGroup)]"
                     },
                     "aadPrincipalId": {
                         "value": "[parameters('aadPrincipalId')]"
