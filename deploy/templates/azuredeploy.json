@@ -51,7 +51,7 @@
                 "description": "Whether to deploy Platform services into the cluster. Set to false to deploy dependencies for local development."
             }
         },
-        "deployFrontend": {
+        "deployEngineeringTool": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
@@ -400,6 +400,12 @@
                     "applicationName": {
                         "value": "[parameters('applicationName')]"
                     },
+                    "deployEngineeringTool": {
+                        "value": "[parameters('deployEngineeringTool')]"
+                    },
+                    "deployTelemetryProcessor": {
+                        "value": "[parameters('deployOptionalServices')]"
+                    },
                     "dockerServer": {
                         "value": "[parameters('dockerServer')]"
                     },
@@ -430,50 +436,6 @@
                 "[variables('requiredServicesDeploymentId')]",
                 "[variables('optionalServicesDeploymentId')]",
                 "[variables('aadAppRegistrationDeploymentId')]"
-            ]
-        },
-        {
-            "comments": "Deploy engineering tool front end.",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('frontendDeploymentName')]",
-            "condition": "[and(parameters('deployFrontend'), parameters('deployPlatformComponents'))]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "siteName": {
-                        "value": "[parameters('applicationName')]"
-                    },
-                    "keyVaultUri": {
-                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultUri.value]"
-                    },
-                    "managedIdentityResourceId": {
-                        "value": "[reference(variables('microServicesDeploymentId')).outputs.managedIdentityResourceId.value]"
-                    },
-                    "dockerServer": {
-                        "value": "[parameters('dockerServer')]"
-                    },
-                    "dockerUser": {
-                        "value": "[parameters('dockerUser')]"
-                    },
-                    "dockerPassword": {
-                        "value": "[parameters('dockerPassword')]"
-                    },
-                    "imagesTag": {
-                        "value": "[parameters('imagesTag')]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.frontend.json')]"
-                }
-            },
-            "dependsOn": [
-                "[variables('microServicesDeploymentId')]",
-                "[variables('requiredServicesDeploymentId')]"
             ]
         },
         {

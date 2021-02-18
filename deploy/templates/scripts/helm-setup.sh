@@ -39,6 +39,8 @@ managedIdentityClientId=
 managedIdentityTenantId=
 servicesHostname=
 servicesAppId=
+engineeringTool=true
+telemetryProcessor=true
 
 #servicesAppSecret= # allow passing from environment
 #dockerPassword= # allow passing from environment
@@ -53,6 +55,8 @@ while [ "$#" -gt 0 ]; do
         -g)                         resourcegroup="$2" ;;
         # automation...
         --aksCluster)               aksCluster="$2" ;;
+        --noEngineeringTool)        engineeringTool=false ;;
+        --noTelemetryProcessor)     telemetryProcessor=false ;;
         --email)                    userEmail="$2" ;;
         --user)                     userId="$2" ;;
         --loadBalancerIp)           loadBalancerIp="$2" ;;
@@ -230,6 +234,8 @@ fi
 echo ""
 echo "  resourcegroup=$resourcegroup"
 echo "  namespace=$namespace"
+echo "  engineeringTool=$engineeringTool"
+echo "  telemetryProcessor=$telemetryProcessor"
 echo "  aksCluster=$aksCluster"
 echo "  roleName=$roleName"
 echo "  loadBalancerIp=$loadBalancerIp"
@@ -647,7 +653,8 @@ if [[ -z "$releases" ]] ; then
         --set azure.keyVault.uri=$keyVaultUri \
         --set loadConfFromKeyVault=true \
         --set externalServiceUrl="https://$servicesHostname" \
-        --set deployment.microServices.engineeringTool.enabled=true \
+        --set deployment.microServices.engineeringTool.enabled=$engineeringTool \
+        --set deployment.microServices.telemetryProcessor.enabled=$telemetryProcessor \
         --set deployment.ingress.enabled=true \
         --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$namespace \
         --set deployment.ingress.annotations."nginx\.ingress\.kubernetes\.io\/affinity"=cookie \
@@ -678,7 +685,8 @@ else
         --set azure.keyVault.uri=$keyVaultUri \
         --set azure.tenantId="$managedIdentityTenantId" \
         --set loadConfFromKeyVault=true \
-        --set deployment.microServices.engineeringTool.enabled=true \
+        --set deployment.microServices.engineeringTool.enabled=$engineeringTool \
+        --set deployment.microServices.telemetryProcessor.enabled=$telemetryProcessor \
         --set deployment.ingress.annotations."kubernetes\.io\/ingress\.class"=nginx-$namespace \
         --set deployment.ingress.hostName=$servicesHostname > /dev/null 2>&1
 

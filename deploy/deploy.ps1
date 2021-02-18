@@ -8,8 +8,11 @@
   services required.  As default an AKS cluster will also be deployed.
 
  .PARAMETER Type
-  The type of deployment (minimum, local, simulation, all).
+  The type of deployment (local, services, app, simulation, all).
   Defaults to all.
+ .PARAMETER Minimal
+  Whether to not deploy optional services. Only valid in combination
+  with type local, services, all.
  .PARAMETER Version
   Set to a version number that corresponds to an mcr image tag of the 
   concrete release you want to deploy.
@@ -63,8 +66,9 @@
 #>
 
 param(
-    [ValidateSet("minimum", "local", "simulation", "production", "all")] 
+    [ValidateSet("local", "services", "app", "simulation", "all")] 
     [string] $Type = "all",
+    [switch] $Minimal = $false,
     [string] $Version = $null,
     [string] $DockerServer = $null,
     [string] $ResourceGroupName = $null,
@@ -290,20 +294,13 @@ while ([string]::IsNullOrEmpty($script:ResourceGroupName) `
 }
 
 # Select application name
-if (($script:Type -eq "local") -or ($script:Type -eq "simulation")) {
+if ($script:Type -eq "local") {
     if ([string]::IsNullOrEmpty($script:ApplicationName) `
             -or ($script:ApplicationName -notmatch "^[a-z0-9-]*$")) {
         $script:ApplicationName = $script:ResourceGroupName.Replace('_', '-')
     }
-    if ($script:Type -eq "local") {
-        $templateParameters.Add("deployOptionalServices", $true)
-    }
 }
 else {
-    if ($script:Type -eq "all") {
-        $templateParameters.Add("deployOptionalServices", $true)
-    }
-
     $first = $true
     while ([string]::IsNullOrEmpty($script:ApplicationName) `
             -or ($script:ApplicationName -notmatch "^[a-z0-9-]*$")) {
@@ -350,16 +347,27 @@ if ($script:Type -ne "local") {
 else {
     Write-Host "... Local development deployment - no containers will be deployed."
 }
-if (($script:Type -eq "local") -or ($script:Type -eq "simulation")) {
+if ($script:Type -eq "local") {
     $templateParameters.Add("deployPlatformComponents", $false)
+    $templateParameters.Add("deployEngineeringTool", $false)
+    $templateParameters.Add("deployOptionalServices", -not $script:Minimal.IsPresent)
 }
 else {
     $templateParameters.Add("deployPlatformComponents", $true)
+    if (($script:Type -eq "all") -or ($script:Type -eq "app")) {
+        $templateParameters.Add("deployOptionalServices", $true)
+        $templateParameters.Add("deployEngineeringTool", $true)
+    }
+    else {
+        $templateParameters.Add("deployOptionalServices", -not $script:Minimal.IsPresent)
+        $templateParameters.Add("deployEngineeringTool", $false)
+    }
     Write-Host "... Deploying platform using Helm chart."
 }
 
-# Configure simulation
-if ($script:Type -eq "simulation") {
+# Configure simulation if not local or services only deployment
+if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
+
     if ([string]::IsNullOrEmpty($script:SimulationProfile)) {
         $script:SimulationProfile = "default"
     }
@@ -454,7 +462,7 @@ else {
 }
 
 # Configure simulation VM sizes based on what is available in subscription
-if ($script:Type -eq "simulation") {
+if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
 
     # Get all vm skus available in the location and in the account
     $availableVms = Get-AzComputeResourceSku | Where-Object {
@@ -633,10 +641,17 @@ while ($true) {
     catch {
         $ex = $_
         Write-Host "Deployment failed."
-        $operations = Get-AzResourceGroupDeploymentOperation `
-            -ResourceGroupName $script:ResourceGroupName -DeploymentName $deploymentName
-        $operations | ConvertTo-Json | Out-Host
-        $ex.Exception.Message | Out-Host 
+        $ex.Exception.Message | Out-Host
+        $ex | ConvertTo-Json | Out-File -FilePath deploy.err
+        try {
+            $operations = Get-AzResourceGroupDeploymentOperation `
+                -ResourceGroupName $script:ResourceGroupName -DeploymentName $deploymentName
+            $operations | ConvertTo-Json | Out-File -Append -FilePath deploy.err
+        }
+        catch {
+            $_.Exception.Message | Out-File -Append -FilePath deploy.err
+        }
+        Write-Host "More information can be found in deploy.err file in the current folder."
 
         $deleteResourceGroup = $false
         $retry = Read-Host -Prompt "Try again? [y/n]"

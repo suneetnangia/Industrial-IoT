@@ -81,6 +81,10 @@ goto :done
 :deploy
 if not "%_deploy%" == "1" goto :done
 echo Deploy...
+set __args=
+set __args=%__args% -Subscription IOT-OPC-WALLS
+set __args=%__args% -ResourceGroupLocation westeurope
+set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ApplicationName %_resourceGroup%
 pushd %build_root%\deploy
 powershell ./deploy.ps1 -type all %__args% 

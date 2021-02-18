@@ -8,6 +8,20 @@
                 "description": "The name of the services endpoint."
             }
         },
+        "deployEngineeringTool": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy engineering tool frontend."
+            }
+        },
+        "deployTelemetryProcessor": {
+            "type": "bool",
+            "defaultValue": "[parameters('deployEngineeringTool')]",
+            "metadata": {
+                "description": "Whether to deploy telemetry processor."
+            }
+        },
         "keyVaultName": {
             "type": "string",
             "metadata": {
@@ -286,7 +300,7 @@
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh')]",
-                "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourcegroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''))]",
+                "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourcegroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''), if (not(parameters('deployEngineeringTool')), ' --noEngineeringTool ', ''), if (and(not(parameters('deployEngineeringTool')), not(parameters('deployTelemetryProcessor'))), ' --noTelemetryProcessor ', ''))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
                     {
