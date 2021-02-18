@@ -198,7 +198,6 @@
         "optionalServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesDeploymentName'))]",
         "aadAppRegistrationDeploymentName": "aad",
         "aadAppRegistrationDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationDeploymentName'))]",
-        "frontendDeploymentName": "frontend",
         "microServicesDeploymentName": "services",
         "microServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('microServicesDeploymentName'))]",
         "simulationDeploymentName": "simulation"

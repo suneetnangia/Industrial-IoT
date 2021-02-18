@@ -177,7 +177,7 @@
         "managedIdentityRoleAssignmentsName": "[concat('services.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
         "aksClusterKubeletIdentityRoleAssignmentsName": "[concat('services.kubelet.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
-        "aksClusterKubeletIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterKubeletIdentityRoleAssignmentsId'))]",
+        "aksClusterKubeletIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterKubeletIdentityRoleAssignmentsName'))]",
         "helmChartsInstallScriptResourceName": "[concat('services.helm', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "publicIpDeploymentName": "services.ip",
         "publicIpDeploymentId": "[resourceId(parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
