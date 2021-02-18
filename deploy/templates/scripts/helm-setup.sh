@@ -358,11 +358,10 @@ fi
 helm repo update
 
 # -------------------------------------------------------------------------------
-# Configure omsagent
+# Install omsagent configuration if not already installed.
 echo ""
 echo "Configure Azure monitor..."
-
-    cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -393,38 +392,43 @@ data:
         interval = "1m"
 EOF
 
-    if [ $? -eq 0 ]; then
-        echo "Azure monitor OMS agent support installed."
-    else
-        echo "ERROR: Failed to configure Azure Monitor agent in cluster."
-    fi
+if [ $? -eq 0 ]; then
+    echo "Azure monitor agent configuration updated."
+else
+    echo "ERROR: Failed to update Azure Monitor agent configuration."
+fi
 
 # Install jetstack/cert-manager Helm chart if not already installed
 echo ""
-releases=($(helm ls -f cert-manager -A -q))
+releases=($(helm ls -f cert-manager -A))
 if [[ -z "$releases" ]]; then
-    echo "Installing jetstack/cert-manager Helm chart..."
+    ns=cert-manager
+    echo "Installing jetstack/cert-manager Helm chart into namespace $ns..."
+    if ! kubectl create namespace $ns > /dev/null 2>&1 ; then
+        echo "Namespace $ns already exists..."
+    fi
     helm install --atomic cert-manager jetstack/cert-manager \
-        --version v1.1.0 --timeout 30m0s \
+        --version v1.1.0 --timeout 30m0s --namespace $ns \
         --set installCRDs=true \
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo "Installed jetstack/cert-manager Helm chart."
+        echo "Installed jetstack/cert-manager Helm chart in namespace $ns."
     else
-        echo "ERROR: Failed to install jetstack/cert-manager Helm chart."
+        echo "ERROR: Failed to install jetstack/cert-manager Helm chart in namespace $ns."
         if ! kubectl get crds issuers.cert-manager.io > /dev/null 2>&1; then
             exit 1
         fi
         echo "WARNING: Found issuer crd, trying without installation ..."
     fi
 else
+    ns=${releases[9]}
     helm upgrade --atomic cert-manager jetstack/cert-manager \
-        --version v1.1.0 --timeout 30m0s --reuse-values \
+        --version v1.1.0 --timeout 30m0s --reuse-values --namespace $ns \
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo "Upgraded jetstack/cert-manager cert-manager release."
+        echo "Upgraded jetstack/cert-manager cert-manager release in namespace $ns."
     else
-        echo "ERROR: Failed to upgrade cert-manager release."
+        echo "ERROR: Failed to upgrade cert-manager release in namespace $ns."
         echo "WARNING: Trying to continue without upgrade..."
         # exit 1
     fi
@@ -432,48 +436,53 @@ fi
 
 # install per pod identity if it is not yet installed
 echo ""
-releases=($(helm ls -f aad-pod-identity -A -q))
+releases=($(helm ls -f aad-pod-identity -A))
 if [[ -z "$releases" ]]; then
-    echo "Installing aad-pod-identity Helm chart into default namespace..."
+    ns=aad-pod-identity
+    echo "Installing aad-pod-identity Helm chart into in namespace $ns..."
+    if ! kubectl create namespace $ns > /dev/null 2>&1 ; then
+        echo "Namespace $ns already exists..."
+    fi
     helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
         --version 3.0.0 --timeout 30m0s --set forceNamespaced="true" \
         > /dev/null 2>&1
         # -set nmi.allowNetworkPluginKubenet=true
     if [ $? -eq 0 ]; then
-        echo "Installed aad-pod-identity Helm chart ."
+        echo "Installed aad-pod-identity Helm chart in namespace $ns."
     else
-        echo "ERROR: Failed to install aad-pod-identity Helm chart."
+        echo "ERROR: Failed to install aad-pod-identity Helm chart in namespace $ns."
         if ! kubectl get crds azureidentities.aadpodidentity.k8s.io > /dev/null 2>&1; then
             exit 1
         fi
         echo "WARNING: Found azureidentities crd, trying without installation ..."
     fi
 else
+    ns=${releases[9]}
     helm upgrade --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-        --version 3.0.0 --timeout 30m0s --reuse-values \
+        --version 3.0.0 --timeout 30m0s --reuse-values --namespace $ns \
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        echo "Upgraded aad-pod-identity/aad-pod-identity aad-pod-identity release."
+echo "Upgraded aad-pod-identity/aad-pod-identity aad-pod-identity release in namespace $ns."
     else
-        echo "ERROR: Failed to upgrade aad-pod-identity release."
+        echo "ERROR: Failed to upgrade aad-pod-identity release in namespace $ns."
         echo "WARNING: Trying to continue without upgrade..."
         # exit 1
     fi
 fi
 
 # -------------------------------------------------------------------------------
+# Install services into cluster 
+echo "Installing services into namespace $namespace of cluster $aksCluster..."
 
 # Create namespace to deploy into
 if ! kubectl create namespace $namespace > /dev/null 2>&1 ; then
     echo "Namespace $namespace already exists..."
 fi
 
-# Create identity for the supplied managed service identity and
-# a binding to the scheduled pods if it does not yet exist.
-if ! kubectl get AzureIdentity $managedIdentityName -A -o=name > /dev/null 2>&1 ; then
-    echo "Creating managed identity $managedIdentityName..."
-
-    cat <<EOF | kubectl apply -f -
+# Create or update identity for the supplied managed service identity and
+# a binding to the scheduled pods.
+echo "Creating or updating managed identity $managedIdentityName..."
+cat <<EOF | kubectl apply -f -
 apiVersion: "aadpodidentity.k8s.io/v1"
 kind: AzureIdentity
 metadata:
@@ -496,14 +505,11 @@ spec:
   selector: $managedIdentityName
 EOF
 
-    if [ $? -eq 0 ]; then
-        echo "Per pod identity $managedIdentityName installed."
-    else
-        echo "ERROR: Failed to install identity $managedIdentityName."
-        exit 1
-    fi
+if [ $? -eq 0 ]; then
+    echo "Per pod identity $managedIdentityName created or updated."
 else
-    echo "Per pod identity $managedIdentityName exists."
+    echo "ERROR: Failed to create or update identity $managedIdentityName."
+    exit 1
 fi
 
 # https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/#multiple-ingress-nginx-controllers
@@ -684,4 +690,6 @@ else
     fi
 fi
 
+echo "Installed all services into namespace $namespace of cluster $aksCluster."
+# todo - test access at https endpoint
 # -------------------------------------------------------------------------------
