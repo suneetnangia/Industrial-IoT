@@ -246,7 +246,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json')]"
                 }
             },
             "dependsOn": [
@@ -318,7 +318,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json')]"
                 }
             },
             "dependsOn": [
