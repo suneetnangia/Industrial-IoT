@@ -61,7 +61,7 @@ goto :main
 :main
 if not "%_clean%" == "1" goto :build
 echo Clean...
-cmd /c az group delete -y -g %_resourceGroup% &1>nul
+cmd /c az group delete -y -g %_resourceGroup% > nul 2> nul
 goto :build
 
 :build

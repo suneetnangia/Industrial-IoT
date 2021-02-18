@@ -233,6 +233,7 @@
                 "enabledForTemplateDeployment": true,
                 "enabledForVolumeEncryption": false,
                 "enableRbacAuthorization": true,
+                "enableSoftDelete": false,
                 "tenantId": "[subscription().tenantId]",
                 "sku": {
                     "name": "[parameters('keyVaultSkuName')]",

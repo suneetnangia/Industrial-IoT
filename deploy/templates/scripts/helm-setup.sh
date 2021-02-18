@@ -444,7 +444,7 @@ if [[ -z "$releases" ]]; then
         echo "Namespace $ns already exists..."
     fi
     helm install --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-        --version 3.0.0 --timeout 30m0s --set forceNamespaced="true" \
+        --version 3.0.3 --timeout 30m0s --set forceNamespaced="true" \
         > /dev/null 2>&1
         # -set nmi.allowNetworkPluginKubenet=true
     if [ $? -eq 0 ]; then
@@ -459,7 +459,7 @@ if [[ -z "$releases" ]]; then
 else
     ns=${releases[9]}
     helm upgrade --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
-        --version 3.0.0 --timeout 30m0s --reuse-values --namespace $ns \
+        --version 3.0.3 --timeout 30m0s --reuse-values --namespace $ns \
         > /dev/null 2>&1
     if [ $? -eq 0 ]; then
 echo "Upgraded aad-pod-identity/aad-pod-identity aad-pod-identity release in namespace $ns."
