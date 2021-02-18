@@ -394,9 +394,9 @@ data:
 EOF
 
     if [ $? -eq 0 ]; then
-        echo "ERROR: Failed to configure Azure Monitor agent in cluster."
-    else
         echo "Azure monitor OMS agent support installed."
+    else
+        echo "ERROR: Failed to configure Azure Monitor agent in cluster."
     fi
 
 # Install jetstack/cert-manager Helm chart if not already installed
