@@ -243,7 +243,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     fi
 
     # ---------- update client app ----------------------------------------------
-    redirectUrls==(
+    redirectUrls=(
         '"urn:ietf:wg:oauth:2.0:oob"'
         '"https://localhost"'
         '"http://localhost"'
