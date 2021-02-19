@@ -148,6 +148,14 @@
         }
     ],
     "outputs": {
+        "aadRegistrationAdminIdentityId": {
+            "type": "string",
+            "value": "[variables('aadAppRegistrationIdentityResourceId')]"
+        },
+        "aadRegistrationUpdateReplyUrls": {
+            "type": "bool",
+            "value": "[and(variables('performAadRegistration'), empty(parameters('aadPreConfiguration')))]"
+        },
         "serviceAppId": {
             "type": "string",
             "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.serviceAppId, '')]"

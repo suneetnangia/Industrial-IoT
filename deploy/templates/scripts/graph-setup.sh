@@ -12,9 +12,13 @@ Usage: '"$0"'
                                not provided (see --config).  The name is
                                used as display name prefix for all app
                                registrations and un-registrations.
-         --clean               Unregister existing application 
+        --serviceurl           Optional service url to register reply
+                               urls.
+        --clean                Unregister existing application 
                                registrations before registering.
-         --unregister          Only perform un-registration.
+        --unregister           Only perform un-registration.
+        --owner                Optional owner user id (principal id).
+        --audience             Optional audience - defaults to AzureADMyOrg.
          
     --config                   JSON configuration that has been generated
                                by a previous run or by aad-register.ps1. 
@@ -23,13 +27,12 @@ Usage: '"$0"'
                                
     --keyvault                 Registration results or configuration is 
                                saved in keyvault if its name is specified. 
-         --subscription        Subscription to use in which the keyvault
+        --subscription         Subscription to use in which the keyvault
                                was created.  Default subscription is used 
                                if not provided.
-         --msi                 Manasged service identity to use to log
+        --msi                  Managed service identity to use to log
                                into the keyvault.
                                
-    --owner                    Optional owner user id (principal id).
     --help                     Shows this help.
 '
     exit 1
@@ -44,6 +47,8 @@ ownerId=
 mode=
 login=
 principalId=
+audience=
+serviceurl=
 #principalPassword - allow passing in environment
 #config            - allow passing in environment
 
@@ -61,7 +66,9 @@ while [ "$#" -gt 0 ]; do
         --user)            principalId="$2" ;;
         --password)        principalPassword="$2" ;;
         --tenant)          tenantId="$2" ;;
+        --audience)        audience="$2" ;;
         --owner)           ownerId="$2" ;;
+        --serviceurl)      serviceurl="$2" ;;
         --help)            usage ;;
     esac
     shift
@@ -96,6 +103,9 @@ elif [[ -n "$ownerId" ]] ; then
     ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
 fi
 
+if [[ -z "$audience" ]] ; then
+    audience="AzureADMyOrg"
+fi
 tenantId=$(az account show --query tenantId -o tsv | tr -d '\r')
 trustedTokenIssuer="https://sts.windows.net/$tenantId"
 authorityUri="https://login.microsoftonline.com"
@@ -139,7 +149,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
             --headers Content-Type=application/json \
             --body '{ 
                 "displayName": "'"$applicationName"'-client",
-                "signInAudience": "AzureADMyOrg"
+                "signInAudience": "'"$audience"'"
             }' --query id -o tsv | tr -d '\r')
         echo "'$applicationName-client' registered in graph as $clientId..."
     else
@@ -161,7 +171,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
             --headers Content-Type=application/json \
             --body '{ 
                 "displayName": "'"$applicationName"'-web",
-                "signInAudience": "AzureADMyOrg"
+                "signInAudience": "'"$audience"'"
             }' --query id -o tsv | tr -d '\r')
         echo "'$applicationName-web' registered in graph as $webappId..."
     else
@@ -184,7 +194,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
             --headers Content-Type=application/json \
             --body '{ 
                 "displayName": "'"$applicationName"'-service",
-                "signInAudience": "AzureADMyOrg",
+                "signInAudience": "'"$audience"'",
                 "api": {
                    "oauth2PermissionScopes": [ {
                        "adminConsentDescription": 
@@ -233,14 +243,19 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     fi
 
     # ---------- update client app ----------------------------------------------
+    redirectUrls==(
+        '"urn:ietf:wg:oauth:2.0:oob"'
+        '"https://localhost"'
+        '"http://localhost"'
+    )
+    jsonarray=$(IFS=$"," ; echo "${redirectUrls[*]}" ; unset IFS)
     az rest --method patch \
         --uri https://graph.microsoft.com/v1.0/applications/$clientId \
         --headers Content-Type=application/json \
         --body '{
             "isFallbackPublicClient": true,
             "publicClient": {
-                "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", 
-                    "https://localhost", "http://localhost"]
+                "redirectUris": ['"$jsonarray"']
             },
             "requiredResourceAccess": [ {
               "resourceAccess": [ 
@@ -252,14 +267,35 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     echo "'$applicationName-client' updated..."
 
     # ---------- update web app -------------------------------------------------
+    if [[ -z "$serviceurl" ]] ; then
+        serviceurl="http://localhost:9080"
+    fi
+    if [[ ${serviceurl::7} != "http://" ]] && \
+       [[ ${serviceurl::8} != "https://" ]] ; then
+        serviceurl="https://$serviceurl"
+    fi
+    serviceurl=$(echo $serviceurl | sed 's/\/*$//g')
+    redirectUrls=(
+        '"urn:ietf:wg:oauth:2.0:oob"'
+        '"'"$serviceurl"'/registry/swagger/oauth2-redirect.html"'
+        '"'"$serviceurl"'/twin/swagger/oauth2-redirect.html"'
+        '"'"$serviceurl"'/publisher/swagger/oauth2-redirect.html"'
+        '"'"$serviceurl"'/events/swagger/oauth2-redirect.html"'
+        '"'"$serviceurl"'/edge/publisher/swagger/oauth2-redirect.html"'
+        '"'"$serviceurl"'/frontend/signin-oidc"'
+    )
+    jsonarray=$(IFS=$"," ; echo "${redirectUrls[*]}" ; unset IFS)
     az rest --method patch \
         --uri https://graph.microsoft.com/v1.0/applications/$webappId \
         --headers Content-Type=application/json \
         --body '{
             "isFallbackPublicClient": false,
             "web": {
-                "redirectUris": ["urn:ietf:wg:oauth:2.0:oob", 
-                    "https://localhost", "http://localhost"]
+                "implicitGrantSettings": {
+                    "enableAccessTokenIssuance": false,
+                    "enableIdTokenIssuance": true
+                },
+                "redirectUris": ['"$jsonarray"']
             },
             "requiredResourceAccess": [ {
               "resourceAccess": [ 
