@@ -407,7 +407,8 @@ fi
 # Install jetstack/cert-manager Helm chart if not already installed
 echo ""
 releases=($(helm ls -f cert-manager -A))
-if [[ -z "$releases" ]]; then
+ns=${releases[9]}
+if [[ -z "$ns" ]]; then
     ns=cert-manager
     echo "Installing jetstack/cert-manager Helm chart into namespace $ns..."
     if ! kubectl create namespace $ns > /dev/null 2>&1 ; then
@@ -427,7 +428,6 @@ if [[ -z "$releases" ]]; then
         echo "WARNING: Found issuer crd, trying without installation ..."
     fi
 else
-    ns=${releases[9]}
     helm upgrade --atomic cert-manager jetstack/cert-manager \
         --version v1.1.0 --timeout 30m0s --reuse-values --namespace $ns \
         > /dev/null 2>&1
@@ -443,7 +443,8 @@ fi
 # install per pod identity if it is not yet installed
 echo ""
 releases=($(helm ls -f aad-pod-identity -A))
-if [[ -z "$releases" ]]; then
+ns=${releases[9]}
+if [[ -z "$ns" ]]; then
     ns=aad-pod-identity
     echo "Installing aad-pod-identity Helm chart into in namespace $ns..."
     if ! kubectl create namespace $ns > /dev/null 2>&1 ; then
@@ -463,7 +464,6 @@ if [[ -z "$releases" ]]; then
         echo "WARNING: Found azureidentities crd, trying without installation ..."
     fi
 else
-    ns=${releases[9]}
     helm upgrade --atomic aad-pod-identity aad-pod-identity/aad-pod-identity \
         --version 3.0.3 --timeout 30m0s --reuse-values --namespace $ns \
         > /dev/null 2>&1
@@ -488,6 +488,7 @@ fi
 # Create or update identity for the supplied managed service identity and
 # a binding to the scheduled pods.
 echo "Creating or updating managed identity $managedIdentityName..."
+
 cat <<EOF | kubectl apply -f -
 apiVersion: "aadpodidentity.k8s.io/v1"
 kind: AzureIdentity
