@@ -312,7 +312,7 @@ namespace Microsoft.Azure.IIoT.Agent.Framework.Agent {
                     Job.JobConfigurationType, new NamedParameter(nameof(jobConfig), jobConfig));
 
                 _jobScope = workerScope.BeginLifetimeScope(
-                    jobProcessorFactory.GetJobContainerScope(outer.WorkerId, Job.Id));
+                    jobProcessorFactory.GetJobContainerScope(outer.WorkerId, Job.Name));
                 _currentProcessingEngine = _jobScope.Resolve<IProcessingEngine>();
 
                 // Continuously send job status heartbeats

@@ -214,6 +214,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                                     var jobId = string.IsNullOrEmpty(job.WriterGroup.DataSetWriters.FirstOrDefault().DataSetWriterId)
                                         ? $"Standalone_{_identity.DeviceId}_{Guid.NewGuid()} "
                                         : job.WriterGroup.DataSetWriters.FirstOrDefault().DataSetWriterId;
+                                    var jobName = string.IsNullOrEmpty(job.WriterGroup.WriterGroupId)
+                                        ? $"Standalone_{_identity.DeviceId}"
+                                        : job.WriterGroup.WriterGroupId;
 
                                     job.WriterGroup.DataSetWriters.ForEach(d => {
                                         d.DataSet.ExtensionFields ??= new Dictionary<string, string>();
@@ -232,7 +235,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                                                 JobConfiguration = serializedJob,
                                                 JobConfigurationType = jobConfigurationType,
                                                 LifetimeData = new JobLifetimeDataModel(),
-                                                Name = jobId,
+                                                Name = jobName,
                                                 RedundancyConfig = new RedundancyConfigModel { DesiredActiveAgents = 1, DesiredPassiveAgents = 0 }
                                             },
                                             ProcessMode = ProcessMode.Active
