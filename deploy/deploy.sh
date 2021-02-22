@@ -56,7 +56,6 @@ if [[ -z "$resourcegroup" ]]; then
     echo "Must specify resource group using --resourcegroup param."
     usage
 fi
-
 if [[ -z "$location" ]]; then
     echo "Must specify location using --location param."
     usage
@@ -65,25 +64,71 @@ fi
 if [[ -z "$name" ]]; then
     name=$resourcegroup
 fi
-
-# updates subscription if id provided otherwise uses default
-. create-sp.sh -n "$name" -g "$resourceGroup" -l "$location" -s "$subscription"
-aadPrincipalId=($(az identity show -g $resourcegroup -n $name \
-    --query id -o tsv | tr -d '\r'))
-
-if [[ -z "$sourceuri" ]]; then
-    sourceuri = "https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer"
-fi
 if [[ -z "$version" ]]; then
-    version = "preview"
+    version="preview"
 fi
 if [[ -z "$dockerserver" ]]; then
-    dockerserver = "industrialiotdev.azurecr.io"
+    dockerserver="industrialiotdev.azurecr.io"
+fi
+if [[ -n "$subscription" ]]; then 
+    az account set -s $subscription
+fi
+    
+# updates subscription if id provided otherwise uses default
+. create-sp.sh -n $name -g $resourcegroup -l $location > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to create managed identity."
+    exit 1
+fi
+aadPrincipalId=$(az identity show -g $resourcegroup -n $name \
+    --query id -o tsv | tr -d '\r')
+
+# get source uri   
+if [[ -z "$sourceuri" ]]; then
+    # create storage and upload the templates and scripts
+    storage=$(tr -dc a-z0-9 </dev/urandom | head -c 10)
+    storage="tempartifacts$storage"
+    container="deploy"
+    if ! az storage account create --sku Standard_LRS --kind Storage \
+        -g $resourcegroup -l "$location" \
+	-n "$storage" > /dev/null 2>&1 ; then
+        echo "ERROR: Failed to create storage account $storage."
+        exit 1
+    fi
+    cs=$(az storage account show-connection-string -n "$storage" \
+        -g $resourcegroup --query connectionString -o tsv | tr -d '\r')
+    if ! az storage container create --name $container \
+        --public-access Off --connection-string $cs > /dev/null 2>&1 ; then
+        echo "ERROR: Failed to create container $container in $storage."
+        exit 1
+    fi
+    echo "Uploading deployment artifacts to storage..."
+    if ! az storage copy --source templates --recursive \
+        --destination https://$storage.blob.core.windows.net/$container \
+	--connection-string $cs > /dev/null 2>&1 ; then
+        echo "ERROR: Failed to upload artifiacts to container $container"
+        exit 1
+    fi 
+    expiretime=$(date -u -d '60 minutes' +%Y-%m-%dT%H:%MZ)
+    token=$(az storage container generate-sas \
+        -n $container --expiry $expiretime --permissions r \
+        --connection-string $cs -o tsv | tr -d '\r')
+    templateUrl=$(az storage blob url -c $container \
+        -n templates/azuredeploy.json \
+        --connection-string $cs -o tsv | tr -d '\r')
+    templateUrlQueryString="?$token"
+else
+    templateUrl="$sourceuri/deploy/templates/"
+    templateUrlQueryString=""
+    storage=
 fi
 
-'{
+echo '{
     "templateUrl": {
-        "value": "'"$sourceuri"'/deploy/templates/"
+        "value": "'"$templateUrl"'"
+    },
+    "templateUrlQueryString": {
+        "value": "'"$templateUrlQueryString"'"
     },
     "applicationName": {
         "value": "'"$name"'"
@@ -114,6 +159,13 @@ fi
 }' > deploy.json
 
 echo "Deploying..."
-az deployment group create -g $resourceGroup  \
-    --template-uri $sourceuri/azuredeploy.json --parameters @deploy.json
+az deployment group create -g $resourcegroup \
+    --template-uri $templateUrl?$token \
+    --parameters @deploy.json
 
+# delete the resource group and deployment parameter file.
+if [[ -n "$storage" ]] ; then
+    az storage account delete -g $resourcegroup -n $storage -y \
+    	> /dev/null 2>&1
+fi
+rm -f deploy.json > /dev/null 2>&1

@@ -42,6 +42,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -89,7 +96,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -113,7 +120,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('aksClusterName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh')]",
+                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh', parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --description \"Administrator group for ', parameters('aksClusterName'), ' in resource group ', resourceGroup().name, '\" --display \"', parameters('aksClusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('aksClusterName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(variables('useServicePrincipalAuthentication'), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [

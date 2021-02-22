@@ -205,6 +205,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -239,8 +246,8 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1')]",
-                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1')]"
+                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1', parameters('templateUrlQueryString'))]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1', parameters('templateUrlQueryString'))]"
                 ]
             },
             "protectedSettings": {
@@ -271,9 +278,9 @@
             "autoUpgradeMinorVersion": true,
             "settings": {
                 "fileUris": [
-                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1')]",
-                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1')]",
-                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.sh')]"
+                    "[concat(parameters('templateUrl'), 'scripts/dps-enroll.ps1', parameters('templateUrlQueryString'))]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.ps1', parameters('templateUrlQueryString'))]",
+                    "[concat(parameters('templateUrl'), 'scripts/edge-setup.sh', parameters('templateUrlQueryString'))]"
                 ]
             },
             "protectedSettings": {
@@ -461,8 +468,8 @@
                                 "autoUpgradeMinorVersion": true,
                                 "settings": {
                                     "fileUris": [
-                                        "[concat(parameters('templateUrl'), 'scripts/simulation.sh')]",
-                                        "[concat(parameters('templateUrl'), 'simulations/', parameters('simulationProfile'), '.yml')]"
+                                        "[concat(parameters('templateUrl'), 'scripts/simulation.sh', parameters('templateUrlQueryString'))]",
+                                        "[concat(parameters('templateUrl'), 'simulations/', parameters('simulationProfile'), '.yml', parameters('templateUrlQueryString'))]"
                                     ]
                                 },
                                 "protectedSettings": {

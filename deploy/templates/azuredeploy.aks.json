@@ -162,6 +162,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -342,6 +349,9 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
@@ -357,6 +367,9 @@
                             "type": "string"
                         },
                         "templateUrl": {
+                            "type": "string"
+                        },
+                        "templateUrlQueryString": {
                             "type": "string"
                         },
                         "tags": {
@@ -390,7 +403,7 @@
                                 },
                                 "templateLink": {
                                     "contentVersion": "1.0.0.0",
-                                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
                                 }
                             }
                         }

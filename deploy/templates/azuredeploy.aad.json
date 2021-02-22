@@ -49,6 +49,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -101,7 +108,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -126,7 +133,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh')]",
+                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh', parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [

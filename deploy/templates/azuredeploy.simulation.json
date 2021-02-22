@@ -148,6 +148,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -240,13 +247,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -312,13 +322,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [

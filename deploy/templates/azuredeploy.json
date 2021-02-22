@@ -173,6 +173,13 @@
                 "description": "The location where all deployment templates reside.  Default is GitHub official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -214,13 +221,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.required.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.required.json', parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -236,6 +246,9 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "keyVaultName": {
                         "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
                     },
@@ -245,7 +258,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.optional.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.optional.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -276,13 +289,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.admin.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.admin.json', parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -304,13 +320,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -344,13 +363,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aad.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aad.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -432,13 +454,16 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.services.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.publisher.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -513,18 +538,20 @@
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
                     "tags": {
                         "value": "[parameters('tags')]"
                     }
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
-                "[variables('requiredServicesDeploymentId')]",
-                "[variables('aadAppRegistrationDeploymentId')]"
+                "[variables('requiredServicesDeploymentId')]"
             ]
         }
     ],

@@ -193,6 +193,13 @@
                 "description": "The artifacts url from which to pull all linked templates. Default is official repository."
             }
         },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -491,7 +498,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.workbook.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.workbook.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -588,7 +595,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.configuration.json')]"
+                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.configuration.json', parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
