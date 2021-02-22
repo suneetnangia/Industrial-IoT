@@ -268,22 +268,35 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
 
     # ---------- update web app -------------------------------------------------
     if [[ -z "$serviceurl" ]] ; then
-        serviceurl="http://localhost:9080"
+        hostUrl="http://localhost:9080"
+    else
+        hostUrl=$serviceurl
     fi
-    if [[ ${serviceurl::7} != "http://" ]] && \
-       [[ ${serviceurl::8} != "https://" ]] ; then
-        serviceurl="https://$serviceurl"
+    if [[ ${hostUrl::7} != "http://" ]] && \
+       [[ ${hostUrl::8} != "https://" ]] ; then
+        hostUrl="https://$hostUrl"
     fi
-    serviceurl=$(echo $serviceurl | sed 's/\/*$//g')
+    hostUrl=$(echo $hostUrl | sed 's/\/*$//g')
     redirectUrls=(
         '"urn:ietf:wg:oauth:2.0:oob"'
-        '"'"$serviceurl"'/registry/swagger/oauth2-redirect.html"'
-        '"'"$serviceurl"'/twin/swagger/oauth2-redirect.html"'
-        '"'"$serviceurl"'/publisher/swagger/oauth2-redirect.html"'
-        '"'"$serviceurl"'/events/swagger/oauth2-redirect.html"'
-        '"'"$serviceurl"'/edge/publisher/swagger/oauth2-redirect.html"'
-        '"'"$serviceurl"'/frontend/signin-oidc"'
+        '"'"$hostUrl"'/registry/swagger/oauth2-redirect.html"'
+        '"'"$hostUrl"'/twin/swagger/oauth2-redirect.html"'
+        '"'"$hostUrl"'/publisher/swagger/oauth2-redirect.html"'
+        '"'"$hostUrl"'/events/swagger/oauth2-redirect.html"'
+        '"'"$hostUrl"'/edge/publisher/swagger/oauth2-redirect.html"'
     )
+    if [[ -z "$serviceurl" ]] ; then
+        # add independent frontend service for development
+        redirectUrls+=(
+            '"http://localhost:5000/signin-oidc"'
+            '"https://localhost:5001/signin-oidc"'
+        )
+    else
+        redirectUrls+=(
+            '"'"$hostUrl"'/signin-oidc"'
+            '"'"$hostUrl"'/frontend/signin-oidc"'
+        )
+    fi
     jsonarray=$(IFS=$"," ; echo "${redirectUrls[*]}" ; unset IFS)
     az rest --method patch \
         --uri https://graph.microsoft.com/v1.0/applications/$webappId \

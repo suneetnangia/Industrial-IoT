@@ -481,16 +481,16 @@ if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
         ($_.OSDiskSizeInMB -ge 1047552) -and `
         ($_.ResourceDiskSizeInMB -gt 8192)
     } `
-    | Sort-Object -Property `
-        NumberOfCores, MemoryInMB, ResourceDiskSizeInMB, Name
+    | Sort-Object -Property NumberOfCores, MemoryInMB, ResourceDiskSizeInMB, Name
     # Pick top
     if ($edgeVmSizes.Count -ne 0) {
         $edgeVmSize = $edgeVmSizes[0].Name
-        Write-Host "... Using $($edgeVmSize) as VM size for all edge simulation gateway hosts..."
+        Write-Host `
+ "... Using $($edgeVmSize) as VM size for all edge simulation gateway hosts..."
         $templateParameters.Add("edgeVmSize", $edgeVmSize)
     }
 
-    # We will use VM with at least 1 core and 2 GB of memory for hosting PLC containers.
+    # We will use VM with at least 1 core and 2 GB of memory for the PLC containers.
     $simulationVmSizes = Get-AzVMSize $script:ResourceGroupLocation `
     | Where-Object { $availableVmNames -icontains $_.Name } `
     | Where-Object {
@@ -499,12 +499,12 @@ if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
         ($_.OSDiskSizeInMB -ge 1047552) -and `
         ($_.ResourceDiskSizeInMB -ge 4096)
     } `
-    | Sort-Object -Property `
-        NumberOfCores, MemoryInMB, ResourceDiskSizeInMB, Name
+    | Sort-Object -Property NumberOfCores, MemoryInMB, ResourceDiskSizeInMB, Name
     # Pick top
     if ($simulationVmSizes.Count -ne 0) {
         $simulationVmSize = $simulationVmSizes[0].Name
-        Write-Host "... Using $($simulationVmSize) as VM size for all edge simulation hosts..."
+        Write-Host `
+"... Using $($simulationVmSize) as VM size for all edge simulation hosts..."
         $templateParameters.Add("simulationVmSize", $simulationVmSize)
     }
 }
@@ -515,7 +515,8 @@ if (!$script:AadPreConfiguration) {
         -Name "deploy_aad_msi" -ResourceGroup $script:ResourceGroupName  `
         -Location $script:ResourceGroupLocation -Subscription $subscriptionId
     if ([string]::IsNullOrWhiteSpace($msi.aadPrincipalId)) {
-        Write-Error "Failed to create managed service identity for application registration."
+        Write-Error `
+"Failed to create managed service identity for application registration."
         throw $($msi | ConvertTo-Json)
     }
     $templateParameters.Add("aadPrincipalId", $msi.aadPrincipalId)
@@ -523,8 +524,8 @@ if (!$script:AadPreConfiguration) {
 elseif (($script:AadPreConfiguration -is [string]) -and `
     (Test-Path $script:AadPreConfiguration)) {
     # read configuration from file
-    $script:AadPreConfiguration = Get-Content -Raw -Path $script:AadPreConfiguration `
-        | ConvertFrom-Json
+    $script:AadPreConfiguration = Get-Content -Raw `
+         -Path $script:AadPreConfiguration | ConvertFrom-Json
     $templateParameters.Add("aadPreConfiguration", $script:AadPreConfiguration)
 }
 
@@ -532,7 +533,8 @@ elseif (($script:AadPreConfiguration -is [string]) -and `
 if ($script:Type -ne "local") {
     if ([string]::IsNullOrEmpty($script:DockerServer)) {
         # see if there is a registry in the resource group already and use it.
-        $registry = Get-AzContainerRegistry -ResourceGroupName $script:ResourceGroupName
+        $registry = Get-AzContainerRegistry `
+            -ResourceGroupName $script:ResourceGroupName
         if ($registry) {
             $script:DockerServer = $registry.LoginServer
             $creds = Get-AzContainerRegistryCredential -Registry $registry
@@ -577,6 +579,7 @@ $script:requiredProviders | ForEach-Object { `
 while ($true) {
     try {
         Write-Host "Starting deployment..."
+        Remove-Item -Path deploy.err -ErrorAc
 
         $StartTime = $(Get-Date)
         Write-Host "... Start time: $($StartTime.ToShortTimeString())"
@@ -587,16 +590,20 @@ while ($true) {
             -ResourceGroupName $script:ResourceGroupName `
             -TemplateUri "$($templateUrl)azuredeploy.json" `
             -DeploymentName $deploymentName `
-            -SkipTemplateParameterPrompt -TemplateParameterObject $templateParameters
+            -SkipTemplateParameterPrompt `
+            -TemplateParameterObject $templateParameters
         if ($deployment.ProvisioningState -ne "Succeeded") {
-            Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Failed"
+            Set-ResourceGroupTags -rgName $script:ResourceGroupName `
+                -state "Failed"
             throw "Deployment $($deployment.ProvisioningState)."
         }
 
         $elapsedTime = $(Get-Date) - $StartTime
-        Write-Host "... Elapsed time (hh:mm:ss): $($elapsedTime.ToString("hh\:mm\:ss"))" 
+        $elapsed = $elapsedTime.ToString("hh\:mm\:ss")
+        Write-Host "... Elapsed time (hh:mm:ss): $($elapsed)" 
 
-        Set-ResourceGroupTags -rgName $script:ResourceGroupName -state "Complete"
+        Set-ResourceGroupTags -rgName $script:ResourceGroupName `
+            -state "Complete"
         Write-Host "Deployment succeeded."
 
         # Create environment file
@@ -622,19 +629,37 @@ while ($true) {
 
         if ($writeFile) {
             Get-EnvironmentVariables -rgName $script:ResourceGroupName `
-                -deployment $deployment | Out-File -Encoding ascii -FilePath $ENVVARS
+                -deployment $deployment `
+                    | Out-File -Encoding ascii -FilePath $ENVVARS
             Write-Host
             Write-Host ".env file created in $rootDir."
             Write-Host
-            Write-Warning "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            Write-Warning "!The file contains security keys to your Azure resources!"
-            Write-Warning "! Safeguard the contents of this file, or delete it now !"
-            Write-Warning "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    Write-Warning "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    Write-Warning "!The file contains security keys to your Azure resources!"
+    Write-Warning "! Safeguard the contents of this file, or delete it now !"
+    Write-Warning "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             Write-Host
         }
         else {
             Get-EnvironmentVariables -rgName $script:ResourceGroupName `
-                -deployment $deployment | Out-Default
+                -deployment $deployment `
+                    | Out-Default
+        }
+
+        # Try to open the engineering tool in a web browser.
+        if ($templateParameters["deployEngineeringTool"]) {
+            $serviceUrl = $deployment.Outputs["serviceUrl"].Value
+            $frontend = "$serviceUrl/frontend"
+            if (![string]::IsNullOrEmpty($serviceUrl)) {
+                try {
+                    Start-Process $frontend -ErrorAction SilentlyContinue `
+                        | Out-Null
+                }
+                catch {
+                    # Ignore if there is no web browser available.
+        Write-Host "Open a browser to $frontend to use the engineering tool."
+                }
+            }
         }
         return
     }
@@ -645,13 +670,16 @@ while ($true) {
         $ex | ConvertTo-Json | Out-File -FilePath deploy.err
         try {
             $operations = Get-AzResourceGroupDeploymentOperation `
-                -ResourceGroupName $script:ResourceGroupName -DeploymentName $deploymentName
-            $operations | ConvertTo-Json | Out-File -Append -FilePath deploy.err
+                -ResourceGroupName $script:ResourceGroupName `
+                -DeploymentName $deploymentName
+            $operations | ConvertTo-Json `
+                | Out-File -Append -FilePath deploy.err
         }
         catch {
             $_.Exception.Message | Out-File -Append -FilePath deploy.err
         }
-        Write-Host "More information can be found in deploy.err file in the current folder."
+        Write-Warning `
+    "More information can be found in deploy.err file in the current folder."
 
         $deleteResourceGroup = $false
         $retry = Read-Host -Prompt "Try again? [y/n]"
@@ -665,7 +693,8 @@ while ($true) {
         if ($deleteResourceGroup) {
             try {
                 Write-Host "Removing resource group $($script:ResourceGroupName)..."
-                Remove-AzResourceGroup -ResourceGroupName $script:ResourceGroupName -Force
+                Remove-AzResourceGroup `
+                    -ResourceGroupName $script:ResourceGroupName -Force
             }
             catch {
                 Write-Warning $_.Exception.Message

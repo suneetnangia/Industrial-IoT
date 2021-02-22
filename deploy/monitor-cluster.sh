@@ -70,7 +70,7 @@ if ! kubectl version --client > /dev/null 2>&1 ; then
 fi
 
 # Get AKS credentials
-if [[ "$roleName" -eq "AzureKubernetesServiceClusterAdminRole" ]]; then
+if [[ "$roleName" -eq "AzureKubernetesServiceClusterUserRole" ]]; then
     az aks get-credentials --resource-group $resourcegroup \
         --name $aksCluster --admin
 else

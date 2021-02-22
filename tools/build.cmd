@@ -11,6 +11,7 @@ set current-path=%current-path:~0,-1%
 set build_root=%current-path%\..
 
 set _resourceGroup=
+set _location=westus
 set _deploy=1
 set _build=1
 set _clean=
@@ -23,6 +24,8 @@ if "%1" equ "--skip-deploy" goto :arg-no-deploy
 if "%1" equ "--skip-build" goto :arg-no-build
 if "%1" equ "--resourcegroup" goto :arg-resourcegroup
 if "%1" equ  "-g" goto :arg-resourcegroup
+if "%1" equ "--location" goto :arg-location
+if "%1" equ  "-l" goto :arg-location
 if "%1" equ "--help" goto :usage
 if "%1" equ  "-h" goto :usage
 goto :usage
@@ -34,11 +37,12 @@ goto :args-loop
 echo %script-name% [options]
 echo options:
 echo -g --resourcegroup Resource group name.
-echo -c --clean        print a trace of each command.
-echo    --skip-deploy  Do not deploy.
-echo    --skip-build   Skip building
+echo -l --location      Location to deply to (%_location%).
+echo -c --clean         print a trace of each command.
+echo    --skip-deploy   Do not deploy.
+echo    --skip-build    Skip building
 echo -x --xtrace        print a trace of each command.
-echo -h --help         This help.
+echo -h --help          This help.
 exit /b 1
 
 :arg-clean
@@ -55,6 +59,10 @@ goto :args-continue
 shift
 set _resourceGroup=%1
 goto :args-continue
+:arg-location
+shift
+set _location=%1
+goto :args-continue
 :args-done
 goto :main
 
@@ -69,7 +77,7 @@ if not "%_build%" == "1" goto :deploy
 echo Build...
 set __args=
 set __args=%__args% -Subscription IOT-OPC-WALLS
-set __args=%__args% -ResourceGroupLocation westeurope
+set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 pushd %build_root%\tools\scripts
 powershell ./build.ps1 %__args%
@@ -83,7 +91,7 @@ if not "%_deploy%" == "1" goto :done
 echo Deploy...
 set __args=
 set __args=%__args% -Subscription IOT-OPC-WALLS
-set __args=%__args% -ResourceGroupLocation westeurope
+set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ApplicationName %_resourceGroup%
 pushd %build_root%\deploy
