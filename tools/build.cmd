@@ -38,10 +38,9 @@ echo %script-name% [options]
 echo options:
 echo -g --resourcegroup Resource group name.
 echo -l --location      Location to deply to (%_location%).
-echo -c --clean         print a trace of each command.
+echo -c --clean         Delete the resource group first.
 echo    --skip-deploy   Do not deploy.
 echo    --skip-build    Skip building
-echo -x --xtrace        print a trace of each command.
 echo -h --help          This help.
 exit /b 1
 
@@ -67,6 +66,11 @@ goto :args-continue
 goto :main
 
 :main
+if "%_resourceGroup%" == "" goto :usage
+if "%_location%" == "" goto :usage
+goto :clean
+
+:clean
 if not "%_clean%" == "1" goto :build
 echo Clean...
 cmd /c az group delete -y -g %_resourceGroup% > nul 2> nul

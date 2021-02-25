@@ -579,7 +579,7 @@ $script:requiredProviders | ForEach-Object { `
 while ($true) {
     try {
         Write-Host "Starting deployment..."
-        Remove-Item -Path deploy.err -ErrorAc
+        Remove-Item -Path deploy.err -ErrorAction SilentlyContinue
 
         $StartTime = $(Get-Date)
         Write-Host "... Start time: $($StartTime.ToShortTimeString())"
@@ -667,7 +667,13 @@ while ($true) {
         $ex = $_
         Write-Host "Deployment failed."
         $ex.Exception.Message | Out-Host
-        $ex | ConvertTo-Json | Out-File -FilePath deploy.err
+        try {
+            $ex.Exception.Message | Out-File -FilePath deploy.err
+            $ex | ConvertTo-Json | Out-File -Append -FilePath deploy.err
+        }
+        catch {
+            $_.Exception.Message | Out-File -Append -FilePath deploy.err
+        }
         try {
             $operations = Get-AzResourceGroupDeploymentOperation `
                 -ResourceGroupName $script:ResourceGroupName `
@@ -679,7 +685,7 @@ while ($true) {
             $_.Exception.Message | Out-File -Append -FilePath deploy.err
         }
         Write-Warning `
-    "More information can be found in deploy.err file in the current folder."
+"More information can be found in deploy.err file in the current folder."
 
         $deleteResourceGroup = $false
         $retry = Read-Host -Prompt "Try again? [y/n]"
