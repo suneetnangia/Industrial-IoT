@@ -35,6 +35,13 @@
                 "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
             }
         },
+		"aadPrincipalAssignDeploymentScriptRole": { 
+			"type": "bool", 
+			"defaultValue": true,
+            "metadata": {
+                "description": "Assign the required deployment script execution role to the principal ahead of using it to run the script."
+            }
+		},
         "deployScriptIdentityName": {
             "type": "string",
             "defaultValue": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
@@ -85,7 +92,7 @@
             "tags": "[parameters('tags')]"
         },
         {
-            "comments": "Assign role to the principal to run the application registration script.",
+            "comments": "Assign roles to the principal to run the application registration script under.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationRoleAssignmentsName')]",
@@ -97,10 +104,7 @@
                         "value": "[reference(variables('aadAppRegistrationIdentityResourceId'), '2018-11-30').principalId]"
                     },
                     "assignRoles": {
-                         "value": [ 
-                             "Contributor", 
-                             "KeyVaultSecretOfficer" 
-                        ]
+                        "value": "[if(or(variables('createLocalManagedIdentity'), parameters('aadPrincipalAssignDeploymentScriptRole')), createArray('Contributor', 'KeyVaultSecretOfficer'), createArray('KeyVaultSecretOfficer'))]" 
                     },
                     "tags": {
                         "value": "[parameters('tags')]"
@@ -108,7 +112,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -133,7 +137,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh', parameters('templateUrlQueryString'))]",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [

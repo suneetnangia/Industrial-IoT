@@ -2,3 +2,4 @@
 .app
 .env
 *.err
+deploy.json

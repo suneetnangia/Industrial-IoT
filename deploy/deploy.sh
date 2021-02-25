@@ -105,8 +105,8 @@ if [[ -z "$sourceuri" ]]; then
     echo "Uploading deployment artifacts to storage..."
     if ! az storage copy --source templates --recursive \
         --destination https://$storage.blob.core.windows.net/$container \
-	--connection-string $cs > /dev/null 2>&1 ; then
-        echo "ERROR: Failed to upload artifiacts to container $container"
+	--connection-string $cs ; then
+        echo "ERROR: Failed to upload artifacts to container $container"
         exit 1
     fi 
     expiretime=$(date -u -d '60 minutes' +%Y-%m-%dT%H:%MZ)
@@ -137,23 +137,35 @@ echo '{
         "value": "'"$aadPrincipalId"'"
     },
     "deployPlatformComponents": {
-        "value": true
+        "value": false
     },
     "deployOptionalServices": {
         "value": false
     },
+    "deployEngineeringTool": {
+        "value": false
+    },
+    "helmPullChartFromDockerServer": {
+        "value": false
+    },
+    "helmRepoUrl": {
+        "value": "https://microsoft.github.io/charts/repo"
+    },
+    "helmChartName": {
+        "value": "azure-industrial-iot"
+    },
+    "helmChartVersion": {
+        "value": "0.4.0"
+    },
     "imagesTag": {
         "value": "'"$version"'"
-    },
-    "scriptsUrl": {
-        "value": "'"$sourceuri"'/deploy/scripts/"
     },
     "dockerServer": {
         "value": "'"$dockerserver"'"
     },
     "tags": {
         "value": {
-            "IoTSuiteType":  "AzureIndustrialIoT-preview-AZ"
+            "IoTSuiteType":  "AzureIndustrialIoT-AZ"
         }
     }
 }' > deploy.json
@@ -162,9 +174,12 @@ echo "Deploying..."
 az deployment group create -g $resourcegroup \
     --template-uri $templateUrl?$token \
     --parameters @deploy.json
-
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to deploy."
+fi
 # delete the resource group and deployment parameter file.
 if [[ -n "$storage" ]] ; then
+    echo "Removing artifacts storage..."
     az storage account delete -g $resourcegroup -n $storage -y \
     	> /dev/null 2>&1
 fi

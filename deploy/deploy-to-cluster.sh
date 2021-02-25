@@ -1,3 +1,4 @@
 #!/bin/bash
 cd templates/scripts
-sudo ./helm-setup.sh $*
+sudo ./cluster-setup.sh $*
+cd -

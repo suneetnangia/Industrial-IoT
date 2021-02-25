@@ -67,7 +67,7 @@
         },
         "helmChartVersion": {
             "type": "string",
-            "defaultValue": "0.3.1",
+            "defaultValue": "0.4.0",
             "metadata": {
                 "description": "Version of azure-industrial-iot Helm chart to use"
             }
@@ -251,7 +251,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -280,7 +280,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -314,7 +314,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.services.ip.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.services.ip.json'), parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -335,7 +335,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('helmChartVersion')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/helm-setup.sh', parameters('templateUrlQueryString'))]",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/cluster-setup.sh'), parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourcegroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''), if (not(parameters('deployEngineeringTool')), ' --noEngineeringTool ', ''), if (and(not(parameters('deployEngineeringTool')), not(parameters('deployTelemetryProcessor'))), ' --noTelemetryProcessor ', ''))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
@@ -372,7 +372,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('applicationName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/graph-setup.sh', parameters('templateUrlQueryString'))]",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --serviceurl \"', reference(variables('publicIpDeploymentId')).outputs.fqdn.value, '\" --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
@@ -434,7 +434,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.configuration.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.configuration.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [

@@ -28,6 +28,13 @@
                 "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
             }
         },
+		"aadPrincipalAssignDeploymentScriptRole": { 
+			"type": "bool", 
+			"defaultValue": true,
+            "metadata": {
+                "description": "Assign the required deployment script execution role to the principal ahead of using it to run the script."
+            }
+		},
         "aksAdminManagedIdentityName": {
             "type": "string",
             "defaultValue": "[concat(parameters('aksClusterName'), '-admin-msi')]",
@@ -58,6 +65,8 @@
         }
     },
     "variables": {
+        "aadAdminGroupRegistrationRoleAssignmentsName": "aks.admin.group.rbac",
+        "aadAdminGroupRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAdminGroupRegistrationRoleAssignmentsName'))]",
         "aksAdminManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksAdminManagedIdentityName'))]",
         "aksAdminManagedIdentityRoleAssignmentsName": "aks.admin.rbac",
         "aksAdminManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksAdminManagedIdentityRoleAssignmentsName'))]",
@@ -96,7 +105,37 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.rbac.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksAdminManagedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Assign role to the principal to run the group registration script.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAdminGroupRegistrationRoleAssignmentsName')]",
+	        "condition": "[or(variables('useServicePrincipalAuthentication'), parameters('aadPrincipalAssignDeploymentScriptRole'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[reference(variables('aadAdminGroupRegistrationIdentityResourceId'), '2018-11-30').principalId]"
+                    },
+                    "assignRoles": {
+                        "value": [ 
+                             "Contributor" 
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -120,7 +159,7 @@
             "properties": {
                 "forceUpdateTag": "[parameters('aksClusterName')]",
                 "azCliVersion": "2.15.1",
-                "primaryScriptURI": "[concat(parameters('templateUrl'), 'scripts/group-setup.sh', parameters('templateUrlQueryString'))]",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/group-setup.sh'), parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --description \"Administrator group for ', parameters('aksClusterName'), ' in resource group ', resourceGroup().name, '\" --display \"', parameters('aksClusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('aksClusterName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(variables('useServicePrincipalAuthentication'), '', ' --identity'))]",
                 "timeout": "PT1H",
                 "environmentVariables": [
@@ -133,7 +172,8 @@
                 "retentionInterval": "P1D"
             },
             "dependsOn": [
-                "[variables('aksAdminManagedIdentityRoleAssignmentsId')]"
+                "[variables('aksAdminManagedIdentityRoleAssignmentsId')]",
+                "[variables('aadAdminGroupRegistrationRoleAssignmentsId')]"
             ]
         }
     ],

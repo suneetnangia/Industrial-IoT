@@ -67,7 +67,7 @@
         },
         "helmChartVersion": {
             "type": "string",
-            "defaultValue": "0.3.1",
+            "defaultValue": "0.4.1",
             "metadata": {
                 "description": "Version of azure-industrial-iot Helm chart to use"
             }
@@ -168,7 +168,7 @@
         },
         "templateUrl": {
             "type": "string",
-            "defaultValue": "https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
             "metadata": {
                 "description": "The location where all deployment templates reside.  Default is GitHub official repository."
             }
@@ -189,8 +189,8 @@
         }
     },
     "variables": {
-		"performAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
-		"canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "performAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
         "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
         "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
         "deployCluster": "[and(variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
@@ -230,7 +230,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.required.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.required.json'), parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -258,7 +258,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.optional.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.optional.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -286,6 +286,9 @@
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
                     },
+                    "aadPrincipalAssignDeploymentScriptRole": {
+                        "value": true
+                    },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
                     },
@@ -298,7 +301,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.admin.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aks.admin.json'), parameters('templateUrlQueryString'))]"
                 }
             }
         },
@@ -329,7 +332,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aks.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aks.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -357,6 +360,9 @@
                     "aadPrincipalId": {
                         "value": "[parameters('aadPrincipalId')]"
                     },
+                    "aadPrincipalAssignDeploymentScriptRole": {
+                        "value": "[not(and(variables('deployCluster'), variables('canCreateAdminGroup')))]"
+                    },
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
                     },
@@ -372,10 +378,11 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.aad.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aad.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
+                "[variables('aksClusterAdminDeploymentId')]",
                 "[variables('requiredServicesDeploymentId')]"
             ]
         },
@@ -463,7 +470,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.publisher.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.publisher.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -547,7 +554,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [

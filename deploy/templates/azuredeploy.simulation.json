@@ -256,7 +256,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.edge.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -331,7 +331,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(parameters('templateUrl'), 'azuredeploy.simulation.edge.json', parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.edge.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
