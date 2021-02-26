@@ -35,10 +35,11 @@
         "edgeOs": {
             "type": "string",
             "allowedValues": [
-                "linux",
+                "ubuntu1604LTS",
+                "ubuntu1804LTS",
                 "windows"
             ],
-            "defaultValue": "linux",
+            "defaultValue": "ubuntu1804LTS",
             "metadata": {
                 "description": "Operating system to use for the virtual edge."
             }
@@ -254,17 +255,25 @@
                 "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ./edge-setup.ps1 -idScope \"', parameters('dpsIdScope'), '\" -dpsConnString \"', parameters('dpsConnString'), '\"')]"
             }
         },
-        "windowsImage": {
-            "publisher": "MicrosoftWindowsServer",
-            "offer": "WindowsServer",
-            "sku": "2019-Datacenter-Core-with-Containers",
-            "version": "latest"
-        },
-        "linuxImage": {
-            "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
-            "version": "latest"
+        "images": { 
+            "windows": {
+                "publisher": "MicrosoftWindowsServer",
+                "offer": "WindowsServer",
+                "sku": "2019-Datacenter-Core-with-Containers",
+                "version": "latest"
+            },
+            "ubuntu1604LTS": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "16.04.0-LTS",
+                "version": "latest"
+            },
+            "ubuntu1804LTS": {
+                "publisher": "Canonical",
+                "offer": "UbuntuServer",
+                "sku": "18.04-LTS",
+                "version": "latest"
+            }
         },
         "linuxOsProfile": {
             "computerName": "[variables('vmName')]",
@@ -349,9 +358,9 @@
                 "hardwareProfile": {
                     "vmSize": "[variables('edgeVmSku')]"
                 },
-                "osProfile": "[if(equals(parameters('edgeOs'), 'linux'), variables('linuxOsProfile'), variables('windowsOsProfile'))]",
+                "osProfile": "[if(equals(parameters('edgeOs'), 'windows'), variables('windowsOsProfile'), variables('linuxOsProfile'))]",
                 "storageProfile": {
-                    "imageReference": "[if(equals(parameters('edgeOs'), 'linux'), variables('linuxImage'), variables('windowsImage'))]",
+                    "imageReference": "[variables('images')[string(parameters('edgeOs'))]]",
                     "osDisk": {
                         "createOption": "FromImage"
                     }
@@ -375,7 +384,7 @@
             "apiVersion": "2019-03-01",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]",
-            "properties": "[if (equals(parameters('edgeOs'), 'linux'), variables('linuxVmExtension'), variables('windowsVmExtension'))]",
+            "properties": "[if(equals(parameters('edgeOs'), 'windows'), variables('windowsVmExtension'), variables('linuxVmExtension'))]",
             "dependsOn": [
                 "[variables('vmResourceId')]"
             ]
@@ -437,7 +446,7 @@
                                     "adminPassword": "[if(not(empty(parameters('edgePassword'))), parameters('edgePassword'), json('null'))]"
                                 },
                                 "storageProfile": {
-                                    "imageReference": "[variables('linuxImage')]",
+                                    "imageReference": "[variables('images')['ubuntu1604LTS']]",
                                     "osDisk": {
                                         "createOption": "FromImage"
                                     }
