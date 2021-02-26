@@ -135,7 +135,7 @@
                 }
             },
             "properties": {
-                "forceUpdateTag": "[parameters('applicationName')]",
+                "forceUpdateTag": "[concat(parameters('aadPrincipalId'), parameters('applicationName'), variables('aadAppRegistrationResourceName'))]",
                 "azCliVersion": "2.15.1",
                 "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
                 "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
