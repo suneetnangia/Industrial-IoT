@@ -209,7 +209,7 @@
                         "value": "[concat('linuxGateway', copyIndex())]"
                     },
                     "edgeOs": {
-                        "value": "ubuntu1604LTS"
+                        "value": "ubuntu1804LTS"
                     },
                     "edgeUserName": {
                         "value": "[parameters('edgeUserName')]"
