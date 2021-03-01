@@ -18,7 +18,8 @@
   If provided, overrides the provided environment name or tenant id.
 #>
 param(
-    [Parameter(Mandatory = $true)] [string] $ResourceGroup,
+    [Parameter(Mandatory = $true)] [string] $ResourceGroup = "testgroup981039999",
+    [string] $Subscription = $null,
     [string] $Cluster = $null
 )
 
@@ -29,39 +30,70 @@ $ErrorActionPreference = "Stop"
 
 # -------------------------------------------------------------------------------
 # Log into azure
-az login --identity
-
-# --------------------------------------------------------------------------------------
-
-if ([string]::IsNullOrEmpty($script:Cluster)) {
-    aksCluster=$(az aks list -g $resourcegroup \
-        --query [0].name -o tsv | tr -d '\r')
-    if ([string]::IsNullOrEmpty($script:Cluster)) {
-        Write-Warning "ERROR: Unable to determine aks cluster name."
-        Write-Warning "ERROR: Ensure one was created in resource group $resourcegroup."
-        throw "Unable to determine cluster name"
+$argumentList = @("account", "show")
+& "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+if ($LastExitCode -ne 0) {
+    $argumentList = @("login")
+    & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+    if ($LastExitCode -ne 0) {
+        throw "az $($argumentList) failed with $($LastExitCode)."
     }
 }
 
-# Go to home.
+# --------------------------------------------------------------------------------------
 
-kubectl version --client > /dev/null 2>&1
-if (!) {
-    Write-Warning "Install kubectl..."
-     az aks install-cli ; then 
-    if (Error) {
+# set default subscription
+if (![string]::IsNullOrEmpty($script:Subscription)) {
+    Write-Debug "Setting subscription to $($script:Subscription)"
+    $argumentList = @("account", "set", "--subscription", $script:Subscription)
+    & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+    if ($LastExitCode -ne 0) {
+        throw "az $($argumentList) failed with $($LastExitCode)."
+    }
+}
+
+if ([string]::IsNullOrEmpty($script:Cluster)) {
+    $argumentList = @("aks", "list", "-g", $script:ResourceGroup, `
+        "--query", "[0].name", "-o tsv")
+    $script:Cluster={ & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" } }
+    if ([string]::IsNullOrEmpty($script:Cluster)) {
+Write-Warning "ERROR: Unable to determine aks cluster name."
+Write-Warning "ERROR: Ensure one was created in resource group $script:ResourceGroup."
+        throw "ERROR: Unable to determine cluster name."
+    }
+}
+
+
+$argumentList = @("version", "--client")
+& "kubectl" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+if ($LastExitCode -ne 0) {
+    Write-Warning "Installing kubectl..."
+    $argumentList = @("aks", "install-cli")
+    & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+    if ($LastExitCode -ne 0) {
         throw "ERROR: Failed to install kubectl."
     }
 }
 
-# Get AKS credentials
-az aks get-credentials --resource-group $resourcegroup --name $script:Cluster--admin
-            
+# Get AKS admin credentials
+$argumentList = @("aks", "get-credentials", "-g", $script:ResourceGroup, `
+    "--name", $script:Cluster, "--admin")
+& "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+if ($LastExitCode -ne 0) {
+    throw "ERROR: Failed to get credentials for cluster."
+}
+        
 # install dashboard into the cluster
 $tag="v2.1.0" # v2.0.0, master, etc.
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/$tag/aio/deploy/recommended.yaml
+$url="https://raw.githubusercontent.com/kubernetes/dashboard/$tag/aio/deploy/recommended.yaml"
+$argumentList = @("apply", "-f", "-g", $url)
+& "kubectl" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+if ($LastExitCode -ne 0) {
+    throw "ERROR: Failed to install dashboard."
+}
+
 # start proxy and open browser
-$job = Start-Job { kubectl proxy }
+$job = Start-Job { & "kubectl" @("proxy") }
 $url="http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
 Start-Process -FilePath $url
 Receive-Job -Job $Job -Wait -AutoRemoveJob
