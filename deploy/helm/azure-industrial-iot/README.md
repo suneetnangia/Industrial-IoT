@@ -25,7 +25,6 @@ enabled servers in a factory network, register them in Azure IoT Hub and start c
     * [Azure SignalR](#azure-signalr)
     * [Azure Application Insights](#azure-application-insights)
     * [Azure Log Analytics Workspace](#azure-log-analytics-workspace)
-    * [Azure Data Lake Storage Gen2](#azure-data-lake-storage-gen2)
 * [Installing the Chart](#installing-the-chart)
 * [Configuration](#configuration)
   * [Image](#image)
@@ -110,7 +109,7 @@ The following details of the Azure IoT Hub would be required:
     ```
 
     Here are our recommended names for them:
-  
+
     * `events`: will be used by `eventsProcessor` microservices
     * `telemetry`: will be used by `telemetryProcessor` microservices
     * `onboarding`: will be used by `onboarding` microservices
@@ -314,7 +313,7 @@ The following details of **ServicesApp** AAD App Registrations will be required:
 * Client secret for **ServicesApp**. Client secret is also referred to as password. Here you can either
   provide client secret that you got when creating AAD App Registration. Or you can create a new client
   secret and use that.
-  
+
   Here are the steps to create new client secret
   [using portal](https://docs.microsoft.com/azure/active-directory/develop/howto-create-service-principal-portal#create-a-new-application-secret),
   or you can create a new client secret (password) using the following command:
@@ -358,7 +357,7 @@ The following details of **ClientsApp** AAD App Registrations will be required:
 * Client secret for **ClientsApp**. Client secret is also referred to as password. Here you can either
   provide client secret that you got when creating AAD App Registration. Or you can create a new client
   secret and use that.
-  
+
   Here are the steps to create new client secret
   [using portal](https://docs.microsoft.com/azure/active-directory/develop/howto-create-service-principal-portal#create-a-new-application-secret),
   or you can create a new client secret (password) using the following command:
@@ -992,7 +991,7 @@ This configuration makes sure that:
 * processing of forwarded headers is enabled:
   * [`use-forward-headers`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#use-forwarded-headers)
   * [`compute-full-forward-for`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#compute-full-forwarded-for)
-  
+
 * authentication response from Azure AAD is delivered to components:
   * [`proxy-buffer-size`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/#proxy-buffer-size)
 
