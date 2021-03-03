@@ -70,6 +70,11 @@ fi
 if [[ -z "$dockerserver" ]]; then
     dockerserver="industrialiotdev.azurecr.io"
 fi
+
+# -------------------------------------------------------------------------------
+if ! az account show > /dev/null 2>&1 ; then
+    az login
+fi
 if [[ -n "$subscription" ]]; then 
     az account set -s $subscription
 fi

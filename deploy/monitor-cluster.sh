@@ -39,16 +39,16 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# --------------------------------------------------------------------------------------
-
-if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    az login --identity
-fi
-
 if [[ -z "$resourcegroup" ]]; then
     echo "ERROR: Missing resource group name.  Use --resourcegroup parameter."
     usage
 fi
+
+# -------------------------------------------------------------------------------
+if ! az account show > /dev/null 2>&1 ; then
+    az login
+fi
+
 if [[ -z "$aksCluster" ]]; then
     aksCluster=$(az aks list -g $resourcegroup \
         --query [0].name -o tsv | tr -d '\r')
@@ -100,4 +100,4 @@ if ! x-www-browser $url ; then
 fi
 wait
 
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------

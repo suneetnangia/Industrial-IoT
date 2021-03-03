@@ -96,11 +96,13 @@ elif [[ -n "$principalId" ]] && \
         echo "Failed to log in with service principal."
         exit 1
     fi
-elif [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    echo "Must login with service principal or managed identity"
-    exit 1
-elif [[ -n "$ownerId" ]] ; then
-    ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+elif [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
+    if ! az account show > /dev/null 2>&1 ; then
+        az login
+    fi
+    if [[ -n "$ownerId" ]] ; then
+        ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+    fi
 fi
 
 if [[ -z "$audience" ]] ; then

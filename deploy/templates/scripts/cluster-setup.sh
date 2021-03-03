@@ -85,6 +85,8 @@ done
 
 if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     az login --identity
+elif ! az account show > /dev/null 2>&1 ; then
+    az login
 fi
 
 if [[ -z "$namespace" ]]; then

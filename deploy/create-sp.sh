@@ -40,6 +40,11 @@ while [ "$#" -gt 0 ]; do
 done
 
 # -------------------------------------------------------------------------------
+if ! az account show > /dev/null 2>&1 ; then
+    az login
+fi
+
+# -------------------------------------------------------------------------------
 if [[ -z "$resourcegroup" ]]; then
     # create or update a service principal and get object id
     IFS=$'\n'

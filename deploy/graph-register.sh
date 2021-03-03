@@ -1,2 +1,4 @@
 #!/bin/bash
-source ./templates/scripts/graph-setup.sh $*
+cd templates/scripts
+source ./graph-setup.sh $*
+cd -
