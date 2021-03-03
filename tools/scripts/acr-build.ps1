@@ -76,17 +76,39 @@ else {
     # Set namespace name based on branch name
     $namespace = $branchName
     if ($namespace.StartsWith("feature/")) {
+        # dev feature builds
         $namespace = $namespace.Replace("feature/", "")
     }
     elseif ($namespace.StartsWith("release/") -or ($namespace -eq "master")) {
-        $namespace = ""
+        $namespace = "public"
+        if ([string]::IsNullOrEmpty($Registry)) {
+            # Release and Preview builds go into staging
+            $Registry = "industrialiot"
+        }
     }
     $namespace = $namespace.Replace("_", "/").Substring(0, [Math]::Min($namespace.Length, 24))
     $namespace = "$($namespace)/"
 }
 
+if ([string]::IsNullOrEmpty($Registry)) {
+    $Registry = $env.BUILD_REGISTRY
+    if ([string]::IsNullOrEmpty($Registry)) {
+        # Feature builds by default build into dev registry
+        $Registry = "industrialiotdev"
+    }
+}
+
+Write-Warning "Using $($Registry).azurecr.io."
+
+if ($branchName -eq "master") {
+    # latest tag is preview when building from master for backcompat reasons.
+    $latestTag = "preview"
+}
+else {
+    $latestTag = "latest"
+}
+
 # get and set build information from gitversion, git or version content
-$latestTag = "preview"
 $sourceTag = $env:Version_Prefix
 if ([string]::IsNullOrEmpty($sourceTag)) {
     try {
@@ -146,15 +168,6 @@ if (![string]::IsNullOrEmpty($script:Subscription)) {
     & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
-    }
-}
-
-# Check and set registry
-if ([string]::IsNullOrEmpty($script:Registry)) {
-    $script:Registry = $env.BUILD_REGISTRY
-    if ([string]::IsNullOrEmpty($script:Registry)) {
-        $script:Registry = "industrialiotdev" 
-        Write-Warning "No registry specified - using $($script:Registry).azurecr.io."
     }
 }
 
