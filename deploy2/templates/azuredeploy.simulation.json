@@ -1,0 +1,342 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "iotHubConnString": {
+            "type": "string",
+            "metadata": {
+                "description": "The connection string for the IoT Hub in which the simulation devices are to be registered."
+            }
+        },
+        "iotHubHostName": {
+            "type": "string",
+            "defaultValue": "[concat('iothub-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The host name of Azure IoT Hub."
+            }
+        },
+        "iotHubLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "The location of the Azure IoT Hub instance - defaults to resource group location."
+            }
+        },
+        "simulationProfile": {
+            "type": "string",
+            "defaultValue": "default",
+            "allowedValues": [
+                "default",
+                "testing"
+            ],
+            "metadata": {
+                "description": "The simulation profile to use."
+            }
+        },
+        "numberOfLinuxGateways": {
+            "type": "int",
+            "defaultValue": 0,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of OPC UA Linux simulation gateways to deploy."
+            }
+        },
+        "numberOfWindowsGateways": {
+            "type": "int",
+            "defaultValue": 0,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of OPC UA Windows simulation gateways to deploy."
+            }
+        },
+        "numberOfSimulations": {
+            "type": "int",
+            "defaultValue": 1,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of simulations to deploy into each gateway network."
+            }
+        },
+        "edgeVmSize": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The size of the gateway VM to provision."
+            }
+        },
+        "simulationVmSize": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The size of the simulation VM to provision."
+            }
+        },
+        "edgeUserName": {
+            "type": "string",
+            "defaultValue": "simulationuser",
+            "metadata": {
+                "description": "Admin user name for edge simulation vms."
+            }
+        },
+        "edgePassword": {
+            "type": "secureString",
+            "metadata": {
+                "description": "The administrator password for the edge simulation vms."
+            }
+        },
+        "dpsName": {
+            "type": "string",
+            "defaultValue": "[concat('dps', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the Azure Device Provisioning service created as part of this deployment."
+            }
+        },
+        "dpsSku": {
+            "type": "string",
+            "defaultValue": "S1",
+            "allowedValues": [
+                "S1"
+            ],
+            "metadata": {
+                "description": "The Azure Device Provisioning service SKU to use."
+            }
+        },
+        "dpsCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "minValue": 1,
+            "maxValue": 3,
+            "metadata": {
+                "description": "The Azure Device Provisioning service capacity."
+            }
+        },
+        "dockerServer": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com",
+            "metadata": {
+                "description": "Specifies the endpoint of the Container Registry."
+            }
+        },
+        "dockerUser": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the user name to log into a private Container Registry."
+            }
+        },
+        "dockerPassword": {
+            "type": "secureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the password to use for a private Container Registry."
+            }
+        },
+        "imagesTag": {
+            "type": "string",
+            "defaultValue": "latest",
+            "metadata": {
+                "description": "Specifies the image version tag to use for all images."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "dpsResourceId": "[resourceId('Microsoft.Devices/provisioningServices', parameters('dpsName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Azure Device Provisioning service.",
+            "type": "Microsoft.Devices/provisioningServices",
+            "name": "[parameters('dpsName')]",
+            "apiVersion": "2018-01-22",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('dpsSku')]",
+                "capacity": "[parameters('dpsCapacity')]"
+            },
+            "properties": {
+                "iotHubs": [
+                    {
+                        "connectionString": "[parameters('iotHubConnString')]",
+                        "location": "[parameters('iotHubLocation')]",
+                        "name": "[parameters('ioTHubHostName')]"
+                    }
+                ]
+            }
+        },
+        {
+            "comments": "Deploy linux edge gateway and factory network simulation.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[concat('simulation.linux.', copyIndex())]",
+            "condition": "[not(equals(0, parameters('numberOfLinuxGateways')))]",
+            "copy": {
+                "count": "[if(not(equals(0, parameters('numberOfLinuxGateways'))), parameters('numberOfLinuxGateways'), 1)]",
+                "mode": "Parallel",
+                "name": "simulationcopies"
+            },
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "simulationProfile": {
+                        "value": "[parameters('simulationProfile')]"
+                    },
+                    "edgeName": {
+                        "value": "[concat('linuxGateway', copyIndex())]"
+                    },
+                    "edgeOs": {
+                        "value": "ubuntu1804LTS"
+                    },
+                    "edgeUserName": {
+                        "value": "[parameters('edgeUserName')]"
+                    },
+                    "edgePassword": {
+                        "value": "[parameters('edgePassword')]"
+                    },
+                    "numberOfSimulations": {
+                        "value": "[parameters('numberOfSimulations')]"
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "edgeVmSize": {
+                        "value": "[parameters('edgeVmSize')]"  
+                    },
+                    "simulationVmSize": {
+                        "value": "[parameters('simulationVmSize')]"  
+                    },
+                    "dpsIdScope": {
+                        "value": "[reference(variables('dpsResourceId'), '2018-01-22').idScope]"
+                    },
+                    "dpsConnString": {
+                        "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.edge.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('dpsResourceId')]"
+            ]
+        },
+        {
+            "comments": "Deploy windows edge gateway and factory network simulation.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[concat('simulation.windows.', copyIndex())]",
+            "condition": "[not(equals(0, parameters('numberOfWindowsGateways')))]",
+            "copy": {
+                "count": "[if(not(equals(0, parameters('numberOfWindowsGateways'))), parameters('numberOfWindowsGateways'), 1)]",
+                "mode": "Parallel",
+                "name": "simulationcopies"
+            },
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "simulationProfile": {
+                        "value": "[parameters('simulationProfile')]"
+                    },
+                    "edgeName": {
+                        "value": "[concat('winGateway', copyIndex())]"
+                    },
+                    "edgeOs": {
+                        "value": "windows"
+                    },
+                    "edgeUserName": {
+                        "value": "[parameters('edgeUserName')]"
+                    },
+                    "edgePassword": {
+                        "value": "[parameters('edgePassword')]"
+                    },
+                    "numberOfSimulations": {
+                        "value": "[parameters('numberOfSimulations')]"
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "edgeVmSize": {
+                        "value": "[parameters('edgeVmSize')]"  
+                    },
+                    "simulationVmSize": {
+                        "value": "[parameters('simulationVmSize')]"  
+                    },
+                    "dpsIdScope": {
+                        "value": "[reference(variables('dpsResourceId'), '2018-01-22').idScope]"
+                    },
+                    "dpsConnString": {
+                        "value": "[concat('HostName=', reference(variables('dpsResourceId'), '2018-01-22'). serviceOperationsHostName, ';SharedAccessKeyName=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].keyName, ';SharedAccessKey=', listkeys(variables('dpsResourceId'), '2018-01-22').value[0].primaryKey)]" 
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.edge.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('dpsResourceId')]"
+            ]
+        }
+    ]
+}

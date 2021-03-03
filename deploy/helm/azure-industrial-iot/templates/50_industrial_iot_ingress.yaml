@@ -16,9 +16,6 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion }}
     app.kubernetes.io/component: ingress
     app.kubernetes.io/part-of: azure-industrial-iot
-{{- if .Values.azure.managedIdentity.name }}
-    aadpodidbinding: {{ .Values.azure.managedIdentity.name }}
-{{- end }}
 {{- if .Values.deployment.ingress.extraLabels }}
 {{ toYaml .Values.deployment.ingress.extraLabels | indent 4 }}
 {{- end }}
@@ -50,6 +47,12 @@ spec:
         backend:
           serviceName: {{ template "azure-industrial-iot.twin.fullname" . }}
           servicePort: {{ .Values.deployment.microServices.twin.service.port }}
+{{- end }}
+{{- if and .Values.deployment.microServices.history.enabled .Values.deployment.ingress.paths.history }}
+      - path: {{ .Values.deployment.ingress.paths.history }}
+        backend:
+          serviceName: {{ template "azure-industrial-iot.history.fullname" . }}
+          servicePort: {{ .Values.deployment.microServices.history.service.port }}
 {{- end }}
 {{- if and .Values.deployment.microServices.publisher.enabled .Values.deployment.ingress.paths.publisher }}
       - path: {{ .Values.deployment.ingress.paths.publisher }}

@@ -98,7 +98,7 @@ set __args=%__args% -Subscription IOT-OPC-WALLS
 set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ApplicationName %_resourceGroup%
-pushd %build_root%\deploy
+pushd %build_root%\deploy2
 powershell ./deploy.ps1 -type all %__args% 
 popd
 if !ERRORLEVEL! == 0 goto :done

@@ -5,7 +5,7 @@ image:
   # image.registry is URL of Docker registry from where images will be pulled.
   registry: mcr.microsoft.com
   # image.tag defines which version of Docker images to pull.
-  tag: 2.8.0
+  tag: 2.8.2
   # image.pullPolicy defines value of imagePullPolicy of deployments.
   pullPolicy: IfNotPresent
   # image.pullSecrets defined docker-registry secrets that should be used for private container registries.
@@ -30,9 +30,10 @@ image:
 # Note that additional values provided through the chart will override those coming from Azure Key Vault.
 #
 # If loadConfFromKeyVault is set to true, then only the following values of azure.* value group are required:
+#   - azure.tenantId
 #   - azure.keyVault.uri
-#   - azure.managedIdentity.clientId
-#   - azure.managedIdentity.tenantId
+#   - azure.auth.servicesApp.appId
+#   - azure.auth.servicesApp.secret
 #
 # NOTE: externalServiceUrl should still be set so that correct URL for jobs orchestrator service (edgeJobs) is generated.
 # NOTE: Values defining Kubernetes resources or deployment logic will not be affected by loadConfFromKeyVault.
@@ -41,18 +42,8 @@ loadConfFromKeyVault: false
 
 # Details of Azure resources that components of Azure Industrial IoT solution will connect to.
 azure:
-
   # azure.tenantId is Guid TenantId of the tenant that contains Azure resources.
   tenantId: null
-
-  # Those are details of the managed identity for services to use.
-  managedIdentity:
-    # azure.managedIdentity.name is name of the managed identity.
-    name: null
-    # azure.managedIdentity.clientId is clientId of the managed identity.
-    clientId: null
-    # azure.managedIdentity.tenantId is Guid TenantId of the tenant that contains the managed identity.
-    tenantId: null
 
   # Details of Azure IoT Hub that microservices will communicate with.
   iotHub:
@@ -97,6 +88,27 @@ azure:
         # NOTE: If azure.storageAccount.container.dataProtection.name is not specifid, then a container named 'dataprotection' will be created.
         name: dataprotection
 
+  # This provides details of Azure Data Lake Storage Gen2 Account.
+  # NOTE: Those values will be required if telemetryCdmProcessor microservice is enabled.
+  # NOTE: Currently, you will need to setup access rights for the Service Principal of servicesApp.
+  #       This is required so that telemetryCdmProcessor can write data to the container.
+  #       You need to do the following:
+  #         1. servicesApp should be given the following API permission:
+  #               user_impersonation on Azure Storage (delegated)
+  #         2. On storage account, Service Principal of servicesApp should be assigned to the following role:
+  #               Storage Blob Data Contributor
+  adlsg2:
+    # azure.adlsg2.connectionString is the connection string for ADLS Gen2 Account.
+    connectionString: null
+
+    container:
+      # Details of Azure Storage Account Container for CDM storage.
+      cdm:
+        # azure.adlsg2.container.cdm.name is the name of ADLS Gen2 blob container for CDM storage.
+        name: powerbi
+        # azure.adlsg2.container.cdm.rootFolder is CDM root folder within CDM blob container.
+        rootFolder: IIoTDataFlow
+
   # Details of Azure Event Hub Namespace that microservices will use.
   eventHubNamespace:
     sharedAccessPolicies:
@@ -113,6 +125,8 @@ azure:
       # Details of two consumer groups that are required by microservices.
       # NOTE: consumer groups should have different values.
       consumerGroup:
+        # azure.eventHubNamespace.eventHub.consumerGroup.telemetryCdm is name of consumer group for telemetryCdmProcessor microservices. Its recommended value is 'telemetry_cdm'.
+        telemetryCdm: null
         # azure.eventHubNamespace.eventHub.consumerGroup.telemetryUx is name of consumer group for events microservices. Its recommended value is 'telemetry_ux'.
         telemetryUx: null
 
@@ -213,6 +227,7 @@ apps:
   urlPathBase:
     registry: /registry
     twin: /twin
+    history: /history
     publisher: /publisher
     events: /events
     engineeringTool: /frontend
@@ -307,6 +322,43 @@ deployment:
         annotations: {}
         type: ClusterIP
         port: 9041
+        # Exposed as a headless service:
+        # https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
+        clusterIP: null
+        # List of IP addresses at which the service is available
+        # Ref: https://kubernetes.io/docs/user-guide/services/#external-ips
+        externalIPs: []
+        loadBalancerIP: null
+        loadBalancerSourceRanges: []
+        nodePort: null
+
+    # deployment.microServices.history contains values specific to yaml definitions of deployment and service kubernetes resources for opc-history-service.
+    history:
+      enabled: true
+      deploymentAnnotations: {}
+      podAnnotations: {}
+      extraLabels: {}
+      replicas: 1
+      imageRepository: iot/opc-history-service
+      extraArgs: []
+
+      # resources:
+      #   requests:
+      #     memory: "64Mi"
+      #     cpu: "50m"
+      #   limits:
+      #     memory: "256Mi"
+      #     cpu: "150m"
+      resources: {}
+
+      # .Values.deployment.microServices.history.extraEnv defines additional environment variables for the container.
+      # The value will be inserted with toYaml function, which means that usual scheme for 'env:' applies here.
+      extraEnv: []
+
+      service:
+        annotations: {}
+        type: ClusterIP
+        port: 9043
         # Exposed as a headless service:
         # https://kubernetes.io/docs/concepts/services-networking/service/#headless-services
         clusterIP: null
@@ -514,6 +566,29 @@ deployment:
       # The value will be inserted with toYaml function, which means that usual scheme for 'env:' applies here.
       extraEnv: []
 
+    # deployment.microServices.telemetryCdmProcessor contains values specific to yaml definitions of deployment and service kubernetes resources for telemetry cdm processor.
+    telemetryCdmProcessor:
+      enabled: false
+      deploymentAnnotations: {}
+      podAnnotations: {}
+      extraLabels: {}
+      replicas: 1
+      imageRepository: iot/industrial-iot-telemetry-cdm-processor
+      extraArgs: []
+
+      # resources:
+      #   requests:
+      #     memory: "64Mi"
+      #     cpu: "50m"
+      #   limits:
+      #     memory: "256Mi"
+      #     cpu: "150m"
+      resources: {}
+
+      # .Values.deployment.microServices.telemetryCdmProcessor.extraEnv defines additional environment variables for the container.
+      # The value will be inserted with toYaml function, which means that usual scheme for 'env:' applies here.
+      extraEnv: []
+
     # deployment.microServices.eventsProcessor contains values specific to yaml definitions of deployment and service kubernetes resources for edge event processor.
     eventsProcessor:
       enabled: true
@@ -588,6 +663,7 @@ deployment:
     paths:
       registry: /registry
       twin: /twin
+      history: /history
       publisher: /publisher
       events: /events
       edgeJobs: /edge/publisher
