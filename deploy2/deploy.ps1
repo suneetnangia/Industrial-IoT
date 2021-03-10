@@ -334,7 +334,7 @@ else {
     # deploy from storage account
     Write-Host "... Deploying using artifacts from '$($script:SourceUri)'."
 }
-$templateUrl = "$($script:SourceUri)/deploy/templates/";
+$templateUrl = "$($script:SourceUri)/deploy2/templates/";
 $templateParameters.Add("templateUrl", $templateUrl)
 
 # Select containers to deploy and where from.

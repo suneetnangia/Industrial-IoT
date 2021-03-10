@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # -------------------------------------------------------------------------------
-set -e
 usage(){
     echo '
 Usage: '"$0"'  
@@ -30,6 +29,7 @@ resourcegroup=
 location=
 sourceuri=
 version=
+subscription=
 dockerserver=
 
 while [ "$#" -gt 0 ]; do
@@ -44,7 +44,7 @@ while [ "$#" -gt 0 ]; do
         --version)             version="$2" ;;
         -n)                    name="$2" ;;
         -g)                    resourcegroup="$2" ;;
-        -s)                    subscription=="$2" ;;
+        -s)                    subscription="$2" ;;
         -l)                    location="$2" ;;
         -u)                    sourceuri="$2" ;;
         -v)                    version="$2" ;;
@@ -123,7 +123,7 @@ if [[ -z "$sourceuri" ]]; then
         --connection-string $cs -o tsv | tr -d '\r')
     templateUrlQueryString="?$token"
 else
-    templateUrl="$sourceuri/deploy/templates/"
+    templateUrl="$sourceuri/deploy2/templates/"
     templateUrlQueryString=""
     storage=
 fi
