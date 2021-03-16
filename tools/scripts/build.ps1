@@ -99,9 +99,9 @@ if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
     # now first upload helm chart to the registry if helm is installed
     if ($script:Path -eq $BuildRoot) {
         $chartName = "azure-industrial-iot"
-        $folder = join-path (join-path (join-path $BuildRoot "deploy") "helm") `
+        $folder = join-path (join-path (join-path $BuildRoot "deploy2") "helm") `
             $chartName
-        $chart = "$($registry.loginServer)/$($chartName):preview"
+        $chart = "$($registry.loginServer)/$($chartName):latest"
         $env:HELM_EXPERIMENTAL_OCI = 1
         $argumentList = @("chart", "save", $folder, $chart)
         & "helm" $argumentList 2>$null

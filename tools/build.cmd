@@ -15,6 +15,7 @@ set _location=westus
 set _deploy=1
 set _build=1
 set _clean=
+set _version=
 
 :args-loop
 if "%1" equ "" goto :args-done
@@ -26,6 +27,8 @@ if "%1" equ "--resourcegroup" goto :arg-resourcegroup
 if "%1" equ  "-g" goto :arg-resourcegroup
 if "%1" equ "--location" goto :arg-location
 if "%1" equ  "-l" goto :arg-location
+if "%1" equ "--version" goto :arg-version
+if "%1" equ  "-v" goto :arg-version
 if "%1" equ "--help" goto :usage
 if "%1" equ  "-h" goto :usage
 goto :usage
@@ -38,6 +41,7 @@ echo %script-name% [options]
 echo options:
 echo -g --resourcegroup Resource group name.
 echo -l --location      Location to deply to (%_location%).
+echo -v --version       Version to deploy (instead of build).
 echo -c --clean         Delete the resource group first.
 echo    --skip-deploy   Do not deploy.
 echo    --skip-build    Skip building
@@ -62,6 +66,10 @@ goto :args-continue
 shift
 set _location=%1
 goto :args-continue
+:arg-version
+shift
+set _version=%1
+goto :args-continue
 :args-done
 goto :main
 
@@ -77,7 +85,7 @@ cmd /c az group delete -y -g %_resourceGroup% > nul 2> nul
 goto :build
 
 :build
-if not "%_build%" == "1" goto :deploy
+if not "%_build%" == "1" goto :copy
 echo Build...
 set __args=
 set __args=%__args% -Subscription IOT-OPC-WALLS
@@ -86,8 +94,25 @@ set __args=%__args% -ResourceGroupName %_resourceGroup%
 pushd %build_root%\tools\scripts
 powershell ./build.ps1 %__args%
 popd
-if !ERRORLEVEL! == 0 goto :deploy
+if !ERRORLEVEL! == 0 goto :copy
 echo Build failed.
+goto :done
+
+:copy
+if "%_version%" == "" goto :deploy
+echo Copy...
+set __args=
+set __args=%__args% -BuildRegistry industrialiot
+set __args=%__args% -BuildSubscription IOT_GERMANY
+set __args=%__args% -ReleaseRegistry acr%_resourceGroup%
+set __args=%__args% -ReleaseSubscription IOT-OPC-WALLS
+set __args=%__args% -ReleaseVersion %_version%
+set __args=%__args% -IsLatest
+pushd %build_root%\tools\scripts
+powershell ./acr-copy-release.ps1 %__args%
+popd
+if !ERRORLEVEL! == 0 goto :deploy
+echo Copy failed.
 goto :done
 
 :deploy

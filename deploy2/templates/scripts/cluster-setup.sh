@@ -216,7 +216,7 @@ if [[ -z "$helmChartVersion" ]]; then
             dockerUser=${creds[0]}
             dockerPassword=${creds[1]}
             if [[ -z "$imagesTag" ]]; then
-                imagesTag="preview"
+                imagesTag="latest"
             fi
             echo "Using $imagesTag images from $dockerServer."
         else 
@@ -646,6 +646,7 @@ fi
 releases=($(helm ls -f azure-industrial-iot --namespace $namespace -q))
 if [[ -z "$releases" ]] ; then
     echo "Installing Helm chart from $helm_chart_location into $namespace..."
+    set -x
     helm install --atomic azure-industrial-iot $helm_chart_location \
         --namespace $namespace --timeout 30m0s $extra_settings \
         --set image.tag="$imagesTag" \
