@@ -102,15 +102,7 @@ $namespace = $namespace.Replace("_", "/").Substring(0, [Math]::Min($namespace.Le
 $namespace = "$($namespace)/"
 
 Write-Warning "Using $($Registry).azurecr.io."
-
-if ($branchName -eq "master") {
-    # latest tag is preview when building from master for backcompat reasons.
-    $latestTag = "preview"
-}
-else {
-    $latestTag = "latest"
-}
-
+$latestTag = "latest"
 # get and set build information from gitversion, git or version content
 $sourceTag = $env:Version_Prefix
 if ([string]::IsNullOrEmpty($sourceTag)) {

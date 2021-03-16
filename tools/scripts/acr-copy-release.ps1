@@ -1,6 +1,7 @@
 <#
  .SYNOPSIS
-    Creates release images with a particular release version in production ACR from the tested development version. 
+    Creates release images with a particular release version in 
+    production ACR from the tested development version. 
 
  .DESCRIPTION
     The script requires az to be installed and already logged on to a 
@@ -12,33 +13,43 @@
  .PARAMETER BuildRegistry
     The name of the source registry where development image is present.
 
- .PARAMETER ReleaseRegistry
-    The name of the destination registry where release images will be created.
+ .PARAMETER BuildSubscription
+    The subscription where the build registry is located
 
- .PARAMETER Subscription
-    The subscription to use 
+ .PARAMETER ReleaseRegistry
+    The name of the destination registry where release images will 
+    be created.
+
+ .PARAMETER ReleaseSubscription
+    The subscription of the release registry is different than build
+    registry subscription
 
  .PARAMETER ReleaseVersion
     The build version for the development image that is being released.
 
  .PARAMETER IsLatest
     Release as latest image
+ .PARAMETER IsMajorUpdate
+    Release as major update
+ .PARAMETER RemoveNamespaceOnRelease
+    Remove namespace (e.g. public) on release.
 #>
 
 Param(
     [string] $BuildRegistry = "industrialiot",
+    [string] $BuildSubscription = "IOT_GERMANY",
     [string] $ReleaseRegistry = "industrialiotprod",
-    [string] $Subscription = "IOT_GERMANY",
+    [string] $ReleaseSubscription = $null,
     [Parameter(Mandatory = $true)] [string] $ReleaseVersion,
     [switch] $IsLatest,
-    [switch] $IsMajorUpdate
+    [switch] $IsMajorUpdate,
+    [switch] $RemoveNamespaceOnRelease
 )
 
-# set default subscription
-if (![string]::IsNullOrEmpty($script:Subscription)) {
-    Write-Debug "Setting subscription to $($script:Subscription)"
+if (![string]::IsNullOrEmpty($script:BuildSubscription)) {
+    Write-Debug "Setting subscription to $($script:BuildSubscription)"
     $argumentList = @("account", "set", 
-        "--subscription", $script:Subscription, "-ojson")
+        "--subscription", $script:BuildSubscription, "-ojson")
     & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
@@ -57,7 +68,7 @@ $sourceUser = $sourceCredentials.username
 $sourcePassword = $sourceCredentials.passwords[0].value
 Write-Host "Using Source Registry User name $($sourceUser) and password ****"
 
-# Get repositories in source
+# Get build repositories 
 $argumentList = @("acr", "repository", "list",
     "--name", $script:BuildRegistry, "-ojson")
 $result = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" })
@@ -72,6 +83,7 @@ foreach ($Repository in $BuildRepositories) {
 
     $BuildTag = "$($Repository):$($script:ReleaseVersion)"
 
+    # see if build tag exists
     $argumentList = @("acr", "repository", "show", 
         "--name", $script:BuildRegistry,
         "-t", $BuildTag,
@@ -115,10 +127,24 @@ foreach ($Repository in $BuildRepositories) {
         "--username", $sourceUser,
         "--password", $sourcePassword
     )
+    # set release subscription
+    if (![string]::IsNullOrEmpty($script:ReleaseSubscription)) {
+        $argumentList += "--subscription"
+        $argumentList += $script:ReleaseSubscription
+    }
+
     # add the output / release image tags
+    if ($script:RemoveNamespaceOnRelease.IsPresent `
+        -and (!$Repository.StartsWith("iot/")) `
+        -and (!$Repository.StartsWith("iotedge/"))) {
+        $TargetRepository = $Repository.Substring($Repository.IndexOf('/') + 1)
+    }
+    else {
+        $TargetRepository = $Repository
+    }
     foreach ($ReleaseTag in $ReleaseTags) {
         $argumentList += "--image"
-        $argumentList += "$($Repository):$($ReleaseTag)"
+        $argumentList += "$($TargetRepository):$($ReleaseTag)"
     }
     
     $ConsoleOutput = "Copying $FullImageName $($Image.digest) to release $script:ReleaseRegistry"
