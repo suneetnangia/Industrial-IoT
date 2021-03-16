@@ -223,7 +223,7 @@ if [[ -z "$helmChartVersion" ]]; then
             # if there is not, use default preview registry
             dockerServer="industrialiotdev.azurecr.io"
             if [[ -z "$imagesTag" ]]; then
-                imagesTag="preview"
+                imagesTag="latest"
             fi
         fi
         helmChartVersion=$imagesTag

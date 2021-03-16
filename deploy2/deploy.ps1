@@ -16,8 +16,7 @@
  .PARAMETER Version
   Set to a version number that corresponds to an mcr image tag of the 
   concrete release you want to deploy.
-  If not provided the version will be "preview".  
-
+  
  .PARAMETER DockerServer
   An optional name of an Azure container registry to deploy containers
   from. If not set and run from a release branch the script deploys the 
@@ -269,11 +268,8 @@ if ([string]::IsNullOrEmpty($script:Version)) {
         $script:DockerServer = "mcr.microsoft.com"
     }
     else {
-        # master or development preview
-        $script:Version = "preview"
-        # Pull preview charts from development server
-        $templateParameters.Add("helmPullChartFromDockerServer", $true)
-        $templateParameters.Add("helmChartVersion", $script:Version)
+        # development and preview
+        $script:Version = "latest"
     }
 }
 
@@ -347,6 +343,7 @@ if ($script:Type -ne "local") {
 else {
     Write-Host "... Local development deployment - no containers will be deployed."
 }
+
 if ($script:Type -eq "local") {
     $templateParameters.Add("deployPlatformComponents", $false)
     $templateParameters.Add("deployEngineeringTool", $false)
@@ -542,6 +539,8 @@ if ($script:Type -ne "local") {
                 $templateParameters.Add("dockerUser", $creds.Username)
                 $templateParameters.Add("dockerPassword", $creds.Password)
             }
+            $templateParameters.Add("helmPullChartFromDockerServer", $true)
+            $templateParameters.Add("helmChartVersion", $script:Version)
         }
         else {
             $script:DockerServer = "industrialiotdev.azurecr.io"
