@@ -86,7 +86,7 @@ if ($LastExitCode -ne 0) {
 $tag="v2.1.0" # v2.0.0, master, etc.
 $url="https://raw.githubusercontent.com/kubernetes/dashboard/$tag/aio/deploy/recommended.yaml"
 $argumentList = @("apply", "--force", "-f", $url)
-& "kubectl" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+& "kubectl" $argumentList 
 if ($LastExitCode -ne 0) {
     throw "ERROR: Failed to install dashboard."
 }

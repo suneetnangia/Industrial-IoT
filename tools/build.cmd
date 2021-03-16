@@ -107,6 +107,7 @@ set __args=%__args% -BuildSubscription IOT_GERMANY
 set __args=%__args% -ReleaseRegistry acr%_resourceGroup%
 set __args=%__args% -ReleaseSubscription IOT-OPC-WALLS
 set __args=%__args% -ReleaseVersion %_version%
+set __args=%__args% -RemoveNamespaceOnRelease
 set __args=%__args% -IsLatest
 pushd %build_root%\tools\scripts
 powershell ./acr-copy-release.ps1 %__args%

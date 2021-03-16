@@ -29,6 +29,10 @@
 
  .PARAMETER IsLatest
     Release as latest image
+ .PARAMETER IsMajorUpdate
+    Release as major update
+ .PARAMETER RemoveNamespaceOnRelease
+    Remove namespace (e.g. public) on release.
 #>
 
 Param(
@@ -38,7 +42,8 @@ Param(
     [string] $ReleaseSubscription = $null,
     [Parameter(Mandatory = $true)] [string] $ReleaseVersion,
     [switch] $IsLatest,
-    [switch] $IsMajorUpdate
+    [switch] $IsMajorUpdate,
+    [switch] $RemoveNamespaceOnRelease
 )
 
 if (![string]::IsNullOrEmpty($script:BuildSubscription)) {
@@ -127,10 +132,19 @@ foreach ($Repository in $BuildRepositories) {
         $argumentList += "--subscription"
         $argumentList += $script:ReleaseSubscription
     }
+
     # add the output / release image tags
+    if ($script:RemoveNamespaceOnRelease.IsPresent `
+        -and (!$Repository.StartsWith("iot/")) `
+        -and (!$Repository.StartsWith("iotedge/"))) {
+        $TargetRepository = $Repository.Substring($Repository.IndexOf('/') + 1)
+    }
+    else {
+        $TargetRepository = $Repository
+    }
     foreach ($ReleaseTag in $ReleaseTags) {
         $argumentList += "--image"
-        $argumentList += "$($Repository):$($ReleaseTag)"
+        $argumentList += "$($TargetRepository):$($ReleaseTag)"
     }
     
     $ConsoleOutput = "Copying $FullImageName $($Image.digest) to release $script:ReleaseRegistry"
