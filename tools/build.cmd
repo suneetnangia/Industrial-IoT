@@ -40,7 +40,7 @@ goto :args-loop
 echo %script-name% [options]
 echo options:
 echo -g --resourcegroup Resource group name.
-echo -l --location      Location to deply to (%_location%).
+echo -l --location      Location to deploy to (%_location%).
 echo -v --version       Version to deploy (instead of build).
 echo -c --clean         Delete the resource group first.
 echo    --skip-deploy   Do not deploy.

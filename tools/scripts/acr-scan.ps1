@@ -89,11 +89,11 @@ foreach ($vulnerability in $vulnerabilities) {
         )
         $tags = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" }) | ConvertTo-Json
         
-        Add-Member -in $image -MemberType NoteProperty -name "tags" -value $tags
+        Add-Member -in $image -MemberType NoteProperty -name "manifest-tags" -value $tags
         Add-Member -in $vulnerability -MemberType NoteProperty -name "image" -value $image
         $realVulnerabilities += $vulnerability
     }
 }
-
+Write-Warning "Found $($realVulnerabilities.Count) vulnerabilities in $script:Registry."
 return $realVulnerabilities
 

@@ -12,6 +12,9 @@
  .PARAMETER ReplyUrl
   A reply_url to register, e.g. https://<NAME>.azurewebsites.net/
 
+ .PARAMETER SignInAudience
+  The Sign In Audience to use (default: AzureADMyOrg)
+
  .PARAMETER EnvironmentName
   Azure cloud to use - defaults to Global cloud.
 
@@ -25,11 +28,12 @@
 param(
     [Parameter(Mandatory = $true)] [string] $Name,
     [string] $ReplyUrl = $null,
-    [string] $Output = $null,
-    [string] $EnvironmentName = "AzureCloud", 
     [string] $TenantId = $null,
+    [string] $EnvironmentName = "AzureCloud", 
+    [string] $SignInAudience = "AzureADMyOrg",
     [object] $Context = $null, 
-    [string] $SignInAudience = "AzureADMyOrg"
+    [string] $Output = $null,
+    [switch] $AsJson
 )
 
 # -------------------------------------------------------------------------------
@@ -234,6 +238,9 @@ $aadConfig = [pscustomobject] @{
 if ($script:Output) {
     $aadConfig | ConvertTo-Json | Out-File $script:Output
     return
+}
+if ($script:AsJson.IsPresent) {
+    return $aadConfig | ConvertTo-Json
 }
 return $aadConfig
 # -------------------------------------------------------------------------------
