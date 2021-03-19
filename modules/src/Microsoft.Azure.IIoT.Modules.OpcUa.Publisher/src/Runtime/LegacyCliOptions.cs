@@ -144,8 +144,8 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                         (int k) => this[LegacyCliConfigKeys.BatchTriggerInterval] = TimeSpan.FromSeconds(k).ToString() },
                     { "ms|iothubmessagesize=", "The maximum size of the (IoT D2C) message.",
                         (int i) => this[LegacyCliConfigKeys.MaxMessageSize] = i.ToString() },
-                    { "em|maxegressmessagequeue=", "The maximum size of the (IoT D2C) message egress queue.",
-                        (int i) => this[LegacyCliConfigKeys.MaxEgressMessageQueue] = i.ToString() },
+                    { "om|maxoutgressmessages=", "The maximum size of the (IoT D2C) message outgress buffer",
+                        (int i) => this[LegacyCliConfigKeys.MaxOutgressMessages] = i.ToString() },
 
                     // testing purposes
                     { "sc|scaletestcount=", "The number of monitored item clones in scale tests.",
@@ -235,7 +235,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// <summary>
         /// The Maximum (IoT D2C) message buffer size
         /// </summary>
-        public int? MaxEgressMessageQueue => LegacyCliModel.MaxEgressMessageQueue;
+        public int? MaxOutgressMessages => LegacyCliModel.MaxOutgressMessages;
 
         /// <summary>
         /// The model of the CLI arguments.
@@ -294,7 +294,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                 BatchTriggerInterval = GetValueOrDefault<TimeSpan>(LegacyCliConfigKeys.BatchTriggerInterval, TimeSpan.FromSeconds(10)),
                 MaxMessageSize = GetValueOrDefault(LegacyCliConfigKeys.MaxMessageSize, 0),
                 ScaleTestCount = GetValueOrDefault(LegacyCliConfigKeys.ScaleTestCount, 1),
-                MaxEgressMessageQueue = GetValueOrDefault(LegacyCliConfigKeys.MaxEgressMessageQueue, 4096) // 4096 * 256 KB = 1 GB.
+                MaxOutgressMessages = GetValueOrDefault(LegacyCliConfigKeys.MaxOutgressMessages, 200)
             };
         }
 

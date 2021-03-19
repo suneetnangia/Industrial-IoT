@@ -98,23 +98,17 @@ if (![string]::IsNullOrEmpty($Registry) -and ($Registry -ne "industrialiot")) {
 # get and set build information from gitversion, git or version content
 $latestTag = "latest"
 $sourceTag = $env:Version_Prefix
-$prereleaseTag = $env:Version_Prerelease
-if ([string]::IsNullOrEmpty($prereleaseTag))
-{
-    $prereleaseTag = "-alpha"
-}
 if ([string]::IsNullOrEmpty($sourceTag)) {
     try {
         $version = & (Join-Path $PSScriptRoot "get-version.ps1")
         $sourceTag = $version.Prefix
-        $prereleaseTag = $version.Prerelease
     }
     catch {
         $sourceTag = $null
     }
 }
 if (![string]::IsNullOrEmpty($sourceTag)) {
-    Write-Host "Using version $($sourceTag)$($prereleaseTag) from get-version.ps1"
+    Write-Host "Using version $($sourceTag) from get-version.ps1"
 }
 else {
     # Otherwise look at git tag
@@ -200,7 +194,7 @@ if (![string]::IsNullOrEmpty($metadata.tag)) {
     $tagPrefix = "$($metadata.tag)-"
 }
 
-$fullImageName = "$($Registry).azurecr.io/$($namespace)$($imageName):$($tagPrefix)$($sourceTag)$($prereleaseTag)$($tagPostfix)"
+$fullImageName = "$($Registry).azurecr.io/$($namespace)$($imageName):$($tagPrefix)$($sourceTag)$($tagPostfix)"
 Write-Host "Full image name: $($fullImageName)"
 
 $manifest = @" 
@@ -242,7 +236,7 @@ $definitions | ForEach-Object {
         }
     }
 
-    $image = "$($namespace)$($imageName):$($tagPrefix)$($sourceTag)$($prereleaseTag)-$($platformTag)$($tagPostfix)"
+    $image = "$($namespace)$($imageName):$($tagPrefix)$($sourceTag)-$($platformTag)$($tagPostfix)"
     Write-Host "Start build job for $($image)"
 
     # acr does not support arm64 as platform

@@ -669,16 +669,18 @@ can be found on `/<component>/swagger/index.html` endpoint for each component.
 
 The following microservice endpoints are exposed:
 
-| Component   | API URL Suffix     | Swagger UI Path                      | Service Name                                                     |
-|-------------|--------------------|--------------------------------------|------------------------------------------------------------------|
-| `registry`  | `/registry/`       | `/registry/swagger/index.html`       | [Registry Microservice](../services/registry.md)                 |
-| `twin`      | `/twin/`           | `/twin/swagger/index.html`           | [OPC Twin Microservice](../services/twin.md)                     |
-| `history`   | `/history/`        | `/history/swagger/index.html`        | [OPC Historian Access Microservice](../services/twin-history.md) |
-| `gateway`   | `/ua/`             | N/A                                  | [OPC Gateway Microservice](../services/twin-gateway.md)          |
-| `vault`     | `/vault/`          | `/vault/swagger/index.html`          | [OPC Vault Microservice](../services/vault.md)                   |
-| `publisher` | `/publisher/`      | `/publisher/swagger/index.html`      | [OPC Publisher Service](../services/publisher.md)                |
-| `events`    | `/events/`         | `/events/swagger/index.html`         | [Events Service](../services/events.md)                          |
-| `edgeJobs`  | `/edge/publisher/` | `/edge/publisher/swagger/index.html` | [Publisher jobs orchestrator service](../services/publisher.md)  |
+| Component       | API URL Suffix    | Swagger UI Path                     | Service Name                                                  |
+|-----------------|-------------------|-------------------------------------|---------------------------------------------------------------|
+| `registry`      | `/registry/`      | `/registry/swagger/index.html`      | [Registry Microservice](../services/registry.md)              |
+| `twin`          | `/twin/`          | `/twin/swagger/index.html`          | [OPC Twin Microservice](../services/twin.md)                  |
+| `history`       | `/history/`       | `/history/swagger/index.html`       | [OPC Historian Access Microservice](../services/history.md)   |
+| `gateway`       | `/ua/`            | N/A                                 | [OPC Gateway Microservice](../services/gateway.md)            |
+| `onboarding`    | `/onboarding/`    | `/onboarding/swagger/index.html`    | [Registry Onboarding Microservice](../services/onboarding.md) |
+| `publisher`     | `/publisher/`     | `/publisher/swagger/index.html`     | [OPC Publisher Service](../services/publisher.md)             |
+| `configuration` | `/configuration/` | `/configuration/swagger/index.html` | [Configuration Service](../services/configuration.md)         |
+| `edgeManager`   | `/edge/manage/`   | `/edge/manage/swagger/index.html`   | [Edge Management Service](../services/edgemanager.md)         |
+| `edgeJobs`      | `/edge/jobs/`     | `/edge/jobs/swagger/index.html`     | [Jobs Service and Edge endpoint](../services/jobs.md)         |
+| `publisherJobs` | `/jobs/`          | `/jobs/swagger/index.html`          |                                                               |
 
 ## Missing And Planned Features
 

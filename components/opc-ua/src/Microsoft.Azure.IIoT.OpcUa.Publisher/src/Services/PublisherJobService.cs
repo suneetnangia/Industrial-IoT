@@ -3,7 +3,7 @@
 //  Licensed under the MIT License (MIT). See License.txt in the repo root for license information.
 // ------------------------------------------------------------
 
-namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
+namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Services {
     using Microsoft.Azure.IIoT.Agent.Framework;
     using Microsoft.Azure.IIoT.Agent.Framework.Models;
     using Microsoft.Azure.IIoT.Hub;
@@ -49,15 +49,15 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
         });
 
         /// <summary>
-        /// Read default max egress message queue size from environment
+        /// Read default max outgress message buffer size from environment
         /// </summary>
-        internal Lazy<int> DefaultMaxEgressMessageQueue => new Lazy<int>(() => {
-            var env = Environment.GetEnvironmentVariable(PcsVariable.PCS_MAX_EGRESS_MESSAGE_QUEUE);
-            if (!string.IsNullOrEmpty(env) && int.TryParse(env, out var maxEgressMessageQueue) &&
-                maxEgressMessageQueue > 1 && maxEgressMessageQueue <= 25000) {
-                return maxEgressMessageQueue;
+        internal Lazy<int> DefaultMaxOutgressMessages => new Lazy<int>(() => {
+            var env = Environment.GetEnvironmentVariable("PCS_DEFAULT_PUBLISH_MAX_OUTGRESS_MESSAGES");
+            if (!string.IsNullOrEmpty(env) && int.TryParse(env, out var maxOutgressMessages) &&
+                maxOutgressMessages > 1 && maxOutgressMessages <= 25000) {
+                return maxOutgressMessages;
             }
-            return 4096; // Default (4096 * 256 KB = 1 GB).
+            return 200; //default
         });
 
         /// <summary>
@@ -141,9 +141,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
                 };
 
                 if (request.NodesToAdd != null) {
+                    var dataSetWriterName = Guid.NewGuid().ToString();
                     foreach (var item in request.NodesToAdd) {
                         AddOrUpdateItemInJob(publishJob, item, endpointId, job.Id,
-                            connection);
+                            connection, dataSetWriterName);
                         jobChanged = true;
                     }
                 }
@@ -274,13 +275,13 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
                             BatchTriggerInterval = DefaultBatchTriggerInterval.Value,
                             DiagnosticsInterval = TimeSpan.FromSeconds(60),
                             MaxMessageSize = 0,
-                            MaxEgressMessageQueue = DefaultMaxEgressMessageQueue.Value
-                        };
+                            MaxOutgressMessages = DefaultMaxOutgressMessages.Value
+                    };
                     }
                     else {
                         publishJob.Engine.BatchTriggerInterval = DefaultBatchTriggerInterval.Value;
                         publishJob.Engine.BatchSize = DefaultBatchSize.Value;
-                        publishJob.Engine.MaxEgressMessageQueue = DefaultMaxEgressMessageQueue.Value;
+                        publishJob.Engine.MaxOutgressMessages = DefaultMaxOutgressMessages.Value;
                     }
                     return publishJob;
                 }
@@ -310,7 +311,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
                     BatchTriggerInterval = DefaultBatchTriggerInterval.Value,
                     DiagnosticsInterval = TimeSpan.FromSeconds(60),
                     MaxMessageSize = 0,
-                    MaxEgressMessageQueue = DefaultMaxEgressMessageQueue.Value
+                    MaxOutgressMessages = DefaultMaxOutgressMessages.Value
                 },
                 ConnectionString = null
             };
@@ -324,9 +325,15 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
         /// <param name="endpointId"></param>
         /// <param name="publisherId"></param>
         /// <param name="connection"></param>
+        /// <param name="dataSetWriterName"></param>
         private void AddOrUpdateItemInJob(WriterGroupJobModel publishJob,
             PublishedItemModel publishedItem, string endpointId, string publisherId,
-            ConnectionModel connection) {
+            ConnectionModel connection, string dataSetWriterName = null) {
+
+            var dataSetWriterId =
+                (string.IsNullOrEmpty(dataSetWriterName) ? GetDefaultId(endpointId) : dataSetWriterName) +
+                (publishedItem.PublishingInterval.HasValue ?
+                    ('_' + publishedItem.PublishingInterval.Value.TotalMilliseconds.ToString()) : String.Empty);
 
             // Simple - first remove - then add.
             RemoveItemFromJob(publishJob, publishedItem.NodeId, connection);
@@ -335,8 +342,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
             List<PublishedDataSetVariableModel> variables = null;
             foreach (var writer in publishJob.WriterGroup.DataSetWriters) {
                 if (writer.DataSet.DataSetSource.Connection.IsSameAs(connection) &&
-                    writer.DataSet.DataSetSource.SubscriptionSettings?.PublishingInterval ==
-                        publishedItem.PublishingInterval) {
+                    writer.DataSetWriterId == dataSetWriterId ) {
                     System.Diagnostics.Debug.Assert(writer.DataSet.DataSetSource.PublishedVariables.PublishedData != null);
                     variables = writer.DataSet.DataSetSource.PublishedVariables.PublishedData;
                     writer.DataSet.DataSetMetaData.ConfigurationVersion.MinorVersion++;
@@ -346,7 +352,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
             if (variables == null) {
                 // No writer found - add new one with a published dataset
                 var dataSetWriter = new DataSetWriterModel {
-                    DataSetWriterId = GetDefaultId(endpointId),
+                    DataSetWriterId = dataSetWriterId,
                     DataSet = new PublishedDataSetModel {
                         Name = null,
                         DataSetMetaData = new DataSetMetaDataModel {
@@ -361,7 +367,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Clients {
                             ["EndpointId"] = endpointId,
                             ["PublisherId"] = publisherId,
                             // todo, probably not needed
-                            ["DataSetWriterId"] = endpointId
+                            ["DataSetWriterId"] = dataSetWriterId
                         },
                         DataSetSource = new PublishedDataSetSourceModel {
                             Connection = connection,
