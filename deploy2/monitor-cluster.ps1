@@ -11,11 +11,10 @@
   The Name of the resource group
 
  .PARAMETER Cluster
-  The optional cluster name if there are more than one.
+  The optional cluster name if there are more than one in the group.
    
- .PARAMETER Context
-  An existing Azure connectivity context to use instead of connecting.
-  If provided, overrides the provided environment name or tenant id.
+ .PARAMETER Subscription
+  The subscription to set if not already set.
 #>
 param(
     [Parameter(Mandatory = $true)] [string] $ResourceGroup,
@@ -31,7 +30,7 @@ $ErrorActionPreference = "Stop"
 # -------------------------------------------------------------------------------
 # Log into azure
 $argumentList = @("account", "show")
-& "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+& "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" } | Out-Null
 if ($LastExitCode -ne 0) {
     $argumentList = @("login")
     & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
@@ -92,7 +91,7 @@ if ($LastExitCode -ne 0) {
 }
 
 # start proxy and open browser
-$job = Start-Job { & "kubectl" @("proxy") }
+$job = Start-Job { while ($true) { try { & "kubectl" @("proxy") } catch { } } }
 Start-Sleep -Seconds 5
 $url="http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
 Start-Process -FilePath $url

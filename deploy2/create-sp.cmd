@@ -9,8 +9,6 @@ set current-path=%~dp0
 set script-name=%~nx0
 rem // remove trailing slash
 set current-path=%current-path:~0,-1%
-shift
-pushd %current-path%
 
 set _name=
 set _resourceGroup=
@@ -64,13 +62,12 @@ goto :args-continue
 
 :args-done
 rem // check and if needed install powershell and required modules
+pushd %current-path%
 call pwsh-setup.cmd
-
 set __args=
 if not "%_name%" == "" set __args=%__args% -Name %_name%
 if not "%_subscription%" == "" set __args=%__args% -Subscription %_subscription%
 if not "%_location%" == "" set __args=%__args% -Location %_location%
 if not "%_resourceGroup%" == "" set __args=%__args% -ResourceGroup %_resourceGroup%
-pushd %build_root%\tools\scripts
 %PWSH% -ExecutionPolicy Unrestricted ./create-sp.ps1 %__args%
 popd

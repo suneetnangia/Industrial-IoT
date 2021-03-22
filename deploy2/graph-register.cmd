@@ -9,8 +9,6 @@ set current-path=%~dp0
 set script-name=%~nx0
 rem // remove trailing slash
 set current-path=%current-path:~0,-1%
-shift
-pushd %current-path%
 
 set _name=
 set _tenant=
@@ -50,12 +48,12 @@ goto :args-continue
 if "%_name%" == "" goto :usage
 
 rem // check and if needed install powershell and required modules
+pushd %current-path%
 call pwsh-setup.cmd
-
 set __args=
 set __args=%__args% -Name %_name%
 set __args=%__args% -AsJson
 if not "%_tenant%" == "" set __args=%__args% -TenantId %_tenant%
-pushd %build_root%\tools\scripts
 %PWSH% -ExecutionPolicy Unrestricted ./graph-register.ps1 %__args%
 popd
+
