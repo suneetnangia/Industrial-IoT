@@ -38,7 +38,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
             };
 
             // Read the current value of the attribute, expected "FastUInt1"
-            var response = TestHelper.Twin.ReadNodeAttributesAsync(_context, _context.OpcUaEndpointId, attributesToRead, cts.Token).GetAwaiter().GetResult();
+            var response = TestHelper.Twin.ReadNodeAttributes(_context, _context.OpcUaEndpointId, attributesToRead, cts.Token);
             Assert.Equal("FastUInt1", response.results[0].value.Text);
 
             // Write the new value "TestName"
@@ -49,10 +49,10 @@ namespace IIoTPlatform_E2E_Tests.Twin {
                     value = "TestName"
                 }
             };
-            TestHelper.Twin.WriteNodeAttributesAsync(_context, _context.OpcUaEndpointId, attributesToWrite, cts.Token).GetAwaiter().GetResult();
+            TestHelper.Twin.WriteNodeAttributes(_context, _context.OpcUaEndpointId, attributesToWrite, cts.Token);
 
             // Read the value of the attribute again, expected the updated value "TestName"
-            response = TestHelper.Twin.ReadNodeAttributesAsync(_context, _context.OpcUaEndpointId, attributesToRead, cts.Token).GetAwaiter().GetResult();
+            response = TestHelper.Twin.ReadNodeAttributes(_context, _context.OpcUaEndpointId, attributesToRead, cts.Token);
             Assert.Equal("TestName", response.results[0].value.Text);
 
             // Write the original value again
@@ -63,7 +63,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
                     value = "FastUInt1"
                 }
             };
-            TestHelper.Twin.WriteNodeAttributesAsync(_context, _context.OpcUaEndpointId, attributesToWrite, cts.Token).GetAwaiter().GetResult();
+            TestHelper.Twin.WriteNodeAttributes(_context, _context.OpcUaEndpointId, attributesToWrite, cts.Token);
         }
     }
 }

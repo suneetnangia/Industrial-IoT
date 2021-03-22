@@ -164,6 +164,7 @@ namespace IIoTPlatform_E2E_Tests {
             string route,
             object body = null,
             Dictionary<string, string> queryParameters = null,
+            bool expectSuccess = true,
             CancellationToken ct = default
         ) {
             var accessToken = GetTokenAsync(context, ct).GetAwaiter().GetResult();
@@ -184,6 +185,17 @@ namespace IIoTPlatform_E2E_Tests {
 
             var restClient = new RestClient(context.IIoTPlatformConfigHubConfig.BaseUrl) { Timeout = TestConstants.DefaultTimeoutInMilliseconds };
             var response = restClient.ExecuteAsync(request, ct).GetAwaiter().GetResult();
+
+            if (expectSuccess) {
+                Assert.NotNull(response);
+
+                if (!response.IsSuccessful) {
+                    context.OutputHelper?.WriteLine($"StatusCode: {response.StatusCode}");
+                    context.OutputHelper?.WriteLine($"ErrorMessage: {response.ErrorMessage}");
+                    Assert.True(response.IsSuccessful, $"{method} {route} failed!");
+                }
+            }
+
             return response;
         }
 
@@ -514,23 +526,9 @@ namespace IIoTPlatform_E2E_Tests {
         /// </summary>
         /// <param name="context">Shared Context for E2E testing Industrial IoT Platform</param>
         /// <param name="ct">Cancellation token</param>
-        private static async Task<dynamic> GetEndpointInternalAsync(IIoTPlatformTestContext context, CancellationToken ct) {
-            var accessToken = await GetTokenAsync(context, ct).ConfigureAwait(false);
-            var client = new RestClient(context.IIoTPlatformConfigHubConfig.BaseUrl) { Timeout = TestConstants.DefaultTimeoutInMilliseconds };
-
-            var request = new RestRequest(Method.GET);
-            request.AddHeader(TestConstants.HttpHeaderNames.Authorization, accessToken);
-            request.Resource = TestConstants.APIRoutes.RegistryEndpoints;
-
-            var response = await client.ExecuteAsync(request, ct).ConfigureAwait(false);
-            Assert.NotNull(response);
-
-            if (!response.IsSuccessful) {
-                context.OutputHelper?.WriteLine($"StatusCode: {response.StatusCode}");
-                context.OutputHelper?.WriteLine($"ErrorMessage: {response.ErrorMessage}");
-                Assert.True(response.IsSuccessful, "GET /registry/v2/endpoints failed!");
-            }
-
+        private static dynamic GetEndpointInternal(IIoTPlatformTestContext context, CancellationToken ct) {
+            var route = TestConstants.APIRoutes.RegistryEndpoints;
+            var response = CallRestApi(context, Method.GET, route, ct);
             return JsonConvert.DeserializeObject<ExpandoObject>(response.Content, new ExpandoObjectConverter());
         }
 

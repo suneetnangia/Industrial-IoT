@@ -26,7 +26,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
         public void Twin_Browse_BrowseAddressSpace() {
             var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
 
-            var nodes = TestHelper.Twin.GetBrowseEndpointAsync(_context, _context.OpcUaEndpointId, null, cts.Token).GetAwaiter().GetResult();
+            var nodes = TestHelper.Twin.GetBrowseEndpoint(_context, _context.OpcUaEndpointId, null, cts.Token);
 
             Assert.NotNull(nodes);
             Assert.NotEmpty(nodes);
@@ -42,7 +42,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
         public void Twin_Browse_BrowseSpecificNode() {
             var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
 
-            var nodes = TestHelper.Twin.GetBrowseEndpointAsync(_context, _context.OpcUaEndpointId, null, cts.Token).GetAwaiter().GetResult();
+            var nodes = TestHelper.Twin.GetBrowseEndpoint(_context, _context.OpcUaEndpointId, null, cts.Token);
 
             Assert.NotNull(nodes);
             Assert.NotEmpty(nodes);
@@ -51,7 +51,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
 
             Assert.Contains(nodes, n => string.Equals(nodeId, n.NodeId));
 
-            nodes = TestHelper.Twin.GetBrowseEndpointAsync(_context, _context.OpcUaEndpointId, nodeId).GetAwaiter().GetResult();
+            nodes = TestHelper.Twin.GetBrowseEndpoint(_context, _context.OpcUaEndpointId, nodeId);
 
             Assert.NotNull(nodes);
             Assert.NotEmpty(nodes);
@@ -67,7 +67,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
 
             string nodeId = null; // Start browsing from Root
             var browsePath = new List<string> { "Objects", "Server", "ServerArray" }; 
-            var result = TestHelper.Twin.GetBrowseNodePathAsync(_context, _context.OpcUaEndpointId, nodeId, browsePath, cts.Token).GetAwaiter().GetResult();
+            var result = TestHelper.Twin.GetBrowseNodePath(_context, _context.OpcUaEndpointId, nodeId, browsePath, cts.Token);
 
             var node = result.targets[0].target;
             Assert.Equal("ServerArray", node.browseName);
@@ -80,7 +80,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
 
             string nodeId = "i=85"; // Start browsing from Objects
             var browsePath = new List<string> { "Server", "ServerArray" };
-            var result = TestHelper.Twin.GetBrowseNodePathAsync(_context, _context.OpcUaEndpointId, nodeId, browsePath, cts.Token).GetAwaiter().GetResult();
+            var result = TestHelper.Twin.GetBrowseNodePath(_context, _context.OpcUaEndpointId, nodeId, browsePath, cts.Token);
 
             var node = result.targets[0].target;
             Assert.Equal("ServerArray", node.browseName);
@@ -91,7 +91,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
         public void Twin_Browse_BrowseAllNodesOfTypeObject() {
             var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
 
-            var nodes = TestHelper.Twin.GetBrowseEndpointRecursiveAsync(_context, _context.OpcUaEndpointId, "Object", null, cts.Token).GetAwaiter().GetResult();
+            var nodes = TestHelper.Twin.GetBrowseEndpointRecursive(_context, _context.OpcUaEndpointId, "Object", null, cts.Token);
 
             Assert.NotNull(nodes);
             Assert.NotEmpty(nodes);
@@ -110,7 +110,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
         public void Twin_Browse_BrowseAllNodesOfTypeVariable() {
             var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
 
-            var nodes = TestHelper.Twin.GetBrowseEndpointRecursiveAsync(_context, _context.OpcUaEndpointId, "Variable", null, cts.Token).GetAwaiter().GetResult();
+            var nodes = TestHelper.Twin.GetBrowseEndpointRecursive(_context, _context.OpcUaEndpointId, "Variable", null, cts.Token);
 
             Assert.NotNull(nodes);
             Assert.NotEmpty(nodes);

@@ -69,7 +69,8 @@ namespace IIoTPlatform_E2E_Tests.Discovery {
 
         private void RemoveApplication(string applicationId) {
             var route = $"{TestConstants.APIRoutes.RegistryApplications}/{applicationId}";
-            TestHelper.CallRestApi(this, Method.DELETE, route);        
+            // Some applications are removed by the tests
+            TestHelper.CallRestApi(this, Method.DELETE, route, expectSuccess: false);        
         }
 
         private void RemoveAllApplications(List<string> applicationIds) {

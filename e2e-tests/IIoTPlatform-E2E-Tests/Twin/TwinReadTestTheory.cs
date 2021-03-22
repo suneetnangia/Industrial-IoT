@@ -37,7 +37,7 @@ namespace IIoTPlatform_E2E_Tests.Twin {
                 }  
             };
 
-            var response = TestHelper.Twin.ReadNodeAttributesAsync(_context, _context.OpcUaEndpointId, attributes, cts.Token).GetAwaiter().GetResult();
+            var response = TestHelper.Twin.ReadNodeAttributes(_context, _context.OpcUaEndpointId, attributes, cts.Token);
             Assert.Equal("FastUInt1", response.results[0].value.Text.ToString());
             Assert.Equal("Server", response.results[1].value.ToString());
         }
