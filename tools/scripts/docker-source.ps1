@@ -103,7 +103,7 @@ ENV PATH="${PATH}:/root/vsdbg/vsdbg"
     $platforms = @{
         "linux/arm" = @{
             runtimeId = "linux-arm"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-buster-slim-arm32v7"
             platformTag = "linux-arm32v7"
             runtimeOnly = "RUN chmod +x $($assemblyName)"
             debugger = $installLinuxDebugger
@@ -111,7 +111,7 @@ ENV PATH="${PATH}:/root/vsdbg/vsdbg"
         }
         "linux/arm64" = @{
             runtimeId = "linux-arm64"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-buster-slim-arm64v8"
             platformTag = "linux-arm64v8"
             runtimeOnly = "RUN chmod +x $($assemblyName)"
             debugger = $null
@@ -119,13 +119,13 @@ ENV PATH="${PATH}:/root/vsdbg/vsdbg"
         }
         "linux/amd64" = @{
             runtimeId = "linux-x64"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-buster-slim"
             platformTag = "linux-amd64"
             runtimeOnly = "RUN chmod +x $($assemblyName)"
             debugger = $installLinuxDebugger
             entryPoint = "[`"./$($assemblyName)`"]"
         }
-        "windows/amd64:10.0.17763.1457" = @{
+        "windows/amd64:10.0.17763.1817" = @{
             runtimeId = "win-x64"
             image = "mcr.microsoft.com/windows/nanoserver:1809"
             platformTag = "nanoserver-amd64-1809"
@@ -153,7 +153,7 @@ ENV PATH="${PATH}:/root/vsdbg/vsdbg"
 
         if ($script:Fast.IsPresent) {
             # Only build windows and linux iot edge images in fast mode
-            if (($_ -ne "windows/amd64:10.0.17763.1457") -and ($_ -ne "linux/amd64")) {
+            if (($_ -ne "windows/amd64:10.0.17763.1817") -and ($_ -ne "linux/amd64")) {
                 return;
             }
             # if not iot edge, just build linux images.
