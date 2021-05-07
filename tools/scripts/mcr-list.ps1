@@ -50,7 +50,7 @@ foreach ($repository in $repositories) {
             continue
         }
         if ($tag -eq "2.0") {
-            # must have tag to keep connected factory in business
+            # must keep tag to keep connected factory in business
             continue
         }
         $obsoleted += "mcr.microsoft.com/$($public):$($tag)"

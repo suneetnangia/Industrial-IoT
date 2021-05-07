@@ -1,28 +1,28 @@
 <#
  .SYNOPSIS
-  Builds docker images from definition files in folder or the entire 
-  tree into a container registry.
+    Builds docker images from definition files in folder or the entire 
+    tree into a container registry.
 
  .DESCRIPTION
-  The script traverses the build root to find all folders with an 
-  container.json file builds each one.
+    The script traverses the build root to find all folders with an 
+    container.json file builds each one.
 
-  If resource group or registry name is provided, creates or uses the 
-  container registry in the resource group to build with. In this case
-  you must use az login first to authenticate to azure.
+    If resource group or registry name is provided, creates or uses the 
+    container registry in the resource group to build with. In this case
+    you must use az login first to authenticate to azure.
 
  .PARAMETER Path
-  The root folder to start traversing the repository from (Optional).
+    The root folder to start traversing the repository from (Optional).
 
  .PARAMETER ResourceGroupName
-  The name of the resource group to create (Optional).
+    The name of the resource group to create (Optional).
  .PARAMETER ResourceGroupLocation
-  The location of the resource group to create (Optional).
+    The location of the resource group to create (Optional).
  .PARAMETER Subscription
-  The subscription to use (Optional).
+    The subscription to use (Optional).
 
  .PARAMETER Debug
-  Whether to build debug images.
+    Whether to build debug images.
 #>
 
 Param(
@@ -39,27 +39,28 @@ if ([string]::IsNullOrEmpty($script:Path)) {
     $script:Path = $BuildRoot
 }
 
+$argumentList = @("account", "show")
+$account = & "az" $argumentList 2>$null | ConvertFrom-Json
+if (!$account) {
+    throw "Failed to retrieve account information."
+}
+if (![string]::IsNullOrEmpty($script:Subscription)) {
+    $script:Subscription = $account.name
+}
+
 $registry = $null
 if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
-    # set default subscription if needed
-    if (![string]::IsNullOrEmpty($script:Subscription)) {
-        Write-Debug "Setting subscription to $($script:Subscription)"
-        $argumentList = @("account", "set", "--subscription", $script:Subscription)
-        & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
-        if ($LastExitCode -ne 0) {
-            throw "az $($argumentList) failed with $($LastExitCode)."
-        }
-    }
-
     # check if group exists and if not create it.
-    $argumentList = @("group", "show", "-g", $script:ResourceGroupName)
+    $argumentList = @("group", "show", "-g", $script:ResourceGroupName,
+        "--subscription", $script:Subscription)
     $group = & "az" $argumentList 2>$null | ConvertFrom-Json
     if (!$group) {
         if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
             throw "Need a resource group location to create the resource group."
         }
         $argumentList = @("group", "create", "-g", $script:ResourceGroupName, `
-            "-l", $script:ResourceGroupLocation)
+            "-l", $script:ResourceGroupLocation, 
+            "--subscription", $script:Subscription)
         $group = & "az" $argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             throw "az $($argumentList) failed with $($LastExitCode)."
@@ -70,13 +71,15 @@ if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
         $script:ResourceGroupLocation = $group.location
     }
     # check if acr exist and if not create it
-    $argumentList = @("acr", "list", "-g", $script:ResourceGroupName)
+    $argumentList = @("acr", "list", "-g", $script:ResourceGroupName,
+        "--subscription", $script:Subscription)
     $registries = & "az" $argumentList 2>$null | ConvertFrom-Json
     $registry = if ($registries) { $registries[0] } else { $null }
     if (!$registry) {
         $argumentList = @("acr", "create", "-g", $script:ResourceGroupName, "-n", `
             "acr$script:ResourceGroupName", "-l", $script:ResourceGroupLocation, `
-            "--sku", "Basic", "--admin-enabled", "true")
+            "--sku", "Basic", "--admin-enabled", "true", 
+            "--subscription", $script:Subscription)
         $registry = & "az" $argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             throw "az $($argumentList) failed with $($LastExitCode)."

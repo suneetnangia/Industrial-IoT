@@ -17,7 +17,7 @@ The platform and simulation can also be deployed using the deploy script.
 1. If you have not done so yet, clone the GitHub repository from one of our release branches. To clone the repository, you need git. If you do not have git installed on your system, follow the instructions for [Linux or Mac](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git), or [Windows](https://gitforwindows.org/) to install it. Open a new command prompt or terminal and run:
 
    ```bash
-   git clone -b <ReleaseBranchName> https://github.com/Azure/Industrial-IoT
+   git clone -b 2.7.206 https://github.com/Azure/Industrial-IoT
    cd Industrial-IoT
    ```
 
@@ -26,13 +26,13 @@ The platform and simulation can also be deployed using the deploy script.
    - On Windows:
 
      ```pwsh
-     .\deploy -version <version>
+     .\deploy
      ```
 
    - On Linux or Mac:
 
      ```bash
-     ./deploy.sh -version <version>
+     ./deploy.sh
      ```
 
    > See [additional supported parameters](#deployment-script-options).
