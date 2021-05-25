@@ -283,6 +283,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         /// Message received handler
         /// </summary>
         private void MessageTriggerMessageReceived(object sender, DataSetMessageModel args) {
+
+            // ToDo: Remove after investigation.
             DetectDroppedMessages(args);
 
             if (_diagnosticStart == DateTime.MinValue) {
@@ -325,7 +327,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                     }
                     else {
                         if (value != _valueCache[nodeId].Item1 + 1) {
-                            _logger.Error($"Message dropped for {nodeId} node: " +
+                            _logger.Error($"DataFlowProcessingEngine: Message dropped for {nodeId} node: " +
                                 $"{_valueCache[nodeId].Item1} {_valueCache[nodeId].Item2.ToString(_format)} ---> " +
                                 $"{value} {timestamp.ToString(_format)}");
                         }
@@ -334,7 +336,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                     }
                 }
                 catch (Exception ex) {
-                    _logger.Error(ex, "Error when trying to detect dropped messages.");
+                    _logger.Error(ex, "DataFlowProcessingEngine: Error when trying to detect dropped messages.");
                 }
             }
         }
