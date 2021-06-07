@@ -18,6 +18,7 @@ try {
 
     return [pscustomobject] @{ 
         Full = $props.CloudBuildAllVars.NBGV_NuGetPackageVersion
+        Version = $props.CloudBuildAllVars.NBGV_Version
         Prefix = $props.CloudBuildAllVars.NBGV_SimpleVersion
         Prerelease = $props.CloudBuildAllVars.NBGV_PrereleaseVersion
     }
