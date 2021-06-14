@@ -31,5 +31,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Runtime {
 
         /// <inheritdoc/>
         public string PublisherId { get; set; }
+
+        /// <inheritdoc/>
+        public bool GzipBody { get; set; }
     }
 }

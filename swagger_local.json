@@ -1,0 +1,4051 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Opc-Registry-Service",
+    "description": "Azure Industrial IoT OPC UA Registry Service",
+    "contact": {
+      "url": "https://www.github.com/Azure/Industrial-IoT"
+    },
+    "license": {
+      "name": "MIT LICENSE",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "version": "v2"
+  },
+  "host": "localhost:9080",
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "paths": {
+    "/registry/v2/applications": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Register new server",
+        "description": "Registers a server solely using a discovery url. Requires that the onboarding agent service is running and the server can be located by a supervisor in its network using the discovery url.",
+        "operationId": "RegisterServer",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Server registration request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ServerRegistrationRequestApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Create new application",
+        "description": "The application is registered using the provided information, but it is not associated with a supervisor. This is useful for when you need to register clients or you want to register a server that is located in a network not reachable through a Twin module.",
+        "operationId": "CreateApplication",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Application registration request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationRequestApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationResponseApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Purge applications",
+        "description": "Purges all applications that have not been seen for a specified amount of time.",
+        "operationId": "DeleteAllDisabledApplications",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "notSeenFor",
+            "description": "A duration in milliseconds",
+            "type": "string",
+            "format": "date-span"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Get list of applications",
+        "description": "Get all registered applications in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfApplications",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/applications/{applicationId}/disable": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Disable an enabled application.",
+        "description": "A manager can disable an application.",
+        "operationId": "DisableApplication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "description": "The application id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/{applicationId}/enable": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Re-enable a disabled application.",
+        "description": "A manager can enable an application.",
+        "operationId": "EnableApplication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "description": "The application id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/discover": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Discover servers",
+        "description": "Registers servers by running a discovery scan in a supervisor's network. Requires that the onboarding agent service is running.",
+        "operationId": "DiscoverServer",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Discovery request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DiscoveryRequestApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/discover/{requestId}": {
+      "delete": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Cancel discovery",
+        "description": "Cancels a discovery request using the request identifier.",
+        "operationId": "Cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "description": "Discovery request",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/{applicationId}": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Get application registration",
+        "operationId": "GetApplicationRegistration",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "description": "Application id for the server",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Update application registration",
+        "description": "The application information is updated with new properties. Note that this information might be overridden if the application is re-discovered during a discovery run (recurring or one-time).",
+        "operationId": "UpdateApplicationRegistration",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "description": "The identifier of the application",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Application update request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationUpdateApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Unregister application",
+        "description": "Unregisters and deletes application and all its associated endpoints.",
+        "operationId": "DeleteApplication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "applicationId",
+            "description": "The identifier of the application",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/sites": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Get list of sites",
+        "description": "List all sites applications are registered in.",
+        "operationId": "GetListOfSites",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationSiteListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/applications/query": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Query applications",
+        "description": "List applications that match a query model. The returned model can contain a continuation token if more results are available. Call the GetListOfApplications operation using the token to retrieve more results.",
+        "operationId": "QueryApplications",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Application query",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Get filtered list of applications",
+        "description": "Get a list of applications filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfApplications operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfApplications",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Applications Query model",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ApplicationRegistrationQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ApplicationInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/events": {
+      "put": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Subscribe for application events",
+        "description": "Register a client to receive application events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user that will receive application events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/applications/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Applications"
+        ],
+        "summary": "Unsubscribe from application events",
+        "description": "Unregister a user and stop it from receiving events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/{discovererId}": {
+      "get": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Get discoverer registration information",
+        "description": "Returns a discoverer's registration and connectivity information. A discoverer id corresponds to the twin modules module identity.",
+        "operationId": "GetDiscoverer",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "discovererId",
+            "description": "Discoverer identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DiscovererApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Update discoverer information",
+        "description": "Allows a caller to configure recurring discovery runs on the twin module identified by the discoverer id or update site information.",
+        "operationId": "UpdateDiscoverer",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "discovererId",
+            "description": "discoverer identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Patch request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DiscovererUpdateApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Enable server discovery",
+        "description": "Allows a caller to configure recurring discovery runs on the discovery module identified by the module id.",
+        "operationId": "SetDiscoveryMode",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "discovererId",
+            "description": "discoverer identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "description": "Discovery mode",
+            "required": true,
+            "type": "string",
+            "enum": [
+              "Off",
+              "Local",
+              "Network",
+              "Fast",
+              "Scan"
+            ],
+            "x-ms-enum": {
+              "name": "DiscoveryMode",
+              "modelAsString": false
+            }
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Discovery configuration",
+            "schema": {
+              "$ref": "#/definitions/DiscoveryConfigApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery": {
+      "get": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Get list of discoverers",
+        "description": "Get all registered discoverers and therefore twin modules in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfDiscoverers",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DiscovererListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/discovery/query": {
+      "post": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Query discoverers",
+        "description": "Get all discoverers that match a specified query. The returned model can contain a continuation token if more results are available. Call the GetListOfDiscoverers operation using the token to retrieve more results.",
+        "operationId": "QueryDiscoverers",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Discoverers query model",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DiscovererQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DiscovererListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Get filtered list of discoverers",
+        "description": "Get a list of discoverers filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfDiscoverers operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfDiscoverers",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "siteId",
+            "description": "Site of the discoverer",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "discovery",
+            "description": "Discovery mode of discoverer",
+            "type": "string",
+            "enum": [
+              "Off",
+              "Local",
+              "Network",
+              "Fast",
+              "Scan"
+            ],
+            "x-ms-enum": {
+              "name": "DiscoveryMode",
+              "modelAsString": false
+            }
+          },
+          {
+            "in": "query",
+            "name": "connected",
+            "description": "Included connected or disconnected",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/DiscovererListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/events": {
+      "put": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Subscribe to discoverer registry events",
+        "description": "Register a user to receive discoverer events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive discoverer events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Unsubscribe registry events",
+        "description": "Unregister a user and stop it from receiving discoverer events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more discoverer events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/{discovererId}/events": {
+      "put": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Subscribe to discovery progress from discoverer",
+        "description": "Register a client to receive discovery progress events through SignalR from a particular discoverer.",
+        "operationId": "SubscribeByDiscovererId",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "discovererId",
+            "description": "The discoverer to subscribe to",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive discovery events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/requests/{requestId}/events": {
+      "put": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Subscribe to discovery progress for a request",
+        "description": "Register a client to receive discovery progress events through SignalR for a particular request.",
+        "operationId": "SubscribeByRequestId",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "description": "The request to monitor",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive discovery events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/requests/{requestId}/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Unsubscribe from discovery progress for a request.",
+        "description": "Unregister a client and stop it from receiving discovery events for a particular request.",
+        "operationId": "UnsubscribeByRequestId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "requestId",
+            "description": "The request to unsubscribe from",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more discovery progress",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/discovery/{discovererId}/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Discoverers"
+        ],
+        "summary": "Unsubscribe from discovery progress from discoverer.",
+        "description": "Unregister a client and stop it from receiving discovery events.",
+        "operationId": "UnsubscribeByDiscovererId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "discovererId",
+            "description": "The discoverer to unsubscribe from",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more discovery progress",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints/{endpointId}/activate": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Activate endpoint",
+        "description": "Activates an endpoint for subsequent use in twin service. All endpoints must be activated using this API or through a activation filter during application registration or discovery.",
+        "operationId": "ActivateEndpoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpointId",
+            "description": "endpoint identifier",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints/{endpointId}": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Get endpoint information",
+        "description": "Gets information about an endpoint.",
+        "operationId": "GetEndpoint",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpointId",
+            "description": "endpoint identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointInfoApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints": {
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Get list of endpoints",
+        "description": "Get all registered endpoints in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfEndpoints",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/endpoints/query": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Query endpoints",
+        "description": "Return endpoints that match the specified query. The returned model can contain a continuation token if more results are available. Call the GetListOfEndpoints operation using the token to retrieve more results.",
+        "operationId": "QueryEndpoints",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Query to match",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EndpointRegistrationQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Get filtered list of endpoints",
+        "description": "Get a list of endpoints filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfEndpoints operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfEndpoints",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "description": "Endoint url for direct server access",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "certificate",
+            "description": "Certificate of the endpoint",
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "in": "query",
+            "name": "securityMode",
+            "description": "Security Mode",
+            "type": "string",
+            "enum": [
+              "Best",
+              "Sign",
+              "SignAndEncrypt",
+              "None"
+            ],
+            "x-ms-enum": {
+              "name": "SecurityMode",
+              "modelAsString": false
+            }
+          },
+          {
+            "in": "query",
+            "name": "securityPolicy",
+            "description": "Security policy uri",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "activated",
+            "description": "Whether the endpoint was activated",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "connected",
+            "description": "Whether the endpoint is connected on supervisor.",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "endpointState",
+            "description": "The last state of the the activated endpoint",
+            "type": "string",
+            "enum": [
+              "Connecting",
+              "NotReachable",
+              "Busy",
+              "NoTrust",
+              "CertificateInvalid",
+              "Ready",
+              "Error"
+            ],
+            "x-ms-enum": {
+              "name": "EndpointConnectivityState",
+              "modelAsString": false
+            }
+          },
+          {
+            "in": "query",
+            "name": "includeNotSeenSince",
+            "description": "Whether to include endpoints that were soft deleted",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "discovererId",
+            "description": "Discoverer id to filter with",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "applicationId",
+            "description": "Application id to filter",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "supervisorId",
+            "description": "Supervisor id to filter with",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "siteOrGatewayId",
+            "description": "Site or gateway id to filter with",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/EndpointInfoListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints/{endpointId}/deactivate": {
+      "post": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Deactivate endpoint",
+        "description": "Deactivates the endpoint and disable access through twin service.",
+        "operationId": "DeactivateEndpoint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpointId",
+            "description": "endpoint identifier",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints/events": {
+      "put": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Subscribe for endpoint events",
+        "description": "Register a user to receive endpoint events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive endpoint events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/endpoints/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Endpoints"
+        ],
+        "summary": "Unsubscribe from endpoint events",
+        "description": "Unregister a user and stop it from receiving endpoint events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more endpoint events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/gateways/{GatewayId}": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get Gateway registration information",
+        "description": "Returns a Gateway's registration and connectivity information. A Gateway id corresponds to the twin modules module identity.",
+        "operationId": "GetGateway",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "GatewayId",
+            "description": "Gateway identifier",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/GatewayInfoApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Update Gateway configuration",
+        "description": "Allows a caller to configure operations on the Gateway module identified by the Gateway id.",
+        "operationId": "UpdateGateway",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "GatewayId",
+            "description": "Gateway identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Patch request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GatewayUpdateApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/gateways": {
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get list of Gateways",
+        "description": "Get all registered Gateways and therefore twin modules in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfGateway",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/GatewayListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/gateways/query": {
+      "post": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Query Gateways",
+        "description": "Get all Gateways that match a specified query. The returned model can contain a continuation token if more results are available. Call the GetListOfGateway operation using the token to retrieve more results.",
+        "operationId": "QueryGateway",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Gateway query model",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GatewayQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/GatewayListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Get filtered list of Gateways",
+        "description": "Get a list of Gateways filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfGateway operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfGateway",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "siteId",
+            "description": "Site of the Gateway",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "connected",
+            "description": "Included connected or disconnected",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/GatewayListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/gateways/events": {
+      "put": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Subscribe to Gateway registry events",
+        "description": "Register a user to receive Gateway events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive Gateway events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/gateways/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Gateways"
+        ],
+        "summary": "Unsubscribe registry events",
+        "description": "Unregister a user and stop it from receiving Gateway events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more Gateway events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/publishers/{publisherId}": {
+      "get": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Get publisher registration information",
+        "description": "Returns a publisher's registration and connectivity information. A publisher id corresponds to the twin modules module identity.",
+        "operationId": "GetPublisher",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publisherId",
+            "description": "Publisher identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PublisherApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Update publisher configuration",
+        "description": "Allows a caller to configure operations on the publisher module identified by the publisher id.",
+        "operationId": "UpdatePublisher",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publisherId",
+            "description": "Publisher identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Patch request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PublisherUpdateApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/publishers": {
+      "get": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Get list of publishers",
+        "description": "Get all registered publishers and therefore twin modules in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfPublisher",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PublisherListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/publishers/query": {
+      "post": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Query publishers",
+        "description": "Get all publishers that match a specified query. The returned model can contain a continuation token if more results are available. Call the GetListOfPublisher operation using the token to retrieve more results.",
+        "operationId": "QueryPublisher",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Publisher query model",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PublisherQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PublisherListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Get filtered list of publishers",
+        "description": "Get a list of publishers filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfPublisher operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfPublisher",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "siteId",
+            "description": "Site for the publishers",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "connected",
+            "description": "Included connected or disconnected",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PublisherListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/publishers/events": {
+      "put": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Subscribe to publisher registry events",
+        "description": "Register a user to receive publisher events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive publisher events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/publishers/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Publishers"
+        ],
+        "summary": "Unsubscribe registry events",
+        "description": "Unregister a user and stop it from receiving publisher events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more publisher events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors/{supervisorId}": {
+      "get": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Get supervisor registration information",
+        "description": "Returns a supervisor's registration and connectivity information. A supervisor id corresponds to the twin modules module identity.",
+        "operationId": "GetSupervisor",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "supervisorId",
+            "description": "Supervisor identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SupervisorApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Update supervisor information",
+        "description": "Allows a caller to configure recurring discovery runs on the twin module identified by the supervisor id or update site information.",
+        "operationId": "UpdateSupervisor",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "supervisorId",
+            "description": "supervisor identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Patch request",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SupervisorUpdateApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors/{supervisorId}/status": {
+      "get": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Get runtime status of supervisor",
+        "description": "Allows a caller to get runtime status for a supervisor.",
+        "operationId": "GetSupervisorStatus",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "supervisorId",
+            "description": "supervisor identifier",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SupervisorStatusApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors/{supervisorId}/reset": {
+      "post": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Reset supervisor",
+        "description": "Allows a caller to reset the twin module using its supervisor identity identifier.",
+        "operationId": "ResetSupervisor",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "supervisorId",
+            "description": "supervisor identifier",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors": {
+      "get": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Get list of supervisors",
+        "description": "Get all registered supervisors and therefore twin modules in paged form. The returned model can contain a continuation token if more results are available. Call this operation again using the token to retrieve more results.",
+        "operationId": "GetListOfSupervisors",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "continuationToken",
+            "description": "Optional Continuation token",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Optional number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SupervisorListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ],
+        "x-ms-pageable": {
+          "nextLinkName": "continuationToken"
+        }
+      }
+    },
+    "/registry/v2/supervisors/query": {
+      "post": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Query supervisors",
+        "description": "Get all supervisors that match a specified query. The returned model can contain a continuation token if more results are available. Call the GetListOfSupervisors operation using the token to retrieve more results.",
+        "operationId": "QuerySupervisors",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "Supervisors query model",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SupervisorQueryApiModel"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SupervisorListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Get filtered list of supervisors",
+        "description": "Get a list of supervisors filtered using the specified query parameters. The returned model can contain a continuation token if more results are available. Call the GetListOfSupervisors operation using the token to retrieve more results.",
+        "operationId": "GetFilteredListOfSupervisors",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "siteId",
+            "description": "Site for the supervisors",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "connected",
+            "description": "Included connected or disconnected",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "onlyServerState",
+            "description": "Whether to include only server state, or display current client state of the endpoint if available",
+            "type": "boolean"
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "description": "Number of results to return",
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SupervisorListApiModel"
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors/events": {
+      "put": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Subscribe to supervisor registry events",
+        "description": "Register a user to receive supervisor events through SignalR.",
+        "operationId": "Subscribe",
+        "consumes": [
+          "application/json-patch+json",
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "description": "The user id that will receive supervisor events.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    },
+    "/registry/v2/supervisors/events/{userId}": {
+      "delete": {
+        "tags": [
+          "Supervisors"
+        ],
+        "summary": "Unsubscribe registry events",
+        "description": "Unregister a user and stop it from receiving supervisor events.",
+        "operationId": "Unsubscribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "description": "The user id that will not receive any more supervisor events",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "SecurityMode": {
+      "description": "Security mode of endpoint",
+      "enum": [
+        "Best",
+        "Sign",
+        "SignAndEncrypt",
+        "None"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "SecurityMode",
+        "modelAsString": false
+      }
+    },
+    "EndpointActivationFilterApiModel": {
+      "description": "Endpoint Activation Filter model",
+      "type": "object",
+      "properties": {
+        "trustLists": {
+          "description": "Certificate trust list identifiers to use for\r\nactivation, if null, all certificates are\r\ntrusted.  If empty list, no certificates are\r\ntrusted which is equal to no filter.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "securityPolicies": {
+          "description": "Endpoint security policies to filter against.\r\nIf set to null, all policies are in scope.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "securityMode": {
+          "description": "Security mode level to activate. If null,\r\nthen Microsoft.Azure.IIoT.OpcUa.Api.Registry.Models.SecurityMode.Best is assumed.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityMode"
+            }
+          ]
+        }
+      }
+    },
+    "ServerRegistrationRequestApiModel": {
+      "description": "Server registration request",
+      "required": [
+        "discoveryUrl"
+      ],
+      "type": "object",
+      "properties": {
+        "discoveryUrl": {
+          "description": "Discovery url to use for registration",
+          "type": "string"
+        },
+        "id": {
+          "description": "Registration id",
+          "type": "string"
+        },
+        "activationFilter": {
+          "description": "Upon discovery, activate all endpoints with this filter.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointActivationFilterApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "ApplicationType": {
+      "description": "Application type",
+      "enum": [
+        "Server",
+        "Client",
+        "ClientAndServer",
+        "DiscoveryServer"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "ApplicationType",
+        "modelAsString": false
+      }
+    },
+    "ApplicationRegistrationRequestApiModel": {
+      "description": "Application information",
+      "required": [
+        "applicationUri"
+      ],
+      "type": "object",
+      "properties": {
+        "applicationUri": {
+          "description": "Unique application uri",
+          "type": "string"
+        },
+        "applicationType": {
+          "description": "Type of application",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ApplicationType"
+            }
+          ]
+        },
+        "productUri": {
+          "description": "Product uri of the application.",
+          "type": "string",
+          "example": "http://contoso.com/fridge/1.0"
+        },
+        "applicationName": {
+          "description": "Default name of the server or client.",
+          "type": "string"
+        },
+        "locale": {
+          "description": "Locale of default name",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site of the application",
+          "type": "string"
+        },
+        "localizedNames": {
+          "description": "Localized names key off locale id.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "capabilities": {
+          "description": "The OPC UA defined capabilities of the server.",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryUrls": {
+          "description": "Discovery urls of the server.",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryProfileUri": {
+          "description": "The discovery profile uri of the server.",
+          "type": "string"
+        },
+        "gatewayServerUri": {
+          "description": "Gateway server uri",
+          "type": "string"
+        }
+      }
+    },
+    "ApplicationRegistrationResponseApiModel": {
+      "description": "Result of an application registration",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "New id application was registered under",
+          "type": "string"
+        }
+      }
+    },
+    "RegistryOperationApiModel": {
+      "description": "Registry operation log model",
+      "required": [
+        "authorityId",
+        "time"
+      ],
+      "type": "object",
+      "properties": {
+        "authorityId": {
+          "description": "Operation User",
+          "type": "string"
+        },
+        "time": {
+          "format": "date-time",
+          "description": "Operation time",
+          "type": "string"
+        }
+      }
+    },
+    "ApplicationInfoApiModel": {
+      "description": "Application info model",
+      "type": "object",
+      "properties": {
+        "applicationId": {
+          "description": "Unique application id",
+          "type": "string"
+        },
+        "applicationType": {
+          "description": "Type of application",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ApplicationType"
+            }
+          ]
+        },
+        "applicationUri": {
+          "description": "Unique application uri",
+          "type": "string"
+        },
+        "productUri": {
+          "description": "Product uri",
+          "type": "string"
+        },
+        "applicationName": {
+          "description": "Default name of application",
+          "type": "string"
+        },
+        "locale": {
+          "description": "Locale of default name - defaults to \"en\"",
+          "type": "string"
+        },
+        "localizedNames": {
+          "description": "Localized Names of application keyed on locale",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Application public cert",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "The capabilities advertised by the server.",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryUrls": {
+          "description": "Discovery urls of the server",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryProfileUri": {
+          "description": "Discovery profile uri",
+          "type": "string"
+        },
+        "gatewayServerUri": {
+          "description": "Gateway server uri",
+          "type": "string"
+        },
+        "hostAddresses": {
+          "description": "Host addresses of server application or null",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "siteId": {
+          "description": "Site of the application",
+          "type": "string",
+          "example": "productionlineA"
+        },
+        "discovererId": {
+          "description": "Discoverer that registered the application",
+          "type": "string"
+        },
+        "notSeenSince": {
+          "format": "date-time",
+          "description": "Last time application was seen",
+          "type": "string"
+        },
+        "created": {
+          "description": "Created",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RegistryOperationApiModel"
+            }
+          ]
+        },
+        "updated": {
+          "description": "Updated",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RegistryOperationApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "ApplicationInfoListApiModel": {
+      "description": "List of registered applications",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Application infos",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ApplicationInfoApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "DiscoveryMode": {
+      "description": "Discovery mode to use",
+      "enum": [
+        "Off",
+        "Local",
+        "Network",
+        "Fast",
+        "Scan"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "DiscoveryMode",
+        "modelAsString": false
+      }
+    },
+    "DiscoveryConfigApiModel": {
+      "description": "Discovery configuration api model",
+      "type": "object",
+      "properties": {
+        "addressRangesToScan": {
+          "description": "Address ranges to scan (null == all wired nics)",
+          "type": "string"
+        },
+        "networkProbeTimeoutMs": {
+          "format": "int32",
+          "description": "Network probe timeout",
+          "type": "integer"
+        },
+        "maxNetworkProbes": {
+          "format": "int32",
+          "description": "Max network probes that should ever run.",
+          "type": "integer"
+        },
+        "portRangesToScan": {
+          "description": "Port ranges to scan (null == all unassigned)",
+          "type": "string"
+        },
+        "portProbeTimeoutMs": {
+          "format": "int32",
+          "description": "Port probe timeout",
+          "type": "integer"
+        },
+        "maxPortProbes": {
+          "format": "int32",
+          "description": "Max port probes that should ever run.",
+          "type": "integer"
+        },
+        "minPortProbesPercent": {
+          "format": "int32",
+          "description": "Probes that must always be there as percent of max.",
+          "type": "integer"
+        },
+        "idleTimeBetweenScansSec": {
+          "format": "int32",
+          "description": "Delay time between discovery sweeps in seconds",
+          "type": "integer"
+        },
+        "discoveryUrls": {
+          "description": "List of preset discovery urls to use",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "locales": {
+          "description": "List of locales to filter with during discovery",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "activationFilter": {
+          "description": "Activate all twins with this filter during onboarding.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointActivationFilterApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "DiscoveryRequestApiModel": {
+      "description": "Discovery request",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Id of discovery request",
+          "type": "string"
+        },
+        "discovery": {
+          "description": "Discovery mode to use",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryMode"
+            }
+          ]
+        },
+        "configuration": {
+          "description": "Scan configuration to use",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryConfigApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "EndpointApiModel": {
+      "description": "Endpoint model",
+      "required": [
+        "url"
+      ],
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "Endpoint url to use to connect with",
+          "type": "string"
+        },
+        "alternativeUrls": {
+          "description": "Alternative endpoint urls that can be used for\r\naccessing and validating the server",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "securityMode": {
+          "description": "Security Mode to use for communication\r\ndefault to best.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityMode"
+            }
+          ]
+        },
+        "securityPolicy": {
+          "description": "Security policy uri to use for communication\r\ndefault to best.",
+          "type": "string"
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Endpoint certificate that was registered.",
+          "type": "string"
+        }
+      }
+    },
+    "CredentialType": {
+      "description": "Type of credential to use for serverauth",
+      "enum": [
+        "None",
+        "UserName",
+        "X509Certificate",
+        "JwtToken"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "CredentialType",
+        "modelAsString": false
+      }
+    },
+    "AuthenticationMethodApiModel": {
+      "description": "Authentication Method model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Method id",
+          "type": "string"
+        },
+        "credentialType": {
+          "description": "Type of credential",
+          "allOf": [
+            {
+              "$ref": "#/definitions/CredentialType"
+            }
+          ]
+        },
+        "securityPolicy": {
+          "description": "Security policy to use when passing credential.",
+          "type": "string"
+        },
+        "configuration": {
+          "description": "Method specific configuration"
+        }
+      }
+    },
+    "EndpointRegistrationApiModel": {
+      "description": "Endpoint registration model",
+      "required": [
+        "endpoint",
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Registered identifier of the endpoint",
+          "type": "string"
+        },
+        "endpointUrl": {
+          "description": "Original endpoint url of the endpoint",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Registered site of the endpoint",
+          "type": "string"
+        },
+        "supervisorId": {
+          "description": "Supervisor that manages the endpoint.",
+          "type": "string"
+        },
+        "discovererId": {
+          "description": "Discoverer that registered the endpoint",
+          "type": "string"
+        },
+        "endpoint": {
+          "description": "Endpoint information of the registration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointApiModel"
+            }
+          ]
+        },
+        "securityLevel": {
+          "format": "int32",
+          "description": "Security level of the endpoint",
+          "type": "integer"
+        },
+        "authenticationMethods": {
+          "description": "Supported authentication methods that can be selected to\r\nobtain a credential and used to interact with the endpoint.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuthenticationMethodApiModel"
+          }
+        }
+      }
+    },
+    "SecurityAssessment": {
+      "description": "Security assessment of the endpoint or application",
+      "enum": [
+        "Low",
+        "Medium",
+        "High"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "SecurityAssessment",
+        "modelAsString": false
+      }
+    },
+    "ApplicationRegistrationApiModel": {
+      "description": "Application with optional list of endpoints",
+      "required": [
+        "application"
+      ],
+      "type": "object",
+      "properties": {
+        "application": {
+          "description": "Server information",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ApplicationInfoApiModel"
+            }
+          ]
+        },
+        "endpoints": {
+          "description": "List of endpoint twins",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EndpointRegistrationApiModel"
+          }
+        },
+        "securityAssessment": {
+          "description": "Application security assessment",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityAssessment"
+            }
+          ]
+        }
+      }
+    },
+    "ApplicationRegistrationUpdateApiModel": {
+      "description": "Application registration update request",
+      "type": "object",
+      "properties": {
+        "productUri": {
+          "description": "Product uri",
+          "type": "string"
+        },
+        "applicationName": {
+          "description": "Default name of the server or client.",
+          "type": "string"
+        },
+        "locale": {
+          "description": "Locale of default name - defaults to \"en\"",
+          "type": "string"
+        },
+        "localizedNames": {
+          "description": "Localized names keyed off locale id.\r\nTo remove entry, set value for locale id to null.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Application public cert",
+          "type": "string"
+        },
+        "capabilities": {
+          "description": "Capabilities of the application",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryUrls": {
+          "description": "Discovery urls of the application",
+          "uniqueItems": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discoveryProfileUri": {
+          "description": "Discovery profile uri",
+          "type": "string"
+        },
+        "gatewayServerUri": {
+          "description": "Gateway server uri",
+          "type": "string"
+        }
+      }
+    },
+    "ApplicationSiteListApiModel": {
+      "description": "List of application sites",
+      "type": "object",
+      "properties": {
+        "sites": {
+          "description": "Sites",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "ApplicationRegistrationQueryApiModel": {
+      "description": "Application information",
+      "type": "object",
+      "properties": {
+        "applicationType": {
+          "description": "Type of application",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ApplicationType"
+            }
+          ]
+        },
+        "applicationUri": {
+          "description": "Application uri",
+          "type": "string"
+        },
+        "productUri": {
+          "description": "Product uri",
+          "type": "string"
+        },
+        "applicationName": {
+          "description": "Name of application",
+          "type": "string"
+        },
+        "locale": {
+          "description": "Locale of application name - default is \"en\"",
+          "type": "string"
+        },
+        "capability": {
+          "description": "Application capability to query with",
+          "type": "string"
+        },
+        "discoveryProfileUri": {
+          "description": "Discovery profile uri",
+          "type": "string"
+        },
+        "gatewayServerUri": {
+          "description": "Gateway server uri",
+          "type": "string"
+        },
+        "siteOrGatewayId": {
+          "description": "Supervisor or site the application belongs to.",
+          "type": "string"
+        },
+        "includeNotSeenSince": {
+          "description": "Whether to include apps that were soft deleted",
+          "type": "boolean"
+        },
+        "discovererId": {
+          "description": "Discoverer id to filter with",
+          "type": "string"
+        }
+      }
+    },
+    "TraceLogLevel": {
+      "description": "Log level",
+      "enum": [
+        "Error",
+        "Information",
+        "Debug",
+        "Verbose"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "TraceLogLevel",
+        "modelAsString": false
+      }
+    },
+    "DiscovererApiModel": {
+      "description": "Discoverer registration model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Discoverer id",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site of the discoverer",
+          "type": "string"
+        },
+        "discovery": {
+          "description": "Whether the discoverer is in discovery mode",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryMode"
+            }
+          ]
+        },
+        "discoveryConfig": {
+          "description": "Discoverer configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryConfigApiModel"
+            }
+          ]
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        },
+        "outOfSync": {
+          "description": "Whether the registration is out of sync between\r\nclient (module) and server (service) (default: false).",
+          "type": "boolean"
+        },
+        "connected": {
+          "description": "Whether discoverer is connected on this registration",
+          "type": "boolean"
+        }
+      }
+    },
+    "DiscovererUpdateApiModel": {
+      "description": "Discoverer update request",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site the discoverer is part of",
+          "type": "string"
+        },
+        "discovery": {
+          "description": "Discovery mode of discoverer",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryMode"
+            }
+          ]
+        },
+        "discoveryConfig": {
+          "description": "Discoverer discovery config",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryConfigApiModel"
+            }
+          ]
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        }
+      }
+    },
+    "DiscovererListApiModel": {
+      "description": "Discoverer registration list",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Registrations",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DiscovererApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "DiscovererQueryApiModel": {
+      "description": "Discoverer registration query",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site of the discoverer",
+          "type": "string"
+        },
+        "discovery": {
+          "description": "Discovery mode of discoverer",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscoveryMode"
+            }
+          ]
+        },
+        "connected": {
+          "description": "Included connected or disconnected",
+          "type": "boolean"
+        }
+      }
+    },
+    "EndpointActivationState": {
+      "description": "Activation state of the endpoint twin",
+      "enum": [
+        "Deactivated",
+        "Activated",
+        "ActivatedAndConnected"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "EndpointActivationState",
+        "modelAsString": false
+      }
+    },
+    "EndpointConnectivityState": {
+      "description": "State of the endpoint after activation",
+      "enum": [
+        "Connecting",
+        "NotReachable",
+        "Busy",
+        "NoTrust",
+        "CertificateInvalid",
+        "Ready",
+        "Error"
+      ],
+      "type": "string",
+      "x-ms-enum": {
+        "name": "EndpointConnectivityState",
+        "modelAsString": false
+      }
+    },
+    "EndpointInfoApiModel": {
+      "description": "Endpoint registration model",
+      "required": [
+        "applicationId",
+        "registration"
+      ],
+      "type": "object",
+      "properties": {
+        "registration": {
+          "description": "Endpoint registration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointRegistrationApiModel"
+            }
+          ]
+        },
+        "applicationId": {
+          "description": "Application id endpoint is registered under.",
+          "type": "string"
+        },
+        "activationState": {
+          "description": "Activation state of endpoint",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointActivationState"
+            }
+          ]
+        },
+        "endpointState": {
+          "description": "Last state of the activated endpoint",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointConnectivityState"
+            }
+          ]
+        },
+        "outOfSync": {
+          "description": "Whether the registration is out of sync",
+          "type": "boolean"
+        },
+        "notSeenSince": {
+          "format": "date-time",
+          "description": "Last time endpoint was seen",
+          "type": "string"
+        }
+      }
+    },
+    "EndpointInfoListApiModel": {
+      "description": "Endpoint registration list",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Endpoint registrations",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EndpointInfoApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "EndpointRegistrationQueryApiModel": {
+      "description": "Endpoint query",
+      "type": "object",
+      "properties": {
+        "url": {
+          "description": "Endoint url for direct server access",
+          "type": "string"
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Certificate of the endpoint",
+          "type": "string"
+        },
+        "securityMode": {
+          "description": "Security Mode",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityMode"
+            }
+          ]
+        },
+        "securityPolicy": {
+          "description": "Security policy uri",
+          "type": "string"
+        },
+        "activated": {
+          "description": "Whether the endpoint was activated",
+          "type": "boolean"
+        },
+        "connected": {
+          "description": "Whether the endpoint is connected on supervisor.",
+          "type": "boolean"
+        },
+        "endpointState": {
+          "description": "The last state of the the activated endpoint",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointConnectivityState"
+            }
+          ]
+        },
+        "includeNotSeenSince": {
+          "description": "Whether to include endpoints that were soft deleted",
+          "type": "boolean"
+        },
+        "discovererId": {
+          "description": "Discoverer id to filter with",
+          "type": "string"
+        },
+        "applicationId": {
+          "description": "Application id to filter",
+          "type": "string"
+        },
+        "supervisorId": {
+          "description": "Supervisor id to filter with",
+          "type": "string"
+        },
+        "siteOrGatewayId": {
+          "description": "Site or gateway id to filter with",
+          "type": "string"
+        }
+      }
+    },
+    "GatewayApiModel": {
+      "description": "Gateway registration model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Gateway id",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site of the Gateway",
+          "type": "string"
+        },
+        "connected": {
+          "description": "Whether Gateway is connected on this registration",
+          "type": "boolean"
+        }
+      }
+    },
+    "SupervisorApiModel": {
+      "description": "Supervisor registration model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Supervisor id",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site of the supervisor",
+          "type": "string"
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Supervisor public client cert",
+          "type": "string"
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        },
+        "outOfSync": {
+          "description": "Whether the registration is out of sync between\r\nclient (module) and server (service) (default: false).",
+          "type": "boolean"
+        },
+        "connected": {
+          "description": "Whether supervisor is connected on this registration",
+          "type": "boolean"
+        }
+      }
+    },
+    "PublisherConfigApiModel": {
+      "description": "Default publisher agent configuration",
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "description": "Capabilities",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "jobCheckInterval": {
+          "format": "date-span",
+          "description": "Interval to check job",
+          "type": "string"
+        },
+        "heartbeatInterval": {
+          "format": "date-span",
+          "description": "Heartbeat interval",
+          "type": "string"
+        },
+        "maxWorkers": {
+          "format": "int32",
+          "description": "Parallel jobs",
+          "type": "integer"
+        },
+        "jobOrchestratorUrl": {
+          "description": "Job orchestrator endpoint url",
+          "type": "string"
+        }
+      }
+    },
+    "PublisherApiModel": {
+      "description": "Publisher registration model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Publisher id",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site of the publisher",
+          "type": "string"
+        },
+        "certificate": {
+          "format": "byte",
+          "description": "Publisher public client cert",
+          "type": "string"
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        },
+        "configuration": {
+          "description": "Publisher agent configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PublisherConfigApiModel"
+            }
+          ]
+        },
+        "outOfSync": {
+          "description": "Whether the registration is out of sync between\r\nclient (module) and server (service) (default: false).",
+          "type": "boolean"
+        },
+        "connected": {
+          "description": "Whether publisher is connected on this registration",
+          "type": "boolean"
+        }
+      }
+    },
+    "GatewayModulesApiModel": {
+      "description": "Gateway modules model",
+      "type": "object",
+      "properties": {
+        "supervisor": {
+          "description": "Supervisor identity if deployed",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SupervisorApiModel"
+            }
+          ]
+        },
+        "publisher": {
+          "description": "Publisher identity if deployed",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PublisherApiModel"
+            }
+          ]
+        },
+        "discoverer": {
+          "description": "Discoverer identity if deployed",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DiscovererApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "GatewayInfoApiModel": {
+      "description": "Gateway info model",
+      "required": [
+        "gateway"
+      ],
+      "type": "object",
+      "properties": {
+        "gateway": {
+          "description": "Gateway identity",
+          "allOf": [
+            {
+              "$ref": "#/definitions/GatewayApiModel"
+            }
+          ]
+        },
+        "modules": {
+          "description": "Gateway modules",
+          "allOf": [
+            {
+              "$ref": "#/definitions/GatewayModulesApiModel"
+            }
+          ]
+        }
+      }
+    },
+    "GatewayUpdateApiModel": {
+      "description": "Gateway registration update request",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site of the Gateway",
+          "type": "string"
+        }
+      }
+    },
+    "GatewayListApiModel": {
+      "description": "Gateway registration list",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Registrations",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GatewayApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "GatewayQueryApiModel": {
+      "description": "Gateway registration query",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site of the Gateway",
+          "type": "string"
+        },
+        "connected": {
+          "description": "Included connected or disconnected",
+          "type": "boolean"
+        }
+      }
+    },
+    "PublisherUpdateApiModel": {
+      "description": "Publisher registration update request",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site of the publisher",
+          "type": "string"
+        },
+        "configuration": {
+          "description": "Publisher discovery configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PublisherConfigApiModel"
+            }
+          ]
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        }
+      }
+    },
+    "PublisherListApiModel": {
+      "description": "Publisher registration list",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Registrations",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PublisherApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "PublisherQueryApiModel": {
+      "description": "Publisher registration query",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site for the publishers",
+          "type": "string"
+        },
+        "connected": {
+          "description": "Included connected or disconnected",
+          "type": "boolean"
+        }
+      }
+    },
+    "SupervisorUpdateApiModel": {
+      "description": "Supervisor update request",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site the supervisor is part of",
+          "type": "string"
+        },
+        "logLevel": {
+          "description": "Current log level",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TraceLogLevel"
+            }
+          ]
+        }
+      }
+    },
+    "EndpointActivationStatusApiModel": {
+      "description": "Endpoint Activation status model",
+      "required": [
+        "id"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Identifier of the endoint",
+          "type": "string"
+        },
+        "activationState": {
+          "description": "Activation state",
+          "allOf": [
+            {
+              "$ref": "#/definitions/EndpointActivationState"
+            }
+          ]
+        }
+      }
+    },
+    "SupervisorStatusApiModel": {
+      "description": "Supervisor runtime status",
+      "required": [
+        "deviceId"
+      ],
+      "type": "object",
+      "properties": {
+        "deviceId": {
+          "description": "Edge device id",
+          "type": "string"
+        },
+        "moduleId": {
+          "description": "Module id",
+          "type": "string"
+        },
+        "siteId": {
+          "description": "Site id",
+          "type": "string"
+        },
+        "endpoints": {
+          "description": "Endpoint activation status",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EndpointActivationStatusApiModel"
+          }
+        }
+      }
+    },
+    "SupervisorListApiModel": {
+      "description": "Supervisor registration list",
+      "type": "object",
+      "properties": {
+        "items": {
+          "description": "Registrations",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SupervisorApiModel"
+          }
+        },
+        "continuationToken": {
+          "description": "Continuation or null if final",
+          "type": "string"
+        }
+      }
+    },
+    "SupervisorQueryApiModel": {
+      "description": "Supervisor registration query",
+      "type": "object",
+      "properties": {
+        "siteId": {
+          "description": "Site for the supervisors",
+          "type": "string"
+        },
+        "connected": {
+          "description": "Included connected or disconnected",
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "oauth2": {
+      "type": "oauth2",
+      "flow": "implicit",
+      "authorizationUrl": "https://login.microsoftonline.com/6e660ce4-d51a-4585-80c6-58035e212354/oauth2/authorize",
+      "scopes": {
+        "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication": "Access http://schemas.xmlsoap.org/ws/2005/05/identity/claims/authentication operations"
+      },
+      "description": "Implicit oauth2 token flow."
+    }
+  },
+  "tags": [
+    {
+      "name": "Applications",
+      "description": "CRUD and Query application resources"
+    },
+    {
+      "name": "Discoverers",
+      "description": "Configure discovery"
+    },
+    {
+      "name": "Endpoints",
+      "description": "Activate, Deactivate and Query endpoint resources"
+    },
+    {
+      "name": "Gateways",
+      "description": "Read, Update and Query Gateway resources"
+    },
+    {
+      "name": "Publishers",
+      "description": "Read, Update and Query publisher resources"
+    },
+    {
+      "name": "Supervisors",
+      "description": "Read, Update and Query supervisor resources"
+    }
+  ]
+}

@@ -117,6 +117,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
         public MessageEncoding MessageEncoding { get; set; } = MessageEncoding.Json;
 
         /// <summary>
+        /// Use Gzip compression for JSON message body.
+        /// </summary>
+        public bool GzipBody { get; set; }
+
+        /// <summary>
         /// Flag to demand full featured message creation from publisher
         /// </summary>
         public bool FullFeaturedMessage { get; set; }

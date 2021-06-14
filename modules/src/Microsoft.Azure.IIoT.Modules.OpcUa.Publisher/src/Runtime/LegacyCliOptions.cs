@@ -28,7 +28,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
     /// Class that represents a dictionary with all command line arguments from the legacy version of the OPC Publisher
     /// </summary>
     public class LegacyCliOptions : Dictionary<string, string>, IAgentConfigProvider,
-        IEngineConfiguration, ILegacyCliModelProvider {
+        ISettingsController, IEngineConfiguration, ILegacyCliModelProvider {
         /// <summary>
         /// Creates a new instance of the the legacy CLI options based on existing configuration values.
         /// </summary>
@@ -81,7 +81,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                         "event setting of nodes without a skip first event setting.",
                         (bool b) => this[LegacyCliConfigKeys.SkipFirstDefault] = b.ToString() },
 
-                    { "fm|fullfeaturedmessage=", "The full featured mode for messages (all fields filled in)." + 
+                    { "fm|fullfeaturedmessage=", "The full featured mode for messages (all fields filled in)." +
                         "Default is 'true', for legacy compatibility use 'false'",
                         (bool b) => this[LegacyCliConfigKeys.FullFeaturedMessage] = b.ToString() },
 
@@ -154,6 +154,8 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                     { "me|messageencoding=", "The message encoding for messages " +
                         $"(allowed values: {string.Join(", ", Enum.GetNames(typeof(MessageEncoding)))}).",
                         (MessageEncoding m) => this[LegacyCliConfigKeys.MessageEncoding] = m.ToString() },
+                    { "gz|gzip=", "Use Gzip compression for JSON message body.",
+                        (bool b) => this[LegacyCliConfigKeys.GzipBody] = b.ToString() },
 
                     // Legacy unsupported
                     { "tc|telemetryconfigfile=", "Legacy - do not use.", _ => {} },
@@ -211,7 +213,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
 #pragma warning restore 67
 
         /// <summary>
-        /// The batch size 
+        /// The batch size
         /// </summary>
         public int? BatchSize => LegacyCliModel.BatchSize;
 
@@ -226,7 +228,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         public TimeSpan? DiagnosticsInterval => LegacyCliModel.DiagnosticsInterval;
 
         /// <summary>
-        /// the Maximum (IoT D2C) message size 
+        /// the Maximum (IoT D2C) message size
         /// </summary>
         public int? MaxMessageSize => LegacyCliModel.MaxMessageSize;
 
@@ -234,6 +236,11 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// The model of the CLI arguments.
         /// </summary>
         public LegacyCliModel LegacyCliModel { get; }
+
+        /// <summary>
+        /// Use Gzip compression for message body.
+        /// </summary>
+        public bool GzipBody => LegacyCliModel.GzipBody;
 
         /// <summary>
         /// Gets the additiona loggerConfiguration that represents the command line arguments.
@@ -266,9 +273,10 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                 DiagnosticsInterval = GetValueOrDefault(LegacyCliConfigKeys.DiagnosticsInterval, TimeSpan.FromSeconds(60)),
                 LogFileFlushTimeSpan = GetValueOrDefault(LegacyCliConfigKeys.LogFileFlushTimeSpanSec, TimeSpan.FromSeconds(30)),
                 LogFilename = GetValueOrDefault<string>(LegacyCliConfigKeys.LogFileName, null),
-                Transport = GetValueOrDefault(LegacyCliConfigKeys.HubTransport, TransportType.Amqp.ToString()), // todo this seem not to be used ... 
+                Transport = GetValueOrDefault(LegacyCliConfigKeys.HubTransport, TransportType.Amqp.ToString()), // todo this seem not to be used ...
                 MessagingMode = GetValueOrDefault(LegacyCliConfigKeys.MessagingMode, MessagingMode.Samples),
                 MessageEncoding = GetValueOrDefault(LegacyCliConfigKeys.MessageEncoding, MessageEncoding.Json),
+                GzipBody = GetValueOrDefault(LegacyCliConfigKeys.GzipBody, false),
                 FullFeaturedMessage = GetValueOrDefault(LegacyCliConfigKeys.FullFeaturedMessage, false),
                 EdgeHubConnectionString = GetValueOrDefault<string>(LegacyCliConfigKeys.EdgeHubConnectionString, null),
                 OperationTimeout = GetValueOrDefault(LegacyCliConfigKeys.OpcOperationTimeout, TimeSpan.FromSeconds(15)),

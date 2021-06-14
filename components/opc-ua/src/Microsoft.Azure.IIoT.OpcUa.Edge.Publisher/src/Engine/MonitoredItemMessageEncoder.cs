@@ -42,9 +42,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
 
         /// <inheritdoc/>
         public Task<IEnumerable<NetworkMessageModel>> EncodeAsync(
-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {
+            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {
             try {
-                var resultJson = EncodeAsJson(messages, maxMessageSize);
+                var resultJson = EncodeAsJson(messages, maxMessageSize, gzipBody);
                 var resultUadp = EncodeAsUadp(messages, maxMessageSize);
                 var result = resultJson.Concat(resultUadp);
                 return Task.FromResult(result);
@@ -56,9 +56,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
 
         /// <inheritdoc/>
         public Task<IEnumerable<NetworkMessageModel>> EncodeBatchAsync(
-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {
+            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {
             try {
-                var resultJson = EncodeBatchAsJson(messages, maxMessageSize);
+                var resultJson = EncodeBatchAsJson(messages, maxMessageSize, gzipBody);
                 var resultUadp = EncodeBatchAsUadp(messages, maxMessageSize);
                 var result = resultJson.Concat(resultUadp);
                 return Task.FromResult(result);
@@ -73,9 +73,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         /// </summary>
         /// <param name="messages"></param>
         /// <param name="maxMessageSize"></param>
+        /// <param name="gzipBody"></param>
         /// <returns></returns>
         private IEnumerable<NetworkMessageModel> EncodeBatchAsJson(
-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {
+            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {
 
             // by design all messages are generated in the same session context,
             // therefore it is safe to get the first message's context
@@ -127,7 +128,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                         UseUriEncoding = true,
                         UseReversibleEncoding = false
                     };
-                    foreach(var element in chunk) {
+                    foreach (var element in chunk) {
                         encoder.WriteEncodeable(null, element);
                     }
                     encoder.Close();
@@ -138,11 +139,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                         ContentType = ContentMimeType.UaJson,
                         MessageSchema = MessageSchemaTypes.MonitoredItemMessageJson
                     };
+                    encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;
                     AvgMessageSize = (AvgMessageSize * MessagesProcessedCount + encoded.Body.Length) /
                         (MessagesProcessedCount + 1);
                     AvgNotificationsPerMessage = (AvgNotificationsPerMessage * MessagesProcessedCount +
                         chunk.Count) / (MessagesProcessedCount + 1);
-                        MessagesProcessedCount++;
+                    MessagesProcessedCount++;
                     chunk.Clear();
                     messageSize = 2;
                     yield return encoded;
@@ -223,9 +225,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
         /// </summary>
         /// <param name="messages"></param>
         /// <param name="maxMessageSize"></param>
+        /// <param name="gzipBody"></param>
         /// <returns></returns>
         private IEnumerable<NetworkMessageModel> EncodeAsJson(
-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {
+            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {
 
             // by design all messages are generated in the same session context,
             // therefore it is safe to get the first message's context
@@ -251,6 +254,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                     ContentType = ContentMimeType.UaLegacyPublisher,
                     MessageSchema = MessageSchemaTypes.MonitoredItemMessageJson
                 };
+                encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;
                 if (encoded.Body.Length > maxMessageSize) {
                     // this message is too large to be processed. Drop it
                     // TODO Trace
@@ -321,7 +325,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
             IEnumerable<DataSetMessageModel> messages, MessageEncoding encoding,
             ServiceMessageContext context) {
             if (context?.NamespaceUris == null) {
-                // declare all notifications in messages dropped 
+                // declare all notifications in messages dropped
                 foreach (var message in messages) {
                     NotificationsDroppedCount += (uint)(message?.Notifications?.Count() ?? 0);
                 }

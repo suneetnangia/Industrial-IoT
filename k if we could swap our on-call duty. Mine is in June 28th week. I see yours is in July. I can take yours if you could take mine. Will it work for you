@@ -1,0 +1,402 @@
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/DataFlowProcessingEngine.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/DataFlowProcessingEngine.cs[m
+[1mindex 84fe195bc..4adbc3b97 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/DataFlowProcessingEngine.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/DataFlowProcessingEngine.cs[m
+[36m@@ -92,10 +92,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                         }[m
+                         try {[m
+                             if (_dataSetMessageBufferSize == 1) {[m
+[31m-                                return await _messageEncoder.EncodeAsync(input, _maxEncodedMessageSize).ConfigureAwait(false);[m
+[32m+[m[32m                                return await _messageEncoder.EncodeAsync(input, _maxEncodedMessageSize, _config.GzipBody).ConfigureAwait(false);[m
+                             }[m
+                             else {[m
+[31m-                                return await _messageEncoder.EncodeBatchAsync(input, _maxEncodedMessageSize).ConfigureAwait(false);[m
+[32m+[m[32m                                return await _messageEncoder.EncodeBatchAsync(input, _maxEncodedMessageSize, _config.GzipBody).ConfigureAwait(false);[m
+                             }[m
+                         }[m
+                         catch (Exception e) {[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/MonitoredItemMessageEncoder.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/MonitoredItemMessageEncoder.cs[m
+[1mindex 115830dfc..ba8debdc1 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/MonitoredItemMessageEncoder.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/MonitoredItemMessageEncoder.cs[m
+[36m@@ -42,9 +42,9 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+ [m
+         /// <inheritdoc/>[m
+         public Task<IEnumerable<NetworkMessageModel>> EncodeAsync([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+             try {[m
+[31m-                var resultJson = EncodeAsJson(messages, maxMessageSize);[m
+[32m+[m[32m                var resultJson = EncodeAsJson(messages, maxMessageSize, gzipBody);[m
+                 var resultUadp = EncodeAsUadp(messages, maxMessageSize);[m
+                 var result = resultJson.Concat(resultUadp);[m
+                 return Task.FromResult(result);[m
+[36m@@ -56,9 +56,9 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+ [m
+         /// <inheritdoc/>[m
+         public Task<IEnumerable<NetworkMessageModel>> EncodeBatchAsync([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+             try {[m
+[31m-                var resultJson = EncodeBatchAsJson(messages, maxMessageSize);[m
+[32m+[m[32m                var resultJson = EncodeBatchAsJson(messages, maxMessageSize, gzipBody);[m
+                 var resultUadp = EncodeBatchAsUadp(messages, maxMessageSize);[m
+                 var result = resultJson.Concat(resultUadp);[m
+                 return Task.FromResult(result);[m
+[36m@@ -73,9 +73,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+         /// </summary>[m
+         /// <param name="messages"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         private IEnumerable<NetworkMessageModel> EncodeBatchAsJson([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+ [m
+             // by design all messages are generated in the same session context,[m
+             // therefore it is safe to get the first message's context[m
+[36m@@ -127,7 +128,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                         UseUriEncoding = true,[m
+                         UseReversibleEncoding = false[m
+                     };[m
+[31m-                    foreach(var element in chunk) {[m
+[32m+[m[32m                    foreach (var element in chunk) {[m
+                         encoder.WriteEncodeable(null, element);[m
+                     }[m
+                     encoder.Close();[m
+[36m@@ -138,11 +139,12 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                         ContentType = ContentMimeType.UaJson,[m
+                         MessageSchema = MessageSchemaTypes.MonitoredItemMessageJson[m
+                     };[m
+[32m+[m[32m                    encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;[m
+                     AvgMessageSize = (AvgMessageSize * MessagesProcessedCount + encoded.Body.Length) /[m
+                         (MessagesProcessedCount + 1);[m
+                     AvgNotificationsPerMessage = (AvgNotificationsPerMessage * MessagesProcessedCount +[m
+                         chunk.Count) / (MessagesProcessedCount + 1);[m
+[31m-                        MessagesProcessedCount++;[m
+[32m+[m[32m                    MessagesProcessedCount++;[m
+                     chunk.Clear();[m
+                     messageSize = 2;[m
+                     yield return encoded;[m
+[36m@@ -223,9 +225,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+         /// </summary>[m
+         /// <param name="messages"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         private IEnumerable<NetworkMessageModel> EncodeAsJson([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+ [m
+             // by design all messages are generated in the same session context,[m
+             // therefore it is safe to get the first message's context[m
+[36m@@ -251,6 +254,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                     ContentType = ContentMimeType.UaLegacyPublisher,[m
+                     MessageSchema = MessageSchemaTypes.MonitoredItemMessageJson[m
+                 };[m
+[32m+[m[32m                encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;[m
+                 if (encoded.Body.Length > maxMessageSize) {[m
+                     // this message is too large to be processed. Drop it[m
+                     // TODO Trace[m
+[36m@@ -321,7 +325,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+             IEnumerable<DataSetMessageModel> messages, MessageEncoding encoding,[m
+             ServiceMessageContext context) {[m
+             if (context?.NamespaceUris == null) {[m
+[31m-                // declare all notifications in messages dropped [m
+[32m+[m[32m                // declare all notifications in messages dropped[m
+                 foreach (var message in messages) {[m
+                     NotificationsDroppedCount += (uint)(message?.Notifications?.Count() ?? 0);[m
+                 }[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/NetworkMessageEncoder.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/NetworkMessageEncoder.cs[m
+[1mindex de21f975b..166b0fa8e 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/NetworkMessageEncoder.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Engine/NetworkMessageEncoder.cs[m
+[36m@@ -43,9 +43,9 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+ [m
+         /// <inheritdoc/>[m
+         public Task<IEnumerable<NetworkMessageModel>> EncodeAsync([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+             try {[m
+[31m-                var resultJson = EncodeAsJson(messages, maxMessageSize);[m
+[32m+[m[32m                var resultJson = EncodeAsJson(messages, maxMessageSize, gzipBody);[m
+                 var resultUadp = EncodeAsUadp(messages, maxMessageSize);[m
+                 var result = resultJson.Concat(resultUadp);[m
+                 return Task.FromResult(result);[m
+[36m@@ -57,9 +57,9 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+ [m
+         /// <inheritdoc/>[m
+         public Task<IEnumerable<NetworkMessageModel>> EncodeBatchAsync([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+             try {[m
+[31m-                var resultJson = EncodeBatchAsJson(messages, maxMessageSize);[m
+[32m+[m[32m                var resultJson = EncodeBatchAsJson(messages, maxMessageSize, gzipBody);[m
+                 var resultUadp = EncodeBatchAsUadp(messages, maxMessageSize);[m
+                 var result = resultJson.Concat(resultUadp);[m
+                 return Task.FromResult(result);[m
+[36m@@ -74,9 +74,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+         /// </summary>[m
+         /// <param name="messages"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         private IEnumerable<NetworkMessageModel> EncodeBatchAsJson([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+ [m
+             // by design all messages are generated in the same session context,[m
+             // therefore it is safe to get the first message's context[m
+[36m@@ -128,7 +129,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                         UseUriEncoding = true,[m
+                         UseReversibleEncoding = false[m
+                     };[m
+[31m-                    foreach(var element in chunk) { [m
+[32m+[m[32m                    foreach (var element in chunk) {[m
+                         encoder.WriteEncodeable(null, element);[m
+                     }[m
+                     encoder.Close();[m
+[36m@@ -139,11 +140,12 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                         ContentType = ContentMimeType.UaJson,[m
+                         MessageSchema = MessageSchemaTypes.NetworkMessageJson[m
+                     };[m
+[32m+[m[32m                    encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;[m
+                     AvgMessageSize = (AvgMessageSize * MessagesProcessedCount + encoded.Body.Length) /[m
+                         (MessagesProcessedCount + 1);[m
+                     AvgNotificationsPerMessage = (AvgNotificationsPerMessage * MessagesProcessedCount +[m
+                         chunk.Count) / (MessagesProcessedCount + 1);[m
+[31m-                        MessagesProcessedCount++;[m
+[32m+[m[32m                    MessagesProcessedCount++;[m
+                     chunk.Clear();[m
+                     messageSize = 2;[m
+                     yield return encoded;[m
+[36m@@ -224,9 +226,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+         /// </summary>[m
+         /// <param name="messages"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         private IEnumerable<NetworkMessageModel> EncodeAsJson([m
+[31m-            IEnumerable<DataSetMessageModel> messages, int maxMessageSize) {[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody) {[m
+ [m
+             // by design all messages are generated in the same session context,[m
+             // therefore it is safe to get the first message's context[m
+[36m@@ -252,6 +255,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+                     ContentType = ContentMimeType.Json,[m
+                     MessageSchema = MessageSchemaTypes.NetworkMessageJson[m
+                 };[m
+[32m+[m[32m                encoded.Body = gzipBody ? encoded.Body.Zip() : encoded.Body;[m
+                 if (encoded.Body.Length > maxMessageSize) {[m
+                     // this message is too large to be processed. Drop it[m
+                     // TODO Trace[m
+[36m@@ -323,7 +327,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {[m
+             IEnumerable<DataSetMessageModel> messages, MessageEncoding encoding,[m
+             ServiceMessageContext context) {[m
+             if (context?.NamespaceUris == null) {[m
+[31m-                // declare all notifications in messages dropped [m
+[32m+[m[32m                // declare all notifications in messages dropped[m
+                 foreach (var message in messages) {[m
+                     NotificationsDroppedCount += (uint)(message?.Notifications?.Count() ?? 0);[m
+                 }[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IEngineConfiguration.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IEngineConfiguration.cs[m
+[1mindex 1aba34fdc..19de58c62 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IEngineConfiguration.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IEngineConfiguration.cs[m
+[36m@@ -22,7 +22,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Publisher {[m
+         TimeSpan? BatchTriggerInterval { get; }[m
+ [m
+         /// <summary>[m
+[31m-        /// Maximum mesage size for the encoded messages [m
+[32m+[m[32m        /// Maximum mesage size for the encoded messages[m
+         /// typically the IoT Hub's mas D2C message size[m
+         /// </summary>[m
+         int? MaxMessageSize { get; }[m
+[36m@@ -31,5 +31,10 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Publisher {[m
+         /// Diagnostics interval[m
+         /// </summary>[m
+         TimeSpan? DiagnosticsInterval { get; }[m
+[32m+[m
+[32m+[m[32m        /// <summary>[m
+[32m+[m[32m        /// Use Gzip compression for JSON message body.[m
+[32m+[m[32m        /// </summary>[m
+[32m+[m[32m        bool GzipBody { get; }[m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IMessageEncoder.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IMessageEncoder.cs[m
+[1mindex 257fab285..06288ff64 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IMessageEncoder.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/IMessageEncoder.cs[m
+[36m@@ -43,17 +43,19 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher {[m
+         /// </summary>[m
+         /// <param name="message"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         Task<IEnumerable<NetworkMessageModel>> EncodeAsync([m
+[31m-            IEnumerable<DataSetMessageModel> message, int maxMessageSize);[m
+[32m+[m[32m            IEnumerable<DataSetMessageModel> message, int maxMessageSize, bool gzipBody);[m
+ [m
+         /// <summary>[m
+         /// Encodes the list of messages into batched NetworkMessageModel list[m
+         /// </summary>[m
+         /// <param name="messages"></param>[m
+         /// <param name="maxMessageSize"></param>[m
+[32m+[m[32m        /// <param name="gzipBody"></param>[m
+         /// <returns></returns>[m
+         Task<IEnumerable<NetworkMessageModel>> EncodeBatchAsync[m
+[31m-            (IEnumerable<DataSetMessageModel> messages, int maxMessageSize);[m
+[32m+[m[32m            (IEnumerable<DataSetMessageModel> messages, int maxMessageSize, bool gzipBody);[m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Models/LegacyCliModel.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Models/LegacyCliModel.cs[m
+[1mindex fd3afb76f..43eb80211 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Models/LegacyCliModel.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Models/LegacyCliModel.cs[m
+[36m@@ -116,6 +116,11 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {[m
+         /// </summary>[m
+         public MessageEncoding MessageEncoding { get; set; } = MessageEncoding.Json;[m
+ [m
+[32m+[m[32m        /// <summary>[m
+[32m+[m[32m        /// Use Gzip compression for JSON message body.[m
+[32m+[m[32m        /// </summary>[m
+[32m+[m[32m        public bool GzipBody { get; set; }[m
+[32m+[m
+         /// <summary>[m
+         /// Flag to demand full featured message creation from publisher[m
+         /// </summary>[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Runtime/WriterGroupJobConfig.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Runtime/WriterGroupJobConfig.cs[m
+[1mindex 3be41522c..3a1130423 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Runtime/WriterGroupJobConfig.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Edge.Publisher/src/Runtime/WriterGroupJobConfig.cs[m
+[36m@@ -31,5 +31,8 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Publisher.Runtime {[m
+ [m
+         /// <inheritdoc/>[m
+         public string PublisherId { get; set; }[m
+[32m+[m
+[32m+[m[32m        /// <inheritdoc/>[m
+[32m+[m[32m        public bool GzipBody { get; set; }[m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Protocol/src/Runtime/Default/SecurityConfig.cs b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Protocol/src/Runtime/Default/SecurityConfig.cs[m
+[1mindex 2387ba0d4..c139ceaf6 100644[m
+[1m--- a/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Protocol/src/Runtime/Default/SecurityConfig.cs[m
+[1m+++ b/components/opc-ua/src/Microsoft.Azure.IIoT.OpcUa.Protocol/src/Runtime/Default/SecurityConfig.cs[m
+[36m@@ -32,6 +32,7 @@[m [mnamespace Microsoft.Azure.IIoT.OpcUa.Protocol.Runtime {[m
+         public const string RejectSha1SignedCertificatesKey = "RejectSha1SignedCertificates";[m
+         public const string MinimumCertificateKeySizeKey = "MinimumCertificateKeySize";[m
+         public const string AddAppCertToTrustedStoreKey = "AddAppCertToTrustedStore";[m
+[32m+[m[32m        public const string GzipBody = "GzipBody";[m
+ #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member[m
+ [m
+         /// <inheritdoc/>[m
+[1mdiff --git a/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliConfigKeys.cs b/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliConfigKeys.cs[m
+[1mindex c509d29be..fdd7ae86b 100644[m
+[1m--- a/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliConfigKeys.cs[m
+[1m+++ b/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliConfigKeys.cs[m
+[36m@@ -56,7 +56,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+         /// Flag to demand full featured message creation from publisher[m
+         /// </summary>[m
+         public const string FullFeaturedMessage = "FullFeaturedMessage";[m
+[31m-        [m
+[32m+[m
+         /// <summary>[m
+         /// Key for the default sampling interval in milliseconds.[m
+         /// </summary>[m
+[36m@@ -93,7 +93,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+         public const string BatchTriggerInterval = "BatchTriggerInterval";[m
+ [m
+         /// <summary>[m
+[31m-        /// Key for the max (IoT Hub D2C)message size [m
+[32m+[m[32m        /// Key for the max (IoT Hub D2C)message size[m
+         /// </summary>[m
+         public const string MaxMessageSize = "MaxMessageSize";[m
+ [m
+[36m@@ -181,5 +181,10 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+         /// Key for the trusted issuer certificates.[m
+         /// </summary>[m
+         public const string OpcIssuerCertStorePath = SecurityConfig.TrustedIssuerCertificatesPathKey;[m
+[32m+[m
+[32m+[m[32m        /// <summary>[m
+[32m+[m[32m        /// Use Gzip compression for JSON message body.[m
+[32m+[m[32m        /// </summary>[m
+[32m+[m[32m        public const string GzipBody = SecurityConfig.GzipBody;[m
+     }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliOptions.cs b/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliOptions.cs[m
+[1mindex 98fd224db..1104d490e 100644[m
+[1m--- a/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliOptions.cs[m
+[1m+++ b/modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src/Runtime/LegacyCliOptions.cs[m
+[36m@@ -28,7 +28,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+     /// Class that represents a dictionary with all command line arguments from the legacy version of the OPC Publisher[m
+     /// </summary>[m
+     public class LegacyCliOptions : Dictionary<string, string>, IAgentConfigProvider,[m
+[31m-        IEngineConfiguration, ILegacyCliModelProvider {[m
+[32m+[m[32m        ISettingsController, IEngineConfiguration, ILegacyCliModelProvider {[m
+         /// <summary>[m
+         /// Creates a new instance of the the legacy CLI options based on existing configuration values.[m
+         /// </summary>[m
+[36m@@ -81,7 +81,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+                         "event setting of nodes without a skip first event setting.",[m
+                         (bool b) => this[LegacyCliConfigKeys.SkipFirstDefault] = b.ToString() },[m
+ [m
+[31m-                    { "fm|fullfeaturedmessage=", "The full featured mode for messages (all fields filled in)." + [m
+[32m+[m[32m                    { "fm|fullfeaturedmessage=", "The full featured mode for messages (all fields filled in)." +[m
+                         "Default is 'true', for legacy compatibility use 'false'",[m
+                         (bool b) => this[LegacyCliConfigKeys.FullFeaturedMessage] = b.ToString() },[m
+ [m
+[36m@@ -154,6 +154,8 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+                     { "me|messageencoding=", "The message encoding for messages " +[m
+                         $"(allowed values: {string.Join(", ", Enum.GetNames(typeof(MessageEncoding)))}).",[m
+                         (MessageEncoding m) => this[LegacyCliConfigKeys.MessageEncoding] = m.ToString() },[m
+[32m+[m[32m                    { "gz|gzip=", "Use Gzip compression for JSON message body.",[m
+[32m+[m[32m                        (bool b) => this[LegacyCliConfigKeys.GzipBody] = b.ToString() },[m
+ [m
+                     // Legacy unsupported[m
+                     { "tc|telemetryconfigfile=", "Legacy - do not use.", _ => {} },[m
+[36m@@ -211,7 +213,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+ #pragma warning restore 67[m
+ [m
+         /// <summary>[m
+[31m-        /// The batch size [m
+[32m+[m[32m        /// The batch size[m
+         /// </summary>[m
+         public int? BatchSize => LegacyCliModel.BatchSize;[m
+ [m
+[36m@@ -226,7 +228,7 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+         public TimeSpan? DiagnosticsInterval => LegacyCliModel.DiagnosticsInterval;[m
+ [m
+         /// <summary>[m
+[31m-        /// the Maximum (IoT D2C) message size [m
+[32m+[m[32m        /// the Maximum (IoT D2C) message size[m
+         /// </summary>[m
+         public int? MaxMessageSize => LegacyCliModel.MaxMessageSize;[m
+ [m
+[36m@@ -235,6 +237,11 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+         /// </summary>[m
+         public LegacyCliModel LegacyCliModel { get; }[m
+ [m
+[32m+[m[32m        /// <summary>[m
+[32m+[m[32m        /// Use Gzip compression for message body.[m
+[32m+[m[32m        /// </summary>[m
+[32m+[m[32m        public bool GzipBody => LegacyCliModel.GzipBody;[m
+[32m+[m
+         /// <summary>[m
+         /// Gets the additiona loggerConfiguration that represents the command line arguments.[m
+         /// </summary>[m
+[36m@@ -266,9 +273,10 @@[m [mnamespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {[m
+                 DiagnosticsInterval = GetValueOrDefault(LegacyCliConfigKeys.DiagnosticsInterval, TimeSpan.FromSeconds(60)),[m
+                 LogFileFlushTimeSpan = GetValueOrDefault(LegacyCliConfigKeys.LogFileFlushTimeSpanSec, TimeSpan.FromSeconds(30)),[m
+                 LogFilename = GetValueOrDefault<string>(LegacyCliConfigKeys.LogFileName, null),[m
+[31m-                Transport = GetValueOrDefault(LegacyCliConfigKeys.HubTransport, TransportType.Amqp.ToString()), // todo this seem not to be used ... [m
+[32m+[m[32m                Transport = GetValueOrDefault(LegacyCliConfigKeys.HubTransport, TransportType.Amqp.ToString()), // todo this seem not to be used ...[m
+                 MessagingMode = GetValueOrDefault(LegacyCliConfigKeys.MessagingMode, MessagingMode.Samples),[m
+                 MessageEncoding = GetValueOrDefault(LegacyCliConfigKeys.MessageEncoding, MessageEncoding.Json),[m
+[32m+[m[32m                GzipBody = GetValueOrDefault(LegacyCliConfigKeys.GzipBody, false),[m
+                 FullFeaturedMessage = GetValueOrDefault(LegacyCliConfigKeys.FullFeaturedMessage, false),[m
+                 EdgeHubConnectionString = GetValueOrDefault<string>(LegacyCliConfigKeys.EdgeHubConnectionString, null),[m
+                 OperationTimeout = GetValueOrDefault(LegacyCliConfigKeys.OpcOperationTimeout, TimeSpan.FromSeconds(15)),[m

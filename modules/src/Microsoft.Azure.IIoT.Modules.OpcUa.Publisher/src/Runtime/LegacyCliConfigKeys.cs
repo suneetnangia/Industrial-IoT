@@ -56,7 +56,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// Flag to demand full featured message creation from publisher
         /// </summary>
         public const string FullFeaturedMessage = "FullFeaturedMessage";
-        
+
         /// <summary>
         /// Key for the default sampling interval in milliseconds.
         /// </summary>
@@ -93,7 +93,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         public const string BatchTriggerInterval = "BatchTriggerInterval";
 
         /// <summary>
-        /// Key for the max (IoT Hub D2C)message size 
+        /// Key for the max (IoT Hub D2C)message size
         /// </summary>
         public const string MaxMessageSize = "MaxMessageSize";
 
@@ -181,5 +181,10 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// Key for the trusted issuer certificates.
         /// </summary>
         public const string OpcIssuerCertStorePath = SecurityConfig.TrustedIssuerCertificatesPathKey;
+
+        /// <summary>
+        /// Use Gzip compression for JSON message body.
+        /// </summary>
+        public const string GzipBody = SecurityConfig.GzipBody;
     }
 }

@@ -32,6 +32,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Runtime {
         public const string RejectSha1SignedCertificatesKey = "RejectSha1SignedCertificates";
         public const string MinimumCertificateKeySizeKey = "MinimumCertificateKeySize";
         public const string AddAppCertToTrustedStoreKey = "AddAppCertToTrustedStore";
+        public const string GzipBody = "GzipBody";
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
         /// <inheritdoc/>

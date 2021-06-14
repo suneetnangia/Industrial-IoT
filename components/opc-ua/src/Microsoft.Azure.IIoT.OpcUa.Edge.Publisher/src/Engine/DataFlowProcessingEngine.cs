@@ -92,10 +92,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                         }
                         try {
                             if (_dataSetMessageBufferSize == 1) {
-                                return await _messageEncoder.EncodeAsync(input, _maxEncodedMessageSize).ConfigureAwait(false);
+                                return await _messageEncoder.EncodeAsync(input, _maxEncodedMessageSize, _config.GzipBody).ConfigureAwait(false);
                             }
                             else {
-                                return await _messageEncoder.EncodeBatchAsync(input, _maxEncodedMessageSize).ConfigureAwait(false);
+                                return await _messageEncoder.EncodeBatchAsync(input, _maxEncodedMessageSize, _config.GzipBody).ConfigureAwait(false);
                             }
                         }
                         catch (Exception e) {
