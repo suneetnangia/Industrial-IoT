@@ -16,6 +16,7 @@ set _location=westus
 set _deploy=1
 set _build=1
 set _clean=
+set _full=1
 set _version=
 set _sourceSubscription=IOT_GERMANY
 set _sourceRegistry=industrialiot
@@ -24,6 +25,8 @@ set _sourceRegistry=industrialiot
 if "%1" equ "" goto :args-done
 if "%1" equ "--clean" goto :arg-clean
 if "%1" equ  "-c" goto :arg-clean
+if "%1" equ "--fast" goto :arg-fast
+if "%1" equ  "-f" goto :arg-fast
 if "%1" equ "--skip-deploy" goto :arg-no-deploy
 if "%1" equ "--skip-build" goto :arg-no-build
 if "%1" equ "--resourcegroup" goto :arg-resourcegroup
@@ -49,6 +52,7 @@ echo -s --subscription  Subscription name.
 echo -l --location      Location to deploy to (%_location%).
 echo -v --version       Version to deploy (instead of build).
 echo -c --clean         Delete the resource group first.
+echo -f --fast          Build only what is needed to deploy.
 echo    --skip-deploy   Do not deploy.
 echo    --skip-build    Skip building
 echo -h --help          This help.
@@ -56,6 +60,9 @@ exit /b 1
 
 :arg-clean
 set _clean=1
+goto :args-continue
+:arg-fast
+set _full=
 goto :args-continue
 
 :arg-no-deploy
@@ -100,7 +107,8 @@ echo Build...
 set __args=
 set __args=%__args% -Subscription %_subscription%
 set __args=%__args% -ResourceGroupLocation %_location%
-set __args=%__args% -ResourceGroupName %_resourceGroup% 
+set __args=%__args% -ResourceGroupName %_resourceGroup%
+if "%_full%" == "" set __args=%__args% -Fast
 pushd %build_root%\tools\scripts
 powershell ./build.ps1 %__args%
 popd

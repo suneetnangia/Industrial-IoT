@@ -1,7 +1,7 @@
 <#
  .SYNOPSIS
-    Builds csproj file and returns buildable dockerfile build 
-    definitions
+    Builds csproj file and returns project object containing
+    the meta data of the built project used in other scripts.
 
  .PARAMETER Path
     The folder containing the container.json file (Mandatory).
@@ -15,7 +15,6 @@
  .PARAMETER Clean
     Perform a clean build. This will remove all existing output
     ahead of publishing.
-
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
@@ -65,10 +64,11 @@ $projFile = Get-ChildItem $Path -Filter *.csproj | Select-Object -First 1
 if (!$projFile) {
     return $null
 }
+$projName = [System.IO.Path]::GetFileNameWithoutExtension($projFile.FullName)
 
 # Create dotnet command line 
 if ($script:Clean.IsPresent) {
-    Write-Host "Cleaning $($proj.FullName)..."
+    Write-Host "Cleaning $($projName)..."
     $argumentList = @("clean", $projFile.FullName)
     & dotnet $argumentList 2>&1 | ForEach-Object { $_ | Out-Null }
     # Clean publish path as well
@@ -76,7 +76,7 @@ if ($script:Clean.IsPresent) {
 }
 
 # Always build as portable.
-$runtimes = @("")
+$runtimes = @("portable")
 if ($script:Fast.IsPresent) {
     $runtimes += "linux-musl-x64"
     # if iot edge also build for windows.
@@ -100,13 +100,10 @@ $runtimes | ForEach-Object {
 
     # Create dotnet command line 
     $argumentList = @("publish", "-c", $configuration)
-    if (![string]::IsNullOrEmpty($runtimeId)) {
+    if ($runtimeId -ne "portable") {
         $argumentList += "-r"
         $argumentList += $runtimeId
         $argumentList += "/p:TargetLatestRuntimePatch=true"
-    }
-    else {
-        $runtimeId = "portable"
     }
 
     $runtimeArtifact = Join-Path $publishPath $runtimeId
@@ -114,11 +111,17 @@ $runtimes | ForEach-Object {
     $argumentList += $runtimeArtifact
     $argumentList += $projFile.FullName
 
-    Write-Host "Publishing $($projFile.FullName) with $($runtimeId) runtime..."
-    & dotnet $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+    Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
+    $buildlog = & dotnet $argumentList 2>&1
     if ($LastExitCode -ne 0) {
-        throw "Error: 'dotnet $($argumentList)' failed with $($LastExitCode)."
+        $cmd = $($argumentList -join " ")
+        $buildlog | ForEach-Object { Write-Host "$_" }
+        throw "Error: 'dotnet $($cmd)' failed with $($LastExitCode)."
     }
+    else {
+        $buildlog | ForEach-Object { Write-Verbose "$_" }
+    }
+    Write-Host "Published $($projName) ($($runtimeId)) to $($publishPath)..."
 
     $runtimeInfos.Add($runtimeId, @{
         runtimeId = $runtimeId
@@ -135,10 +138,12 @@ if ([string]::IsNullOrWhiteSpace($assemblyName)) {
 }
 
 return @{
-    name = $metadata.name
-    publishPath = $publishPath
-    assemblyName = $assemblyName
-    debug = $script:Debug.IsPresent
-    metadata = $metadata
-    runtimes = $runtimeInfos
+    Name = $metadata.name
+    ProjectName = $projName
+    ProjectPath = $projFile.FullName
+    PublishPath = $publishPath
+    AssemblyName = $assemblyName
+    Debug = $script:Debug.IsPresent
+    Metadata = $metadata
+    Runtimes = $runtimeInfos
 }

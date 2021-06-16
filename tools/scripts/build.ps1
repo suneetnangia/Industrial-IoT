@@ -27,7 +27,6 @@
     Whether to build debug images.
  .PARAMETER Clean
     Perform a clean build. 
-
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
@@ -45,129 +44,100 @@ Param(
     [switch] $Fast
 )
 
+# -------------------------------------------------------------------------
 $startTime = $(Get-Date)
 $BuildRoot = & (Join-Path $PSScriptRoot "get-root.ps1") -fileName "*.sln"
 if ([string]::IsNullOrEmpty($script:Path)) {
     $script:Path = $BuildRoot
 }
 
-# Check if we should build or push into registry
-if (!$script:Registry -and (![string]::IsNullOrEmpty($script:ResourceGroupName))) {
-
-    if ([string]::IsNullOrEmpty($script:Subscription)) {
-        $argumentList = @("account", "show")
-        $account = & "az" $argumentList 2>$null | ConvertFrom-Json
-        if (!$account) {
-            throw "Failed to retrieve account information."
-        }
-        $script:Subscription = $account.name
-        Write-Host "Using default subscription $script:Subscription..."
+# -------------------------------------------------------------------------
+# Log into registry - create if it does not exist
+if ((![string]::IsNullOrEmpty($script:Registry)) -or `
+    (![string]::IsNullOrEmpty($script:ResourceGroupName))) {
+    $registryInfo = & (Join-Path $PSScriptRoot "acr-login.ps1") `
+        -Registry $script:Registry -Subscription $script:Subscription `
+        -ResourceGroupName $script:ResourceGroupName `
+        -ResourceGroupLocation $script:ResourceGroupLocation `
+        -NoNamespace
+    if (!$registryInfo) {
+        throw "Failed to log into $script:Registry"
     }
-
-    # check if group exists and if not create it.
-    $argumentList = @("group", "show", "-g", $script:ResourceGroupName,
-        "--subscription", $script:Subscription)
-    $group = & "az" $argumentList 2>$null | ConvertFrom-Json
-    if (!$group) {
-        if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
-            throw "Need a resource group location to create the resource group."
-        }
-        $argumentList = @("group", "create", "-g", $script:ResourceGroupName, `
-            "-l", $script:ResourceGroupLocation, 
-            "--subscription", $script:Subscription)
-        $group = & "az" $argumentList | ConvertFrom-Json
-        if ($LastExitCode -ne 0) {
-            throw "az $($argumentList) failed with $($LastExitCode)."
-        }
-        Write-Host "Created new Resource group $ResourceGroupName."
-    }
-    if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
-        $script:ResourceGroupLocation = $group.location
-    }
-    # check if acr exist and if not create it
-    $argumentList = @("acr", "list", "-g", $script:ResourceGroupName,
-        "--subscription", $script:Subscription)
-    $registries = & "az" $argumentList 2>$null | ConvertFrom-Json
-    $script:Registry = if ($registries) { $registries[0] } else { $null }
-    if (!$script:Registry) {
-        $argumentList = @("acr", "create", "-g", $script:ResourceGroupName, "-n", `
-            "acr$script:ResourceGroupName", "-l", $script:ResourceGroupLocation, `
-            "--sku", "Basic", "--admin-enabled", "true", 
-            "--subscription", $script:Subscription)
-        $script:Registry = & "az" $argumentList | ConvertFrom-Json
-        if ($LastExitCode -ne 0) {
-            throw "az $($argumentList) failed with $($LastExitCode)."
-        }
-        Write-Host "Created new Container registry in $ResourceGroupName."
-    }
-    else {
-        Write-Host "Using Container registry $($script:Registry.name)."
-    }
+    $script:Registry = $registryInfo.Registry
+    $script:Subscription = $registryInfo.Subscription
 }
 
-$containers = @{}
-# If registry was specified check if there is a results file in the output folder
-if ($script:Registry -and !$script:Clean.IsPresent) {
+# -------------------------------------------------------------------------
+$projects = @()
+# If registry was specified see if there is a results file in the output 
+# folder to continue from
+if ((![string]::IsNullOrEmpty($script:Registry)) -and `
+    !$script:Clean.IsPresent) {
     if (![string]::IsNullOrEmpty($script:Output)) {
-        $resultsFile = Join-Path $script:Output build.json
+        $resultsFile = Join-Path $script:Output "build.json"
         if (Test-Path $resultsFile) {
-            $containers = Get-Content -Raw -Path $resultsFile | ConvertFrom-Json
-            if ($containers.Count -eq 0) {
+            $projects = Get-Content -Raw -Path $resultsFile `
+                | ConvertFrom-Json
+            if ($projects.Count -eq 0) {
                 throw "Results file exists but is empty."
             }
         }
     }
 }
 
+# -------------------------------------------------------------------------
 # If no previous results, build first
-if ($containers.Keys.Count -eq 0) {
+if ($projects.Count -eq 0) {
     if (![string]::IsNullOrEmpty($script:Output)) {
-        Remove-Item (Join-Path $script:Output build.json) -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $script:Output "build.json") `
+            -ErrorAction SilentlyContinue
     }
 
-    # Traverse from build root and find all container.json metadata files and build
-    Get-ChildItem $script:Path -Recurse -Include "container.json" | ForEach-Object {
+    # Traverse from build root and find all container.json metadata files
+    Get-ChildItem $script:Path -Recurse -Include "container.json" `
+        | ForEach-Object {
         # Get root
         $metadataPath = $_.DirectoryName.Replace($BuildRoot, "")
         if (![string]::IsNullOrEmpty($metadataPath)) {
             $metadataPath = $metadataPath.Substring(1)
         }
-        $metadata = Get-Content -Raw -Path (join-path $_.DirectoryName "container.json") `
-            | ConvertFrom-Json
+        $metadata = Get-Content -Raw `
+            -Path (join-path $_.DirectoryName "container.json") `
+                | ConvertFrom-Json
         if (!$metadata) {
             return
         }
         # See if we should build into registry directly, otherwise just build
-        Write-Host "Building $($metadata.name) in $metadataPath..."
-        $container = & (Join-Path $PSScriptRoot "dotnet-build.ps1") `
+        $project = & (Join-Path $PSScriptRoot "dotnet-build.ps1") `
             -Path $metadataPath -Output $script:Output `
             -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
-        if ($container) {
-            $containers.Add($metadata.name, $container)
+        if ($project) {
+            $projects += $project
         }
     }
 
     # Save any results if output folder provided as specified and exit
-    if (!$script:Registry) {
-        if ((![string]::IsNullOrEmpty($script:Output)) -and ($containers.Keys.Count -gt 0)) {
-            $containers | ConvertTo-Json | Out-File (Join-Path $script:Output build.json)
+    if ([string]::IsNullOrEmpty($script:Registry)) {
+        if ((![string]::IsNullOrEmpty($script:Output)) -and `
+                ($projects.Count -gt 0)) {
+            $projects `
+                | ConvertTo-Json `
+                | Out-File (Join-Path $script:Output "build.json")
         }
     }
 }
 
+# -------------------------------------------------------------------------
 # Build artifacts and images
-if ($script:Registry -and ($containers.Keys.Count -gt 0)) {
-    $containers.Keys | ForEach-Object {
-        $container = $containers.Item($_)
-
-        # Push runtime artifacts to registry
-        Write-Host "Pushing $($container.name) ..."
-        & (Join-Path $PSScriptRoot "acr-build.ps1") -Container $container `
-            -Registry $script:Registry.name -Subscription $script:Subscription `
-            -Debug:$script:Debug -Fast:$script:Fast
-    }
+if ((![string]::IsNullOrEmpty($script:Registry)) -and `
+        ($projects.Count -gt 0)) {
+    Write-Host "Building registry artifacts and containers..."
+    & (Join-Path $PSScriptRoot "acr-tasks.ps1") -Projects $projects `
+        -Registry $script:Registry -Subscription $script:Subscription `
+        -Debug:$script:Debug -Fast:$script:Fast
 }
 
+# -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 Write-Host "Build took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
-return $containers
+return $projects
