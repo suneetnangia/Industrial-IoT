@@ -72,9 +72,9 @@ $projects = @()
 # If registry was specified see if there is a results file in the output 
 # folder to continue from
 if ((![string]::IsNullOrEmpty($script:Registry)) -and `
-    !$script:Clean.IsPresent) {
+    (!$script:Clean.IsPresent)) {
     if (![string]::IsNullOrEmpty($script:Output)) {
-        $resultsFile = Join-Path $script:Output "build.json"
+        $resultsFile = Join-Path $script:Output "projects.json"
         if (Test-Path $resultsFile) {
             $projects = Get-Content -Raw -Path $resultsFile `
                 | ConvertFrom-Json
@@ -89,7 +89,7 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
 # If no previous results, build first
 if ($projects.Count -eq 0) {
     if (![string]::IsNullOrEmpty($script:Output)) {
-        Remove-Item (Join-Path $script:Output "build.json") `
+        Remove-Item $(Join-Path $script:Output "projects.json") `
             -ErrorAction SilentlyContinue
     }
 
@@ -116,14 +116,12 @@ if ($projects.Count -eq 0) {
         }
     }
 
-    # Save any results if output folder provided as specified and exit
-    if ([string]::IsNullOrEmpty($script:Registry)) {
-        if ((![string]::IsNullOrEmpty($script:Output)) -and `
-                ($projects.Count -gt 0)) {
-            $projects `
-                | ConvertTo-Json `
-                | Out-File (Join-Path $script:Output "build.json")
-        }
+    # Save projects to output folder provided as specified and exit
+    if ((![string]::IsNullOrEmpty($script:Output)) -and `
+        ($projects.Count -gt 0)) {
+        $projects `
+            | ConvertTo-Json -Depth 4 `
+            | Out-File $(Join-Path $script:Output "projects.json")
     }
 }
 

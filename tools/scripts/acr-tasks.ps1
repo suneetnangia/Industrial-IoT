@@ -193,10 +193,12 @@ foreach ($project in $script:Projects) {
             $runtimeId = "portable"
         }
         # 
-        # Now index into the runtimes to get the location of the 
-        # binaries and assembly entrypoint information for the chosen runtime.
+        # Now find the runtime object in the project runtimes to get the
+        # location of the binaries for the chosen runtime.
         #
-        $runtime = $project.Runtimes[$runtimeId]
+        $runtime = $project.Runtimes `
+            | Where-Object { $_.runtimeId -eq $runtimeId } `
+            | Select-Object -First 1
         if (!$runtime) {
             Write-Warning "No runtime build for $runtimeId!"
             return
@@ -262,17 +264,20 @@ ENTRYPOINT $($entryPoint)
                     "com.microsoft.azure.acr.task.version" = $buildTag
                     "com.microsoft.azure.acr.task.platform" = $os
                 }
+                stepIndex = 0
                 images = @()
                 taskyaml = @"
 version: v1.1.0
-stepTimeout: 1200
+stepTimeout: 2400
 alias:
   values:
     SourceTag: $($buildTag)
     TargetTag: {{with `$tag := .Values.Tag}}"{{`$tag}}"{{else}}$($buildTag){{end}}
     Namespace: {{with `$ns := .Values.Namespace}}"/{{`$ns}}"{{else}}""{{end}}
 steps:
-  - build: -t oras -f Dockerfile.oras.$($os) .
+  - id: oras
+    when: ["-"]
+    build: -t oras -f Dockerfile.oras.$($os) .
 
 "@
             }
@@ -290,10 +295,21 @@ steps:
 
   # Add steps to pull the artifact into the build context and build the dockerfile
     Write-Host "Adding $($image) build step for $($platform) from $($artifact)..."
-        $tasks[$taskname].images += $image
+        $tasks[$taskname].stepIndex += 1
+        $tasks[$taskname].images += @{
+            image = $image
+            index = $tasks[$taskname].stepIndex
+        }
         $tasks[$taskname].taskyaml += @"
-  - cmd: oras pull -o $($buildContext) -a $($artifact) 
-  - build: -t $($image) -f $($dockerFile) --platform=$($platform) $($buildContext)
+  - id: artifact-$($tasks[$taskname].stepIndex)
+    cmd: oras pull -o $($buildContext) -a $($artifact) 
+    retries: 5
+    retryDelay: 30
+    when: ["oras"]
+  - id: build-$($tasks[$taskname].stepIndex)
+    when: ["artifact-$($tasks[$taskname].stepIndex)"]
+    build: -t $($image) -f $($dockerFile) --platform=$($platform) $($buildContext)
+    retries: 2
     cache: $(if ($os -eq "windows") { "disabled" } else { "enabled" })
 
 "@
@@ -302,17 +318,32 @@ steps:
     $manifestImages = @()
     $tasks.Keys | ForEach-Object {
         $buildtask = $tasks.Item($_)
+        if ($buildtask.images.Count -eq 0) {
+            return
+        }
+        $buildtask.stepIndex += 1
         $buildtask.taskyaml += @"
-  - push:
+  - id: push-$($buildtask.stepIndex)
+    retries: 5
+    retryDelay: 30
+    push:
 
 "@
+        $when = ""
         $buildtask.images | ForEach-Object {
             $buildtask.taskyaml += @"
-    - $_
+    - $($_.image)
 
 "@
-            $manifestImages += $_
+            $manifestImages += $_.image
+            $when = "$when,`"build-$($_.index)`""
         }
+        $buildtask.taskyaml += @"
+    when: [$($when.TrimStart(','))]
+
+"@
+        # reset
+        $buildtask.images = @()
     }
 
     # ---------------------------------------------------------------------
@@ -347,15 +378,21 @@ steps:
         # command. A run will time out after 30 minutes.
         #
         $buildtask.taskyaml += @"
-  - entryPoint: sh
-    retries: 30
+  - id: manifest-$($buildtask.stepIndex)
+    when: ["push-$($buildtask.stepIndex)"]
+    entryPoint: sh
+    retries: 60
     retryDelay: 30
     cmd: |
       docker -c '
+        {{with `$skipManifest := .Values.NoManifest}}
+        echo "Skipping manifest step $($buildtask.stepIndex)"
+        {{else}}
         docker manifest create $manifestList $manifests
         createError=`$?
         docker manifest push --purge $manifestList
         exit `$createError
+        {{end}}
       '
 
 "@
@@ -413,7 +450,7 @@ $tasks.Keys | ForEach-Object {
     $taskfile = "$_.yaml"
     $buildtask.taskyaml | Out-File -Encoding ascii `
         -FilePath (Join-Path $taskContext $taskfile)
-    Write-Verbose $buildtask.taskyaml
+    Write-Host $buildtask.taskyaml
     $annotations[$taskfile] = $buildtask.annotation
 }
 

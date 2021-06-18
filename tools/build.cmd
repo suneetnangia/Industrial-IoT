@@ -108,7 +108,13 @@ set __args=
 set __args=%__args% -Subscription %_subscription%
 set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup%
+if not exist "%TEMP%" goto :nooutput
+if "%_clean%" == "1" if exist %TEMP%\%_resourceGroup% rmdir /s /q %TEMP%\%_resourceGroup%
+if not exist %TEMP%\%_resourceGroup% mkdir %TEMP%\%_resourceGroup%
+set __args=%__args% -Output %TEMP%\%_resourceGroup%
+:nooutput
 if "%_full%" == "" set __args=%__args% -Fast
+if "%_clean%" == "1" set __args=%__args% -Clean
 pushd %build_root%\tools\scripts
 powershell ./build.ps1 %__args%
 popd

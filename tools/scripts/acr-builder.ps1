@@ -110,7 +110,7 @@ $manifest.layers | ForEach-Object {
     foreach ($targetTag in $targetTags) {
         $fullName = "$($taskname)-$($targetTag.Replace('.', '-'))"
         # Create tasks in the registry from the task context artifact
-        Write-Host "Creating task $($fullName) ..."
+        Write-Verbose "Creating task $($fullName) ..."
         # Create acr command line 
         $argumentList = @("acr", "task", "create", 
             "--name", $fullName,
@@ -126,15 +126,19 @@ $manifest.layers | ForEach-Object {
             "--pull-request-trigger-enabled", "False",
             "--context", "oci://$($script:TaskArtifact)"
         )
-        & az $argumentList 2>&1 | ForEach-Object { "$_" }
+        $createdTask = & az $argumentList 2>&1 | ForEach-Object { "$_" } `
+            | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             $cmd = $($argumentList -join " ")
             Write-Warning "az $cmd failed with $LastExitCode - 2nd attempt..."
-            & az $argumentList 2>&1 | ForEach-Object { "$_" }
+            $createdTask = & az $argumentList 2>&1 | ForEach-Object { "$_" } `
+                | ConvertFrom-Json
             if ($LastExitCode -ne 0) {
                 throw "Error: 'az $cmd' 2nd attempt failed with $LastExitCode."
             }
         }
+        Write-Host "Task $($fullName) created successfully."
+        $createdTask | Write-Verbose 
         # run the task
         $argumentList = @(
             "--name", $fullName,
@@ -148,10 +152,13 @@ $manifest.layers | ForEach-Object {
             $commonArgs = $args[0]
             $fullName = $args[1]
 
-            Write-Verbose "Run task $($fullName) ..."
-            $argumentList = @("acr", "task", "run")
+            Write-Host "Starting task run $($fullName) ..."
+            $argumentList = @("acr", "task", "run", "--set", "NoManifest=1")
             $argumentList += $commonArgs
-            $runLogs = & az $argumentList 2>&1 | ForEach-Object { "$_" }
+            $runLogs = & az $argumentList 2>&1 | ForEach-Object {
+                Write-Host "$fullName : $_"
+                return "$_"
+            } 
             if ($LastExitCode -ne 0) {
                 $runLogs | ForEach-Object { Write-Host "$_" }
                 $cmd = $($argumentList -join " ")
@@ -161,17 +168,23 @@ $manifest.layers | ForEach-Object {
             # check last run
             $argumentList = @("acr", "task", "list-runs", "--top", "1")
             $argumentList += $commonArgs
-            $runResult = (& "az" $argumentList 2>&1 `
+            $runResult = (& az $argumentList 2>&1 `
                 | ForEach-Object { "$_" }) | ConvertFrom-Json
             $run = $runResult.runId
             if ([string]::IsNullOrEmpty($run) -or ($runResult.status -ne "Succeeded")) {
-                $runLogs | ForEach-Object { Write-Host "$_" }
+                if ($runResult.status -ne "Timeout") {
+                    $runLogs | ForEach-Object { Write-Host "$_" }
             throw "Error: Task $($fullName) run $($run) completed '$($runResult.status)'"
+                }
+                else {
+                    $runLogs | ForEach-Object { Write-Verbose "$_" }
+            throw "Error: Task $($fullName) run $($run) timed out."
+                }
             }
             else {
+                Write-Host "Task $($fullName) Run $($run) completed successfully."
                 $runLogs | ForEach-Object { Write-Verbose "$_" }
             }
-            Write-Host "Task $($fullName) Run $($run) completed successfully."
         }
     }
 }

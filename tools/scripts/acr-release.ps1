@@ -80,7 +80,7 @@ if (!$script:ReadOnly.IsPresent) {
 $argumentList = @("acr", "repository", "list", "-ojson", 
     "--name", $sourceRegistry.Registry, 
     "--subscription", $sourceRegistry.Subscription)
-$result = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" })
+$result = (& az $argumentList 2>&1 | ForEach-Object { "$_" })
 if ($LastExitCode -ne 0) {
     throw "az $($argumentList) failed with $($LastExitCode)."
 }
@@ -107,7 +107,7 @@ foreach ($buildRepo in $buildRepos) {
         "--repository", $buildRepo,
         "-ojson"
     )
-    $buildTags = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" }) `
+    $buildTags = (& az $argumentList 2>&1 | ForEach-Object { "$_" }) `
         | ConvertFrom-Json
     if ($LastExitCode -ne 0) {
         throw "Error: Failed to get tags in repo $buildRepo."
@@ -197,16 +197,18 @@ foreach ($image in $images) {
     )
     
     $jobs += Start-Job -Name $sourceImage `
-        -ArgumentList @($argumentList, $co) -ScriptBlock {
+        -ArgumentList @($argumentList, $co, $sourceRegistry.Password) `
+        -ScriptBlock {
         $argumentList = $args[0]
         $co = $args[1]
         Write-Host "Start $($co)"
         & az $argumentList 2>&1 | ForEach-Object { "$_" }
         if ($LastExitCode -ne 0) {
-    Write-Warning "Job to $($co) failed with $($LastExitCode) - 2nd attempt..."
-            & "az" $argumentList 2>&1 | ForEach-Object { "$_" }
+            $cmd = $($argumentList -join " ") -replace $args[2], "***"
+    Write-Warning "Failed $($co). 'az $cmd' failed with $($LastExitCode) - 2nd attempt..."
+            & az $argumentList 2>&1 | ForEach-Object { "$_" }
             if ($LastExitCode -ne 0) {
-    throw "Error: Job to $($co) - 2nd attempt failed with $($LastExitCode)."
+    throw "Error: Failed $($co). 'az $cmd' 2nd attempt failed with $($LastExitCode)."
             }
         }
         Write-Host "Completed $($co)."

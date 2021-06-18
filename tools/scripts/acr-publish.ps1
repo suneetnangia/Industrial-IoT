@@ -111,8 +111,7 @@ if ($script:Project.Debug -and (!$script:Fast.IsPresent)) {
 $argumentList = @("pull", "ghcr.io/deislabs/oras:v0.11.1")
 & docker $argumentList 2>&1 | ForEach-Object { "$_" }
 $jobs = @()
-$script:Project.Runtimes.Keys | ForEach-Object {
-    $runtime = $script:Project.Runtimes.Item($_)
+foreach ($runtime in $script:Project.Runtimes) {
     $created = $(Get-Date -Format "o")
     $root = Join-Path (Split-Path -Path $runtime.artifact -Parent) "workspaces"
 
@@ -160,16 +159,16 @@ $script:Project.Runtimes.Keys | ForEach-Object {
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile)
     $co = "uploading artifact $artifact."
-    $jobs += Start-Job -Name $artifact -ArgumentList @($argumentList, $co) `
+    $jobs += Start-Job -Name $artifact `
+        -ArgumentList @($argumentList, $co, $script:RegistryInfo.Password) `
         -ScriptBlock {
         $argumentList = $args[0]
         $co = $args[1]
         Write-Verbose "Start $($co)"
         & docker $argumentList 2>&1 | ForEach-Object { "$_" }
         if ($LastExitCode -ne 0) {
-            $cmd = $($argumentList -join " ") `
-                -replace $registryInfo.Password, "***"
-Write-Warning "Failed $($co). docker $cmd exited with $LastExitCode - 2nd attempt..."
+            $cmd = $($argumentList -join " ") -replace $args[2], "***"
+Write-Warning "Failed $($co). 'docker $cmd' exited with $LastExitCode - 2nd attempt..."
             & docker $argumentList 2>&1 | ForEach-Object { "$_" }
             if ($LastExitCode -ne 0) {
 throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode."

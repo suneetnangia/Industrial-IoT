@@ -4,15 +4,15 @@
 usage(){
     echo '
 Usage: '"$0"'
-    1. Run first on the subscription using the -c flag to clear all tags.
-    2. Ask team to add the tag to items they want to keep.
-    3. When done, run again with -y flag to remove all iuntagged groups.
+    1. Run first on the subscription using -m flag to mark groups for deletion.
+    2. Ask team to remove the tag for items they want to keep.
+    3. When done, run again with -y flag to remove all remaining tagged groups.
 
     --subscription, -s         Subscription to clean up. If not set uses
                                the default subscription for the account.
-    --clear, -c                Clear the DoNotDelete tag from all matched
-                               groups.
-             -y                Perform actual deletion.
+    --mark, -m                 Mark groups not tagged with Production for
+                               deletion.
+            -y                 Perform actual deletion.
     
     --prefix                   Match and delete everything with prefix.
     --help                     Shows this help.
@@ -24,12 +24,16 @@ args=( "$@"  )
 subscription=
 delete=
 prefix=
-cleartag=
+mark=
+legacy=
+purgekv=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --subscription|-s)     subscription="$2" ; shift ;;
-        --clear|-c)            cleartag=1 ;;
+        --kv-purge)            purgekv=1 ;;
+        --legacy)              legacy=1 ;;
+        --mark|-m)             mark=1 ;;
         --prefix)              prefix="$2" ; shift ;;
         -y)                    delete=1 ;;
         *)                     usage ;;
@@ -45,43 +49,50 @@ if [[ -n "$subscription" ]]; then
     az account set -s $subscription
 fi
 
+# -------------------------------------------------------------------------------
 if [[ -n "$prefix" ]] ; then
     # select groups with prefix
     groups=$(az group list \
         --query "[?starts_with(name, '$prefix') && tags.Production!='true'].name" \
         -o tsv | tr -d '\r')
-elif [[ -n "$cleartag" ]]; then
-# select groups not marked for keeping
-    groups=$(az group list \
-        --query "[?tags.DoNotDelete=='true' && tags.Production!='true'].name" \
-        -o tsv | tr -d '\r')
-else
-    # select groups not marked for keeping
+elif [[ -n "$legacy" ]]; then
+    # select groups to mark for deletion
     groups=$(az group list \
         --query "[?tags.DoNotDelete!='true' && tags.Production!='true'].name" \
+        -o tsv | tr -d '\r')
+elif [[ -n "$mark" ]]; then
+    # select groups to mark for deletion
+    groups=$(az group list --query "[?tags.Production!='true'].name" \
+        -o tsv | tr -d '\r')
+else
+    # select groups marked for deletion
+    groups=$(az group list --query "[?tags.ReadyToDelete=='true'].name" \
         -o tsv | tr -d '\r')
 fi
 
 # remove groups 
 for group in $groups; do
-    if [[ -n "$cleartag" ]]; then
-        echo "Clear DoNotDelete tag from resourcegroup $group ..."
-        az group update -g $group --remove tags.DoNotDelete > /dev/null
+    if [[ -n "$mark" ]]; then
+        echo "Marking group $group as ready to delete ..."
+        az group update -g $group --set tags.ReadyToDelete='true' > /dev/null
     else
         if [[ $group = MC_* ]] ; then
-            echo "skipping $group ..."
+            echo "skipping $group ..." > /dev/null
         elif [[ -z "$delete" ]]; then 
             echo "Would have deleted resourcegroup $group ..."
         else
             echo "Deleting resourcegroup $group ..."
-            az group delete -g $group -y
+            az group delete -g $group -y --no-wait
         fi
     fi
 done
 
-# purge deleted keyvault
-#for vault in $(az keyvault list-deleted -o tsv | tr -d '\r'); do
-#    echo "deleting keyvault $vault ..."
-#    az keyvault purge --name $vault
-#done
-
+# -------------------------------------------------------------------------------
+if [[ -n "$purgekv" ]]; then 
+    # purge deleted keyvault
+    for vault in $(az keyvault list-deleted -o tsv | tr -d '\r'); do
+        echo "deleting keyvault $vault ..."
+        az keyvault purge --name $vault
+    done
+fi
+# -------------------------------------------------------------------------------

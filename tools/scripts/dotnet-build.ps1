@@ -55,7 +55,7 @@ if ([string]::IsNullOrEmpty($script:Output)) {
 }
 else {
     $publishPath = Join-Path $script:Output `
-        (Join-Path $configuration, $metadata.name.Replace('/', '-'))
+        (Join-Path $configuration $metadata.name.Replace('/', '-'))
     New-Item -ItemType Directory -Force -Path $publishPath | Out-Null
 }
 
@@ -94,7 +94,7 @@ else {
     $runtimes += "win-x64"
 }
 
-$runtimeInfos = @{}
+$runtimeInfos = @()
 $runtimes | ForEach-Object {
     $runtimeId = $_
 
@@ -123,10 +123,10 @@ $runtimes | ForEach-Object {
     }
     Write-Host "Published $($projName) ($($runtimeId)) to $($publishPath)..."
 
-    $runtimeInfos.Add($runtimeId, @{
+    $runtimeInfos += @{
         runtimeId = $runtimeId
         artifact = $runtimeArtifact
-    })
+    }
 }
 
 $proj = [xml] (Get-Content -Path $projFile.FullName)

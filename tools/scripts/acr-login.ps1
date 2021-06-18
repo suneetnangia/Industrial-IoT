@@ -112,7 +112,7 @@ if (!$script:NoNamespace.IsPresent) {
 # set subscription if not provided
 if ([string]::IsNullOrEmpty($script:Subscription)) {
     $argumentList = @("account", "show")
-    $account = & "az" $argumentList 2>$null | ConvertFrom-Json
+    $account = & az $argumentList 2>$null | ConvertFrom-Json
     if (!$account) {
         throw "Failed to retrieve account information."
     }
@@ -126,7 +126,7 @@ $registryInfo = $null
 if (![string]::IsNullOrEmpty($script:Registry)) {
     $argumentList = @("acr", "show", "--name", $script:Registry, 
         "--subscription", $script:Subscription)
-    $result = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" })
+    $result = (& az $argumentList 2>&1 | ForEach-Object { "$_" })
     if ($LastExitCode -eq 0) {
         $registryInfo = $result | ConvertFrom-Json
     }
@@ -136,7 +136,7 @@ if ((!$registryInfo) -and `
     # check if group exists and if not create it.
     $argumentList = @("group", "show", "-g", $script:ResourceGroupName,
         "--subscription", $script:Subscription)
-    $group = & "az" $argumentList 2>$null | ConvertFrom-Json
+    $group = & az $argumentList 2>$null | ConvertFrom-Json
     if (!$group) {
         if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
             throw "Need a location to create the resource group."
@@ -144,7 +144,7 @@ if ((!$registryInfo) -and `
         $argumentList = @("group", "create", "-g", $script:ResourceGroupName, `
             "-l", $script:ResourceGroupLocation, 
             "--subscription", $script:Subscription)
-        $group = & "az" $argumentList | ConvertFrom-Json
+        $group = & az $argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             throw "az $($argumentList) failed with $($LastExitCode)."
         }
@@ -156,7 +156,7 @@ if ((!$registryInfo) -and `
     # check if acr exist and if not create it
     $argumentList = @("acr", "list", "-g", $script:ResourceGroupName,
         "--subscription", $script:Subscription)
-    $registries = & "az" $argumentList 2>$null | ConvertFrom-Json
+    $registries = & az $argumentList 2>$null | ConvertFrom-Json
     if ([string]::IsNullOrEmpty($script:Registry)) {
         if ($registries) {
             # Select first registry
@@ -172,7 +172,7 @@ if ((!$registryInfo) -and `
             "-l", $script:ResourceGroupLocation,
             "--sku", "Basic", "--admin-enabled", "true", 
             "--subscription", $script:Subscription)
-        $registryInfo = & "az" $argumentList | ConvertFrom-Json
+        $registryInfo = & az $argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             throw "az $($argumentList) failed with $($LastExitCode)."
         }
@@ -189,7 +189,7 @@ if (!$registryInfo) {
 # get credentials
 $argumentList = @("acr", "credential", "show", "--name", 
     $registryInfo.name, "--subscription", $script:Subscription)
-$credentials = (& "az" $argumentList 2>&1 `
+$credentials = (& az $argumentList 2>&1 `
     | ForEach-Object { "$_" }) | ConvertFrom-Json
 if ($LastExitCode -ne 0) {
     throw "az $($argumentList) failed with $($LastExitCode)."
@@ -198,7 +198,7 @@ if ($LastExitCode -ne 0) {
 if ($script:Login.IsPresent) {
     $argumentList = @("acr", "login", "--name", $registryInfo.name, 
         "--subscription", $script:Subscription)
-    & "az" $argumentList 2>&1 | Out-Null
+    & az $argumentList 2>&1 | Out-Null
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
     }    
