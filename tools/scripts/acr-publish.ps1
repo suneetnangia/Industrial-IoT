@@ -51,7 +51,7 @@ if (!$script:Project) {
             -fileName $Path) $Path
     }
     $Path = Resolve-Path -LiteralPath $Path
-    $script:Project = & (Join-Path $PSScriptRoot "dotnet-build.ps1") `
+    $script:Project = & (Join-Path $PSScriptRoot "build-one.ps1") `
         -Path $Path -Debug:$script:Debug -Fast:$script:Fast -Clean
     if (!$script:Project) {
         return $null
@@ -74,6 +74,7 @@ if (!$script:RegistryInfo) {
 }
 
 # -------------------------------------------------------------------------
+$startTime = $(Get-Date)
 # Set image namespace
 $namespace = $script:RegistryInfo.Namespace
 if (![string]::IsNullOrEmpty($namespace)) {
@@ -158,23 +159,25 @@ foreach ($runtime in $script:Project.Runtimes) {
         "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password, "-v",
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile)
-    $co = "uploading artifact $artifact."
+    $co = "uploading artifact $artifact"
     $jobs += Start-Job -Name $artifact `
         -ArgumentList @($argumentList, $co, $script:RegistryInfo.Password) `
         -ScriptBlock {
         $argumentList = $args[0]
         $co = $args[1]
-        Write-Verbose "Start $($co)"
-        & docker $argumentList 2>&1 | ForEach-Object { "$_" }
+        Write-Verbose "Start $($co)..."
+        $pushLog = & docker $argumentList 2>&1
         if ($LastExitCode -ne 0) {
             $cmd = $($argumentList -join " ") -replace $args[2], "***"
 Write-Warning "Failed $($co). 'docker $cmd' exited with $LastExitCode - 2nd attempt..."
             & docker $argumentList 2>&1 | ForEach-Object { "$_" }
             if ($LastExitCode -ne 0) {
+                $pushLog | ForEach-Object { Write-Warning "$_" }
 throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode."
             }
         }
-        Write-Host "Completed $($co)"
+        $pushLog | ForEach-Object { Write-Verbose "$_" }
+        Write-Verbose "Completed $($co)."
     }
 }
 if ($jobs.Count -ne 0) {
@@ -184,6 +187,10 @@ if ($jobs.Count -ne 0) {
         throw "Error: Pushing artifact $($_.Name) resulted in $($_.State)."
     }
 }
-Write-Host "All artifacts for $($script:Project.Name) uploaded successfully."
-return $script:Project
+
 # -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Publishing $($script:Project.Name) took $($elapsedString)..." 
+# -------------------------------------------------------------------------
+return $script:Project

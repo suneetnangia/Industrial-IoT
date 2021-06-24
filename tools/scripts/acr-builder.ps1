@@ -62,12 +62,16 @@ if (!$registryInfo) {
 
 # -------------------------------------------------------------------------
 # Create tasks from task artifact
+$startTime = $(Get-Date)
 Write-Host "Creating and running tasks from $($script:TaskArtifact)..."
 $argumentList = @("manifest", "inspect", $script:TaskArtifact)
 $manifest = (& docker $argumentList 2>&1 | ForEach-Object { "$_" }) `
     | ConvertFrom-Json
+
+$taskname = $taskname.Substring(0, [Math]::Min($taskname.Length, 45))
+
 # Get layers with annotations and based on those create all the tasks
-$jobs = @()
+$tasks = @()
 $manifest.layers | ForEach-Object {
     $annotations = $_.annotations
     $taskname = $annotations."com.microsoft.azure.acr.task.name"
@@ -84,16 +88,14 @@ $manifest.layers | ForEach-Object {
         $platform = "linux"
     }
     $taskfile = $annotations."org.opencontainers.image.title"
-    Write-Host "Creating $taskname tasks on $($platform) ..."
-    Write-Host "... from $($script:TaskArtifact) using $taskfile..."
-
+    
     # For all versions create tasks
     $targetTags = @()
     if ($script:IsLatest.IsPresent) {
         $targetTags += "latest"
     }
 
-    # Example: if version is 2.8.1, then base image tags are "2", "2.8", "2.8.1"
+    # Example: if version is 2.8.1, then image tags are "2", "2.8", "2.8.1"
     $versionParts = $version.Split('.')
     if ($versionParts.Count -gt 0) {
         $versionTag = $versionParts[0]
@@ -106,9 +108,12 @@ $manifest.layers | ForEach-Object {
         }
     }
     
-    Write-Host "... for releases $($targetTags -join ", "):"
+    Write-Verbose "Creating $($taskname) tasks for releases 
+$($targetTags -join ", ") on $($platform) from $($script:TaskArtifact)
+and using $($taskfile)..."
     foreach ($targetTag in $targetTags) {
         $fullName = "$($taskname)-$($targetTag.Replace('.', '-'))"
+        
         # Create tasks in the registry from the task context artifact
         Write-Verbose "Creating task $($fullName) ..."
         # Create acr command line 
@@ -126,69 +131,97 @@ $manifest.layers | ForEach-Object {
             "--pull-request-trigger-enabled", "False",
             "--context", "oci://$($script:TaskArtifact)"
         )
-        $createdTask = & az $argumentList 2>&1 | ForEach-Object { "$_" } `
-            | ConvertFrom-Json
+        $createLogs = & az $argumentList 2>&1 | ForEach-Object { "$_" } 
         if ($LastExitCode -ne 0) {
             $cmd = $($argumentList -join " ")
             Write-Warning "az $cmd failed with $LastExitCode - 2nd attempt..."
-            $createdTask = & az $argumentList 2>&1 | ForEach-Object { "$_" } `
-                | ConvertFrom-Json
+            $createLogs | ForEach-Object { Write-Warning "$_" }
+            $createLogs = & az $argumentList 2>&1 | ForEach-Object { "$_" } 
             if ($LastExitCode -ne 0) {
+                $createLogs | ForEach-Object { Write-Warning "$_" }
                 throw "Error: 'az $cmd' 2nd attempt failed with $LastExitCode."
             }
         }
         Write-Host "Task $($fullName) created successfully."
-        $createdTask | Write-Verbose 
-        # run the task
-        $argumentList = @(
-            "--name", $fullName,
-            "--registry", $registryInfo.Registry,
-            "--resource-group", $registryInfo.ResourceGroup,
-            "--subscription", $registryInfo.Subscription
-        )
-        $jobs += Start-Job -Name $fullName `
-            -ArgumentList @($argumentList, $fullName) -ScriptBlock {
-            
-            $commonArgs = $args[0]
-            $fullName = $args[1]
+        $createLogs | Write-Verbose
+        $tasks += $fullName
+    }
+}
 
-            Write-Host "Starting task run $($fullName) ..."
+$jobs = @()
+foreach ($taskName in $tasks) {
+    # run the task
+    $argumentList = @(
+        "--name", $taskName,
+        "--registry", $registryInfo.Registry,
+        "--resource-group", $registryInfo.ResourceGroup,
+        "--subscription", $registryInfo.Subscription
+    )
+    $jobs += Start-Job -Name $taskName `
+        -ArgumentList @($argumentList, $taskName) -ScriptBlock {
+        
+        # measure run
+        $startTime = $(Get-Date)
+        $commonArgs = $args[0]
+        $taskName = $args[1]
+        Write-Host "Starting task run for $($taskName)..."
+        for($i = 0; $i -lt 5; $i++) {
             $argumentList = @("acr", "task", "run", "--set", "NoManifest=1")
             $argumentList += $commonArgs
             $runLogs = & az $argumentList 2>&1 | ForEach-Object {
-                Write-Host "$fullName : $_"
-                return "$_"
+                return "$taskName ($i) : $_"
             } 
+            $cmd = $($argumentList -join " ")
+            $t = "Task $taskName ($i)"
             if ($LastExitCode -ne 0) {
-                $runLogs | ForEach-Object { Write-Host "$_" }
-                $cmd = $($argumentList -join " ")
-            throw "Error: 'Task $($fullName): az $cmd' failed with $LastExitCode."
+                $runLogs | ForEach-Object { Write-Warning "$_" }
+                throw "Error: $t : 'az $cmd' failed with $LastExitCode."
             }
 
             # check last run
             $argumentList = @("acr", "task", "list-runs", "--top", "1")
             $argumentList += $commonArgs
-            $runResult = (& az $argumentList 2>&1 `
-                | ForEach-Object { "$_" }) | ConvertFrom-Json
-            $run = $runResult.runId
-            if ([string]::IsNullOrEmpty($run) -or ($runResult.status -ne "Succeeded")) {
-                if ($runResult.status -ne "Timeout") {
-                    $runLogs | ForEach-Object { Write-Host "$_" }
-            throw "Error: Task $($fullName) run $($run) completed '$($runResult.status)'"
+            $run = $null
+            while (!$run) {
+                $runResult = (& az $argumentList 2>&1 `
+                    | ForEach-Object { "$_" }) | ConvertFrom-Json
+                $run = $runResult.runId
+                $status = $runResult.status
+                $t = "$t (Run ID: $($run))"
+                if ([string]::IsNullOrEmpty($run) -or `
+                    ($status -ne "Succeeded")) {
+                    if (($status -eq "Queued") -or `
+                        ($status -eq "Running")) {
+                        Write-Verbose "$t in progress..."
+                        Start-Sleep -Seconds 5
+                        $run = $null
+                    }
+                    elseif ($status -eq "Timeout") {
+                        $runLogs | ForEach-Object { Write-Verbose "$_" }
+                        throw "Error: $t (az $cmd) timed out."
+                    }
+                    else {
+                        $runLogs | ForEach-Object { Write-Warning "$_" }
+                        Write-Warning "$t (az $cmd) completed with '$($status)'"
+                    }
                 }
-                else {
+                elseif ($status -eq "Succeeded") { 
+                    # success
                     $runLogs | ForEach-Object { Write-Verbose "$_" }
-            throw "Error: Task $($fullName) run $($run) timed out."
+                    $elapsedTime = $(Get-Date) - $startTime
+                    $elapsedString = $elapsedTime.ToString("hh\:mm\:ss")
+                    Write-Host "$t took $($elapsedString) (hh:mm:ss)..." 
+                    # exits job
+                    return
                 }
             }
-            else {
-                Write-Host "Task $($fullName) Run $($run) completed successfully."
-                $runLogs | ForEach-Object { Write-Verbose "$_" }
-            }
-        }
+            Start-Sleep -Seconds 1
+            Write-Host "Attempt #$i - re-starting task $($taskName) ..."
+        } 
+        # end of for loop t retry.
+        throw "Error: Task $($taskName) failed after $($i) times."
     }
 }
-
 if ($jobs.Count -ne 0) {
     # Wait until all jobs are completed
     Receive-Job -Job $jobs -WriteEvents -Wait | Write-Verbose
@@ -197,6 +230,8 @@ if ($jobs.Count -ne 0) {
     }
 }
 
-Write-Host "All task runs completed successfully."
-Write-Host ""
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Running all tasks took $($elapsedString)..." 
 # -------------------------------------------------------------------------

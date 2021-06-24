@@ -1,0 +1,596 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "applicationName": {
+            "type": "string",
+            "defaultValue": "[concat('aip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "The name of the deployment, application and platform endpoint to register."
+            }
+        },
+        "deployOptionalServices": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Whether to deploy optional services required by samples and preview features."
+            }
+        },
+        "aadPrincipalId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+        "aadPreConfiguration": {
+            "type": "secureObject",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
+            }
+        },
+        "existingAksClusterResourceId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The resource id of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a AKS cluster will be created."
+            }
+        },
+        "deployPlatformComponents": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy Platform services into the cluster. Set to false to deploy dependencies for local development."
+            }
+        },
+        "deployEngineeringTool": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Whether to deploy engineering tool frontend."
+            }
+        },
+        "helmChartName": {
+            "type": "string",
+            "defaultValue": "azure-industrial-iot",
+            "metadata": {
+                "description": "The name of the helm chart if it is different than the official released one."
+            }
+        },
+        "helmChartVersion": {
+            "type": "string",
+            "defaultValue": "0.4.1",
+            "metadata": {
+                "description": "Version of azure-industrial-iot Helm chart to use"
+            }
+        },
+        "helmRepoUrl": {
+            "type": "string",
+            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "metadata": {
+                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
+            }
+        },
+        "numberOfSimulations": {
+            "type": "int",
+            "defaultValue": 1,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of simulations to deploy into each gateway network."
+            }
+        },
+        "simulationProfile": {
+            "type": "string",
+            "defaultValue": "default",
+            "allowedValues": [
+                "default",
+                "testing"
+            ],
+            "metadata": {
+                "description": "The simulation profile to use."
+            }
+        },
+        "numberOfLinuxGateways": {
+            "type": "int",
+            "defaultValue": 1,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of OPC UA Linux simulation gateways to deploy."
+            }
+        },
+        "numberOfWindowsGateways": {
+            "type": "int",
+            "defaultValue": 1,
+            "maxValue": 255,
+            "minValue": 0,
+            "metadata": {
+                "description": "Number of OPC UA Windows simulation gateways to deploy."
+            }
+        },
+        "edgeVmSize": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The size of the gateway VM to provision."
+            }
+        },
+        "simulationVmSize": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The size of the simulation VM to provision."
+            }
+        },
+        "dockerServer": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com",
+            "metadata": {
+                "description": "Specifies the endpoint of the Container Registry to pull workloads from."
+            }
+        },
+        "dockerUser": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the user name to log into a private Container Registry."
+            }
+        },
+        "dockerPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the password to use for a private Container Registry."
+            }
+        },
+        "imagesTag": {
+            "type": "string",
+            "defaultValue": "latest",
+            "metadata": {
+                "description": "Specifies the image version tag to use for all container images."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy2/templates/')]",
+            "metadata": {
+                "description": "The location where all deployment templates reside.  Default is GitHub official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "performAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
+        "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+        "deployCluster": "[and(variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
+        "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
+        "aksClusterAdminDeploymentName": "aks.admin",
+        "aksClusterAdminDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminDeploymentName'))]",
+        "aksClusterDeploymentName": "aks",
+        "aksClusterDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterDeploymentName'))]",
+        "requiredServicesDeploymentName": "required",
+        "requiredServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('requiredServicesDeploymentName'))]",
+        "optionalServicesDeploymentName": "optional",
+        "optionalServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('optionalServicesDeploymentName'))]",
+        "aadAppRegistrationDeploymentName": "aad",
+        "aadAppRegistrationDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationDeploymentName'))]",
+        "microServicesDeploymentName": "services",
+        "microServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('microServicesDeploymentName'))]",
+        "simulationDeploymentName": "simulation"
+    },
+    "resources": [
+        {
+            "comments": "Deploy required Azure services for the platform components.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('requiredServicesDeploymentName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.required.json'), parameters('templateUrlQueryString'))]"
+                }
+            }
+        },
+        {
+            "comments": "Deploy Azure optional Azure services for the platform components.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('optionalServicesDeploymentName')]",
+            "condition": "[parameters('deployOptionalServices')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.optional.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('requiredServicesDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Register AKS administrator group in Microsoft Graph.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterAdminDeploymentName')]",
+            "condition": "[and(variables('deployCluster'), variables('canCreateAdminGroup'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "aksClusterName": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), variables('defaultClusterName'), reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                    },
+                    "aksClusterResourceGroup": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), resourceGroup().name, reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').resourceGroup)]"
+                    },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "aadPrincipalAssignDeploymentScriptRole": {
+                        "value": true
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aks.admin.json'), parameters('templateUrlQueryString'))]"
+                }
+            }
+        },
+        {
+            "comments": "Deploy an AKS managed cluster for Industrial IoT micro services hosting if non provided.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterDeploymentName')]",
+            "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "clusterName": {
+                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.clusterName.value]"
+                    },
+                    "aksAdminGroupObjectIds": {
+                        "value": "[createArray(reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value)]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aks.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksClusterAdminDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Register AAD entitities in Microsoft Graph.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAppRegistrationDeploymentName')]",
+            "condition": "[variables('performAadAppRegistration')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
+                    },
+                    "applicationName": {
+                        "value": "[parameters('applicationName')]"
+                    },
+                    "aadPreConfiguration": {
+                        "value": "[parameters('aadPreConfiguration')]"
+                    },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalAssignDeploymentScriptRole": {
+                        "value": "[not(and(variables('deployCluster'), variables('canCreateAdminGroup')))]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.aad.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksClusterAdminDeploymentId')]",
+                "[variables('requiredServicesDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Deploy Azure Industrial IoT micro services into the cluster as cluster admin.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('microServicesDeploymentName')]",
+            "condition": "[and(variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "aksClusterName": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.clusterName.value,  reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                    },
+                    "aksNodeResourceGroup": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksNodeResourceGroup.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').nodeResourceGroup)]"
+                    },
+                    "aksKubeletIdentityPrincipalId": {
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksKubeletIdentityPrincipalId.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').identityProfile.kubeletidentity.objectId)]"
+                    },
+                    "aksAdminIdentityResourceId": {
+                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminIdentityResourceId.value]"
+                    },
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
+                    },
+                    "keyVaultUri": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultUri.value]"
+                    },
+                    "helmChartVersion": {
+                        "value": "[parameters('helmChartVersion')]"
+                    },
+                    "helmChartName": {
+                        "value": "[parameters('helmChartName')]"
+                    },
+                    "helmPullChartFromDockerServer": {
+                        "value": "[parameters('helmPullChartFromDockerServer')]"
+                    },
+                    "helmRepoUrl": {
+                        "value": "[parameters('helmRepoUrl')]"
+                    },
+                    "applicationName": {
+                        "value": "[parameters('applicationName')]"
+                    },
+                    "deployEngineeringTool": {
+                        "value": "[parameters('deployEngineeringTool')]"
+                    },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "aadRegistrationAdminIdentityId": {
+                        "value": "[reference(variables('aadAppRegistrationDeploymentId')).outputs.aadRegistrationAdminIdentityId.value]"
+                    },
+                    "aadRegistrationUpdateReplyUrls": {
+                        "value": "[reference(variables('aadAppRegistrationDeploymentId')).outputs.aadRegistrationUpdateReplyUrls.value]"
+                    },
+                    "deployTelemetryProcessor": {
+                        "value": "[parameters('deployOptionalServices')]"
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.services.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksClusterDeploymentId')]",
+                "[variables('aksClusterAdminDeploymentId')]",
+                "[variables('requiredServicesDeploymentId')]",
+                "[variables('optionalServicesDeploymentId')]",
+                "[variables('aadAppRegistrationDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Deploy Azure Industrial IoT Edge simulation.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('simulationDeploymentName')]",
+            "condition": "[not(equals(0, parameters('numberOfSimulations')))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "simulationProfile": {
+                        "value": "[parameters('simulationProfile')]"
+                    },
+                    "numberOfLinuxGateways": {
+                        "value": "[parameters('numberOfLinuxGateways')]"
+                    },
+                    "numberOfSimulations": {
+                        "value": "[parameters('numberOfSimulations')]"
+                    },
+                    "numberOfWindowsGateways": {
+                        "value": "[parameters('numberOfWindowsGateways')]"
+                    },
+                    "edgeVmSize": {
+                        "value": "[parameters('edgeVmSize')]"
+                    },
+                    "simulationVmSize": {
+                        "value": "[parameters('simulationVmSize')]"  
+                    },
+                    "edgePassword": {
+                        "reference": {
+                            "keyVault": {
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value)]"
+                            },
+                            "secretName": "pcs-auth-service-secret"
+                        }
+                    },
+                    "iotHubHostName": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.iotHubHostName.value]"
+                    },
+                    "iotHubLocation": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.iotHubLocation.value]"
+                    },
+                    "iotHubConnString": {
+                        "reference": {
+                            "keyVault": {
+                                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value)]"
+                            },
+                            "secretName": "pcs-iothub-connstring"
+                        }
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.simulation.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('requiredServicesDeploymentId')]",
+                "[variables('aadAppRegistrationDeploymentId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "keyVaultUri": {
+            "type": "string",
+            "value": "[reference(variables('requiredServicesDeploymentId'), '2017-05-10').outputs.keyVaultUri.value]"
+        },
+        "tenantId": {
+            "type": "string",
+            "value": "[subscription().tenantId]"
+        },
+        "serviceUrl": {
+            "type": "string",
+            "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, '')]"
+        },
+        "clusterName": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.clusterName.value, '')]"
+        },
+        "aksControlPlaneUrl": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId')).outputs.aksControlPlaneUrl.value, '')]"
+        },
+        "aksAdminGroupObjectId": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value, '')]"
+        },
+        "aksAdminGroupName": {
+            "type": "string",
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupName.value, '')]"
+        }
+    }
+}

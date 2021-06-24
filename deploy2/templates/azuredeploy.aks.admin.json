@@ -1,0 +1,206 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "aksClusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the Managed Cluster resource - must be provided."
+            }
+        },
+        "aksClusterResourceGroup": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().name]",
+            "metadata": {
+                "description": "The resource group name of the Managed Cluster resource - defaults to current resource group."
+            }
+        },
+        "aadPrincipalId": {
+            "type": "string",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+		"aadPrincipalAssignDeploymentScriptRole": { 
+			"type": "bool", 
+			"defaultValue": true,
+            "metadata": {
+                "description": "Assign the required deployment script execution role to the principal ahead of using it to run the script."
+            }
+		},
+        "aksAdminManagedIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('aksClusterName'), '-admin-msi')]",
+            "metadata": {
+                "description": "Name of the Managed identity resource of the cluster admin."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy2/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "aadAdminGroupRegistrationRoleAssignmentsName": "aks.admin.group.rbac",
+        "aadAdminGroupRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAdminGroupRegistrationRoleAssignmentsName'))]",
+        "aksAdminManagedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('aksAdminManagedIdentityName'))]",
+        "aksAdminManagedIdentityRoleAssignmentsName": "aks.admin.rbac",
+        "aksAdminManagedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksAdminManagedIdentityRoleAssignmentsName'))]",
+        "useServicePrincipalAuthentication": "[not(empty(parameters('aadPrincipalPassword')))]",
+        "aadAdminGroupRegistrationIdentityResourceId": "[if(variables('useServicePrincipalAuthentication'), variables('aksAdminManagedIdentityResourceId'), parameters('aadPrincipalId'))]",
+        "aadAdminGroupRegistrationResourceName": "[concat('aks.admin.group.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAdminGroupRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAdminGroupRegistrationResourceName'))]"
+    },
+    "resources": [
+        {
+            "comments": "Create a new managed identity for automation with admin rights to the cluster.",
+            "name": "[parameters('aksAdminManagedIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Role assignment for cluster admin managed identity.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksAdminManagedIdentityRoleAssignmentsName')]",
+            "resourceGroup": "[parameters('aksClusterResourceGroup')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[reference(variables('aksAdminManagedIdentityResourceId')).principalId]"
+                    },
+                    "assignRoles": {
+                        "value": [ "AzureKubernetesServiceClusterAdmin" ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksAdminManagedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Assign role to the principal to run the group registration script.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAdminGroupRegistrationRoleAssignmentsName')]",
+	        "condition": "[or(variables('useServicePrincipalAuthentication'), parameters('aadPrincipalAssignDeploymentScriptRole'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[reference(variables('aadAdminGroupRegistrationIdentityResourceId'), '2018-11-30').principalId]"
+                    },
+                    "assignRoles": {
+                        "value": [ 
+                             "Contributor" 
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aksAdminManagedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Register an admin group in AAD if needed and add the managed service identity principal as member.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('aadAdminGroupRegistrationResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('aadAdminGroupRegistrationIdentityResourceId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[parameters('aksClusterName')]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/group-setup.sh'), parameters('templateUrlQueryString'))]",
+                "arguments": "[concat(' --description \"Administrator group for ', parameters('aksClusterName'), ' in resource group ', resourceGroup().name, '\" --display \"', parameters('aksClusterName'), ' Administrators\" --member \"', reference(variables('aksAdminManagedIdentityResourceId')).principalId, '\" --name \"', parameters('aksClusterName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(variables('useServicePrincipalAuthentication'), '', ' --identity'))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "principalPassword",
+                        "secureValue": "[if(variables('useServicePrincipalAuthentication'), parameters('aadPrincipalPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('aksAdminManagedIdentityRoleAssignmentsId')]",
+                "[variables('aadAdminGroupRegistrationRoleAssignmentsId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "clusterName": {
+            "type": "string",
+            "value": "[parameters('aksClusterName')]"
+        },
+        "aksAdminGroupObjectId": {
+            "type": "string",
+            "value": "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupId]"
+        },
+        "aksAdminGroupName": {
+            "type": "string",
+            "value": "[reference(variables('aadAdminGroupRegistrationResourceId')).outputs.groupName]"
+        },
+        "aksAdminIdentityResourceId": {
+            "type": "string",
+            "value": "[variables('aksAdminManagedIdentityResourceId')]"
+        },
+        "aksAdminIdentityPrincipalId": {
+            "type": "string",
+            "value": "[reference(variables('aksAdminManagedIdentityResourceId')).principalId]"
+        },
+        "aksAdminIdentityClientId": {
+            "type": "string",
+            "value": "[reference(variables('aksAdminManagedIdentityResourceId')).clientId]"
+        }
+    }
+}

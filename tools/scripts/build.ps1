@@ -45,10 +45,9 @@ Param(
 )
 
 # -------------------------------------------------------------------------
-$startTime = $(Get-Date)
-$BuildRoot = & (Join-Path $PSScriptRoot "get-root.ps1") -fileName "*.sln"
 if ([string]::IsNullOrEmpty($script:Path)) {
-    $script:Path = $BuildRoot
+    $script:Path = & (Join-Path $PSScriptRoot "get-root.ps1") `
+        -fileName "*.sln"
 }
 
 # -------------------------------------------------------------------------
@@ -68,6 +67,7 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -or `
 }
 
 # -------------------------------------------------------------------------
+$startTime = $(Get-Date)
 $projects = @()
 # If registry was specified see if there is a results file in the output 
 # folder to continue from
@@ -76,7 +76,7 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
     if (![string]::IsNullOrEmpty($script:Output)) {
         $resultsFile = Join-Path $script:Output "projects.json"
         if (Test-Path $resultsFile) {
-            $projects = Get-Content -Raw -Path $resultsFile `
+            [array]$projects = Get-Content -Raw -Path $resultsFile `
                 | ConvertFrom-Json
             if ($projects.Count -eq 0) {
                 throw "Results file exists but is empty."
@@ -93,40 +93,21 @@ if ($projects.Count -eq 0) {
             -ErrorAction SilentlyContinue
     }
 
-    # Traverse from build root and find all container.json metadata files
-    Get-ChildItem $script:Path -Recurse -Include "container.json" `
-        | ForEach-Object {
-        # Get root
-        $metadataPath = $_.DirectoryName.Replace($BuildRoot, "")
-        if (![string]::IsNullOrEmpty($metadataPath)) {
-            $metadataPath = $metadataPath.Substring(1)
-        }
-        $metadata = Get-Content -Raw `
-            -Path (join-path $_.DirectoryName "container.json") `
-                | ConvertFrom-Json
-        if (!$metadata) {
-            return
-        }
-        # See if we should build into registry directly, otherwise just build
-        $project = & (Join-Path $PSScriptRoot "dotnet-build.ps1") `
-            -Path $metadataPath -Output $script:Output `
-            -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
-        if ($project) {
-            $projects += $project
-        }
-    }
+    [array]$projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
+        -Path $script:Path -Output $script:Output `
+        -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
+    $projects | Write-Verbose
 
     # Save projects to output folder provided as specified and exit
     if ((![string]::IsNullOrEmpty($script:Output)) -and `
         ($projects.Count -gt 0)) {
-        $projects `
-            | ConvertTo-Json -Depth 4 `
+        $projects | ConvertTo-Json -Depth 4 `
             | Out-File $(Join-Path $script:Output "projects.json")
     }
 }
 
 # -------------------------------------------------------------------------
-# Build artifacts and images
+# Push artifacts and images
 if ((![string]::IsNullOrEmpty($script:Registry)) -and `
         ($projects.Count -gt 0)) {
     Write-Host "Building registry artifacts and containers..."
@@ -137,5 +118,5 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
 
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
-Write-Host "Build took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
+Write-Host "... took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
 return $projects

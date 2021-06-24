@@ -1,0 +1,81 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "publicIpDomainNameLabel": {
+            "type": "string",
+            "metadata": {
+                "description": "Public Ip domain label."
+            }
+        },
+        "publicIpName": {
+            "type": "string",
+            "defaultValue": "[concat('public-ip-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "Public Ip resource name."
+            }
+        },
+        "publicIpSku": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "Standard"
+            ],
+            "defaultValue": "Standard",
+            "metadata": {
+                "description": "Public IP Sku to use"
+            }
+        },
+        "publicIpAllocationMethod": {
+            "type": "string",
+            "allowedValues": [
+                "Dynamic",
+                "Static"
+            ],
+            "defaultValue": "Static",
+            "metadata": {
+                "description": "Allocation method for the public IP Address."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "publicIpResourceId": "[resourceId('Microsoft.Network/publicIpAddresses', parameters('publicIpName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/publicIpAddresses",
+            "name": "[parameters('publicIpName')]",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('publicIpSku')]"
+            },
+            "properties": {
+                "publicIpAllocationMethod": "[parameters('publicIpAllocationMethod')]",
+                "dnsSettings": "[if(empty(parameters('publicIpDomainNameLabel')), json('null'), json(concat('{\"domainNameLabel\": \"', parameters('publicIpDomainNameLabel') ,'\"}')))]"
+            }
+        }
+    ],
+    "outputs": {
+        "fqdn": {
+            "type": "string",
+            "value": "[reference(variables('publicIpResourceId')).dnsSettings.fqdn]"
+        },
+        "domainNameLabel": {
+            "type": "string",
+            "value": "[reference(variables('publicIpResourceId')).dnsSettings.domainNameLabel]"
+        },
+        "ipAddress": {
+            "type": "string",
+            "value": "[reference(variables('publicIpResourceId')).ipAddress]"
+        }
+    }
+}

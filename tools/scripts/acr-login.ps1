@@ -37,6 +37,7 @@ Param(
 )
 
 # -------------------------------------------------------------------------
+$startTime = $(Get-Date)
 # Collect namespace information
 $namespace = ""
 if (!$script:NoNamespace.IsPresent) {
@@ -203,7 +204,11 @@ if ($script:Login.IsPresent) {
         throw "az $($argumentList) failed with $($LastExitCode)."
     }    
 }
-
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Login to $($registryInfo.name) took $($elapsedString)..." 
+# -------------------------------------------------------------------------
 # return result
 return @{
     Registry = $registryInfo.name

@@ -36,32 +36,11 @@ Param(
 )
 
 # -------------------------------------------------------------------------
-# Build and publish dotnet output if no container definition provided
+# Build all projects if no container definition provided
 if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
-    $script:Projects = @()
-    if ([string]::IsNullOrEmpty($script:Path)) {
-        throw "No root folder specified."
-    }
-    if (!(Test-Path -Path $script:Path -PathType Container)) {
-        $script:Path = Join-Path (& (Join-Path $PSScriptRoot "get-root.ps1") `
-            -fileName $script:Path) $script:Path
-    }
-    $script:Path = Resolve-Path -LiteralPath $script:Path
-    # Traverse from build root and find all container.json metadata files 
-    Get-ChildItem $script:Path -Recurse -Include "container.json" `
-        | ForEach-Object {
-        # Get root
-        $metadataPath = $_.DirectoryName.Replace($BuildRoot, "")
-        if (![string]::IsNullOrEmpty($metadataPath)) {
-            $metadataPath = $metadataPath.Substring(1)
-        }
-        $project = & (Join-Path $PSScriptRoot "dotnet-build.ps1") `
-            -Path $metadataPath `
-            -Debug:$script:Debug -Fast:$script:Fast -Clean
-        if ($project) {
-            $script:Projects += $project
-        }
-    }
+    [array]$script:Projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
+        -Path $script:Path `
+        -Debug:$script:Debug -Fast:$script:Fast -Clean
     if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
         Write-Warning "Nothing to build under $($script:Path)."
         return
@@ -79,7 +58,8 @@ if (!$registryInfo) {
 
 # -------------------------------------------------------------------------
 # Publish all build artifacts 
-Write-Host "Publishing $($script:Projects.Count) artifacts..."
+Write-Host "Publishing $($script:Projects.Count) projects as artifacts..."
+$startTime = $(Get-Date)
 foreach ($project in $script:Projects) {
     if ($script:Fast.IsPresent -and (!$project.Metadata.buildAlways)) {
         Write-Warning "Using fast build - Skipping $($project.Name)."
@@ -93,10 +73,14 @@ foreach ($project in $script:Projects) {
         Write-Warning "Failed to publish artifact $($project.Name)."
     }
 }
-Write-Host "$($script:Projects.Count) artifacts published..."
-Write-Host ""
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Publishing $($script:Projects.Count) projects $($elapsedString)..." 
 
 # -------------------------------------------------------------------------
+Write-Host ""
+$startTime = $(Get-Date)
 # Used to set the source tag 
 $buildTag = $env:Version_Prefix
 if ([string]::IsNullOrEmpty($buildTag)) {
@@ -171,8 +155,7 @@ foreach ($project in $script:Projects) {
         }
     )
 
-    $platforms | ForEach-Object {
-        $platformInfo = $_
+    foreach ($platformInfo in $platforms) {
         $platform = $platformInfo.platform.ToLower()
         $platformTag = $platformInfo.platformTag.ToLower()
         $runtimeId = $platformInfo.runtimeId
@@ -182,7 +165,7 @@ foreach ($project in $script:Projects) {
         $environmentVars = @("ENV DOTNET_RUNNING_IN_CONTAINER=true")
         # Only build windows and linux in fast mode
         if ($script:Fast.IsPresent -and (!$platformInfo.always)) {
-            return
+            break
         }
         #
         # Check for overridden base image name - e.g. aspnet core images
@@ -201,7 +184,7 @@ foreach ($project in $script:Projects) {
             | Select-Object -First 1
         if (!$runtime) {
             Write-Warning "No runtime build for $runtimeId!"
-            return
+            break
         }
         $runtimeOnly = ""
         if (![string]::IsNullOrEmpty($platformInfo.runtimeOnly)) {
@@ -215,14 +198,14 @@ foreach ($project in $script:Projects) {
             $entryPoint = $platformInfo.entryPoint
         }
         $exposes = ""
-        if ($project.Metadata.exposes -ne $null) {
+        if ($project.Metadata.exposes) {
             $project.Metadata.exposes | ForEach-Object {
                 $exposes = "$("EXPOSE $($_)" | Out-String)$($exposes)"
             }
             $environmentVars += "ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true"
         }
         $workdir = ""
-        if ($project.Metadata.workdir -ne $null) {
+        if ($project.Metadata.workdir) {
             $workdir = "WORKDIR /$($project.Metadata.workdir)"
         }
         if ([string]::IsNullOrEmpty($workdir)) {
@@ -255,8 +238,11 @@ ENTRYPOINT $($entryPoint)
         if ($taskname -eq "windows") {
             $taskname = "win"
         }
-        $taskname = "$($taskname)$($tagPostfix)"
-        # Create tasks for each platform. 
+        # Create tasks per project and platform. 
+        $sn = $script:Project.Name.Split('/') | Select-Object -Last 1
+        $sn = $sn.Replace("industrial-iot-", "").Replace("iot-opc-", "")
+        $sn = $sn.Substring(0, [Math]::Min($sn.Length, 35))
+        $taskname = "$($sn)$($tagPostfix)-$($taskname)"
         if (!$tasks[$taskname]) {
             $tasks[$taskname] = @{
                 annotation = @{
@@ -264,6 +250,7 @@ ENTRYPOINT $($entryPoint)
                     "com.microsoft.azure.acr.task.version" = $buildTag
                     "com.microsoft.azure.acr.task.platform" = $os
                 }
+                artifactCache = @{}
                 stepIndex = 0
                 images = @()
                 taskyaml = @"
@@ -284,11 +271,11 @@ steps:
         }
        
         # Create image build definition 
-        $image = "$`Registry`$Namespace/$($project.Name)"
+        $image = "`$Registry`$Namespace/$($project.Name)"
         $image = "$($image):`$SourceTag-$($platformTag)$($tagPostfix)"
 
         # Select artifact to include in image
-        $artifact = "$`Registry`$Namespace/$($project.Name)"
+        $artifact = "`$Registry`$Namespace/$($project.Name)"
         $artifact = "$($artifact):`$SourceTag-artifact"
         $artifact = "$($artifact)-$($runtimeId)$($tagPostfix)"
         $buildContext = "$($buildContext)$($tagPostfix)"
@@ -300,84 +287,82 @@ steps:
             image = $image
             index = $tasks[$taskname].stepIndex
         }
-        $tasks[$taskname].taskyaml += @"
+
+        # only add artifact pulling if required
+        if (!$tasks[$taskname].artifactCache[$artifact]) {
+            $tasks[$taskname].taskyaml += @"
   - id: artifact-$($tasks[$taskname].stepIndex)
     cmd: oras pull -o $($buildContext) -a $($artifact) 
     retries: 5
     retryDelay: 30
     when: ["oras"]
+
+"@
+            $tasks[$taskname].artifactCache[$artifact] = `
+                "artifact-$($tasks[$taskname].stepIndex)"
+        }
+        $tasks[$taskname].taskyaml += @"
   - id: build-$($tasks[$taskname].stepIndex)
-    when: ["artifact-$($tasks[$taskname].stepIndex)"]
+    when: ["$($tasks[$taskname].artifactCache[$artifact])"]
     build: -t $($image) -f $($dockerFile) --platform=$($platform) $($buildContext)
     retries: 2
-    cache: $(if ($os -eq "windows") { "disabled" } else { "enabled" })
+    cache: $(if ($os -ne "linux") { "disabled" } else { "enabled" })
 
 "@
     }
-    # Add push task and collect images for manifest
-    $manifestImages = @()
-    $tasks.Keys | ForEach-Object {
-        $buildtask = $tasks.Item($_)
-        if ($buildtask.images.Count -eq 0) {
-            return
-        }
-        $buildtask.stepIndex += 1
-        $buildtask.taskyaml += @"
+}
+
+# Add push task to all tasks and the manifest creation steps
+$tasks.Keys | ForEach-Object {
+    $buildtask = $tasks.Item($_)
+    if ($buildtask.images.Count -eq 0) {
+        return
+    }
+    $buildtask.stepIndex += 1
+    $buildtask.taskyaml += @"
   - id: push-$($buildtask.stepIndex)
     retries: 5
     retryDelay: 30
     push:
 
 "@
-        $when = ""
-        $buildtask.images | ForEach-Object {
-            $buildtask.taskyaml += @"
+    $when = ""
+    $manifestImages = @()
+    $buildtask.images | ForEach-Object {
+        $buildtask.taskyaml += @"
     - $($_.image)
 
 "@
-            $manifestImages += $_.image
-            $when = "$when,`"build-$($_.index)`""
-        }
-        $buildtask.taskyaml += @"
+        $manifestImages += $_.image
+        $when = "$when,`"build-$($_.index)`""
+    }
+    $buildtask.taskyaml += @"
     when: [$($when.TrimStart(','))]
 
 "@
-        # reset
-        $buildtask.images = @()
-    }
-
-    # ---------------------------------------------------------------------
-    # Add step to create a new manifest list from all images.
-    if ($manifestImages.Count -eq 0) {
-        Write-Host "Nothing to build."
-        continue
-    }
-    $fullImageName = "$`Registry`$Namespace/$($project.Name)"
-    $tasks.Keys | ForEach-Object {
-        $buildtask = $tasks.Item($_)
-        $manifests = $manifestImages -join " "
-        $manifestList = "$($fullImageName):`$TargetTag$($tagPostfix)"
-        #
-        # One problem we have to address is that images are built on 
-        # multiple platforms, yet the manifest list must contain all
-        # images from all platforms.
-        # If one platform has not built yet, the images are missing and
-        # the creation of the list will fail (image not available yet).
-        #
-        # The base images that trigger re-build on update on the other
-        # hand are only parsed from build steps in the task yamls which 
-        # means we cannot create a seperate manifest build task  
-        # triggered by the internal acr-builder engine.
-        #
-        # We therefore execute the first runs in parallel and add 
-        # enough retries to account for manifests still not having been  
-        # pushed by all other tasks. Subsequent runs will find images 
-        # and can therefore execute in any order.
-        # We also run the manifest step as a script so that the entire
-        # script is re-run, rather than just the single manifest
-        # command. A run will time out after 30 minutes.
-        #
-        $buildtask.taskyaml += @"
+    $manifests = $manifestImages -join " "
+    $manifestList = "$($fullImageName):`$TargetTag$($tagPostfix)"
+    #
+    # One problem we have to address is that images are built on 
+    # multiple platforms, yet the manifest list must contain all
+    # images from all platforms.
+    # If one platform has not built yet, the images are missing and
+    # the creation of the list will fail (image not available yet).
+    #
+    # The base images that trigger re-build on update on the other
+    # hand are only parsed from build steps in the task yamls which 
+    # means we cannot create a seperate manifest build task  
+    # triggered by the internal acr-builder engine.
+    #
+    # We therefore execute the first runs in parallel and add 
+    # enough retries to account for manifests still not having been  
+    # pushed by all other tasks. Subsequent runs will find images 
+    # and can therefore execute in any order.
+    # We also run the manifest step as a script so that the entire
+    # script is re-run, rather than just the single manifest
+    # command. A run will time out after 30 minutes.
+    #
+    $buildtask.taskyaml += @"
   - id: manifest-$($buildtask.stepIndex)
     when: ["push-$($buildtask.stepIndex)"]
     entryPoint: sh
@@ -396,7 +381,6 @@ steps:
       '
 
 "@
-    }
 }
 
 # -------------------------------------------------------------------------
@@ -478,17 +462,23 @@ $argumentList += @("-u", $registryInfo.User,
     "-p", $registryInfo.Password, "-v", 
     "--manifest-annotations", $annotationFile)
 
-& docker $argumentList 2>&1 | ForEach-Object { "$_" }
+$pushLog = & docker $argumentList 2>&1
 if ($LastExitCode -ne 0) {
+    $pushLog | ForEach-Object { Write-Warning "$_" }
     $cmd = $($argumentList -join " ") -replace $registryInfo.Password, "***"
     Write-Warning "docker $cmd failed with $LastExitCode - 2nd attempt..."
-    & docker $argumentList 2>&1 | ForEach-Object { "$_" }
+    $pushLog = & docker $argumentList 2>&1
     if ($LastExitCode -ne 0) {
+        $pushLog | ForEach-Object { Write-Warning "$_" }
         throw "Error: 'docker $cmd' 2nd attempt failed with $LastExitCode."
     }
 }
-Write-Host "Task context uploaded successfully as $taskArtifact."
-Write-Host ""
+$pushLog | ForEach-Object { Write-Verbose "$_" }
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Uploading task context $($taskArtifact) took $($elapsedString)..." 
+# -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
 & (Join-Path $PSScriptRoot "acr-builder.ps1") -TaskArtifact $taskArtifact `

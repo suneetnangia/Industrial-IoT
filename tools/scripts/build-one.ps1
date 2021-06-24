@@ -28,6 +28,7 @@ Param(
     [switch] $Fast
 )
 
+# -------------------------------------------------------------------------
 # Get meta data
 if ([string]::IsNullOrEmpty($Path)) {
     throw "No root folder specified."
@@ -37,6 +38,8 @@ if (!(Test-Path -Path $Path -PathType Container)) {
         -fileName $Path) $Path
 }
 $Path = Resolve-Path -LiteralPath $Path
+
+$startTime = $(Get-Date)
 $configuration = "Release"
 if ($script:Debug.IsPresent) {
     $configuration = "Debug"
@@ -64,9 +67,18 @@ $projFile = Get-ChildItem $Path -Filter *.csproj | Select-Object -First 1
 if (!$projFile) {
     return $null
 }
-$projName = [System.IO.Path]::GetFileNameWithoutExtension($projFile.FullName)
+$projName = [System.IO.Path]::GetFileNameWithoutExtension(`
+    $projFile.FullName)
 
-# Create dotnet command line 
+$proj = [xml] (Get-Content -Path $projFile.FullName)
+$assemblyName = $proj.Project.PropertyGroup `
+    | Where-Object { ![string]::IsNullOrWhiteSpace($_.AssemblyName) } `
+    | Select-Object { $_.AssemblyName } -Last 1
+if ([string]::IsNullOrWhiteSpace($assemblyName)) {
+    $assemblyName = $projFile.BaseName
+}
+
+# -------------------------------------------------------------------------
 if ($script:Clean.IsPresent) {
     Write-Host "Cleaning $($projName)..."
     $argumentList = @("clean", $projFile.FullName)
@@ -75,6 +87,7 @@ if ($script:Clean.IsPresent) {
     Remove-Item $publishPath -Recurse -ErrorAction SilentlyContinue
 }
 
+# -------------------------------------------------------------------------
 # Always build as portable.
 $runtimes = @("portable")
 if ($script:Fast.IsPresent) {
@@ -95,8 +108,25 @@ else {
 }
 
 $runtimeInfos = @()
-$runtimes | ForEach-Object {
-    $runtimeId = $_
+foreach ($runtimeId in $runtimes) {
+    $runtimeArtifact = Join-Path $publishPath $runtimeId
+
+    $argumentList = @("restore")
+    if ($runtimeId -ne "portable") {
+        $argumentList += "-r"
+        $argumentList += $runtimeId
+    }
+    $argumentList += $projFile.FullName
+    Write-Verbose "Restoring $($runtimeArtifact)..."
+    $buildlog = & dotnet $argumentList 2>&1
+    if ($LastExitCode -ne 0) {
+        $cmd = $($argumentList -join " ")
+        $buildlog | ForEach-Object { Write-Warning "$_" }
+        throw "Error: 'dotnet $($cmd)' failed with $($LastExitCode)."
+    }
+    else {
+        $buildlog | ForEach-Object { Write-Verbose "$_" }
+    }
 
     # Create dotnet command line 
     $argumentList = @("publish", "-c", $configuration)
@@ -106,36 +136,30 @@ $runtimes | ForEach-Object {
         $argumentList += "/p:TargetLatestRuntimePatch=true"
     }
 
-    $runtimeArtifact = Join-Path $publishPath $runtimeId
     $argumentList += "-o"
     $argumentList += $runtimeArtifact
     $argumentList += $projFile.FullName
 
-    Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
+Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
     $buildlog = & dotnet $argumentList 2>&1
     if ($LastExitCode -ne 0) {
         $cmd = $($argumentList -join " ")
-        $buildlog | ForEach-Object { Write-Host "$_" }
+        $buildlog | ForEach-Object { Write-Warning "$_" }
         throw "Error: 'dotnet $($cmd)' failed with $($LastExitCode)."
     }
     else {
         $buildlog | ForEach-Object { Write-Verbose "$_" }
     }
-    Write-Host "Published $($projName) ($($runtimeId)) to $($publishPath)..."
-
     $runtimeInfos += @{
         runtimeId = $runtimeId
         artifact = $runtimeArtifact
     }
 }
 
-$proj = [xml] (Get-Content -Path $projFile.FullName)
-$assemblyName = $proj.Project.PropertyGroup `
-    | Where-Object { ![string]::IsNullOrWhiteSpace($_.AssemblyName) } `
-    | Select-Object { $_.AssemblyName } -Last 1
-if ([string]::IsNullOrWhiteSpace($assemblyName)) {
-    $assemblyName = $projFile.BaseName
-}
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Building $($projName) took $($elapsedString)..." 
 
 return @{
     Name = $metadata.name

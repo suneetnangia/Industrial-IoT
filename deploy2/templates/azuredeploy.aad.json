@@ -1,0 +1,199 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created keyvault containing service configuration."
+            }
+        },
+        "applicationName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the application to register. "
+            }
+        },
+        "aadPrincipalId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+        "aadPreConfiguration": {
+            "type": "secureObject",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Preconfigured aad registrations.  If provided in full set the aadPrincipalId parameter to an empty string."
+            }
+        },
+		"aadPrincipalAssignDeploymentScriptRole": { 
+			"type": "bool", 
+			"defaultValue": true,
+            "metadata": {
+                "description": "Assign the required deployment script execution role to the principal ahead of using it to run the script."
+            }
+		},
+        "deployScriptIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('deploy-msi-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+            "metadata": {
+                "description": "Name of the Managed identity resource to run scripts"
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/main/deploy2/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "aadAppRegistrationRoleAssignmentsName": "aad-rbac",
+        "aadAppRegistrationRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationRoleAssignmentsName'))]",
+        "aadAppRegistrationResourceName": "[concat('aad.register.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadAppRegistrationResourceId": "[resourceId('Microsoft.Resources/deploymentScripts', variables('aadAppRegistrationResourceName'))]",
+        "aadAppRegistrationLocalIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('deployScriptIdentityName'))]",
+        "aadAppRegistrationIdentityResourceId": "[if(variables('createLocalManagedIdentity'), variables('aadAppRegistrationLocalIdentityResourceId'), parameters('aadPrincipalId'))]",
+        "createLocalManagedIdentity": "[or(not(empty(parameters('aadPreConfiguration'))), not(empty(parameters('aadPrincipalPassword'))))]",
+        "performAadRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId'))))]"
+    },
+    "resources": [
+        {
+            "comments": "Managed identity to run scripts in the deployment.",
+            "name": "[parameters('deployScriptIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "condition": "[variables('createLocalManagedIdentity')]",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign roles to the principal to run the application registration script under.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aadAppRegistrationRoleAssignmentsName')]",
+            "condition": "[variables('performAadRegistration')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[reference(variables('aadAppRegistrationIdentityResourceId'), '2018-11-30').principalId]"
+                    },
+                    "assignRoles": {
+                        "value": "[if(or(variables('createLocalManagedIdentity'), parameters('aadPrincipalAssignDeploymentScriptRole')), createArray('Contributor', 'KeyVaultSecretOfficer'), createArray('KeyVaultSecretOfficer'))]" 
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('aadAppRegistrationLocalIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Register the micro service and client applications in AAD / Microsoft Graph.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('aadAppRegistrationResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "condition": "[variables('performAadRegistration')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[variables('aadAppRegistrationIdentityResourceId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[concat(parameters('aadPrincipalId'), parameters('applicationName'), variables('aadAppRegistrationResourceName'))]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
+                "arguments": "[concat(' --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --keyvault \"', parameters('keyVaultName'), '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "principalPassword",
+                        "secureValue": "[if(not(empty(parameters('aadPrincipalPassword'))), parameters('aadPrincipalPassword'), '')]"
+                    },
+                    {
+                        "name": "config",
+                        "secureValue": "[if(empty(parameters('aadPreConfiguration')), '', replace(string(parameters('aadPreConfiguration')), '\"', '\\\"'))]"
+                    }
+                ],
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('aadAppRegistrationRoleAssignmentsId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "aadRegistrationAdminIdentityId": {
+            "type": "string",
+            "value": "[variables('aadAppRegistrationIdentityResourceId')]"
+        },
+        "aadRegistrationUpdateReplyUrls": {
+            "type": "bool",
+            "value": "[and(variables('performAadRegistration'), empty(parameters('aadPreConfiguration')))]"
+        },
+        "serviceAppId": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.serviceAppId, '')]"
+        },
+        "serviceAudience": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.serviceAudience, '')]"
+        },
+        "clientAppId": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.clientAppId, '')]"
+        },
+        "webappAppId": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.webappAppId, '')]"
+        },
+        "tenantId": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.tenantId, '')]"
+        },
+        "authorityUri": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.authorityUri, '')]"
+        },
+        "trustedTokenIssuer": {
+            "type": "string",
+            "value": "[if(variables('performAadRegistration'), reference(variables('aadAppRegistrationResourceId')).outputs.trustedTokenIssuer, '')]"
+        }
+    }
+}

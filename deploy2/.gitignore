@@ -1,0 +1,6 @@
+.user
+.app
+.env
+*.err
+deploy.json
+edge

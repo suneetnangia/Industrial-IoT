@@ -1,0 +1,277 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created keyvault containing service configuration."
+            }
+        },
+        "serviceBusEndpointSuffix": {
+            "type": "string",
+            "defaultValue": "servicebus.windows.net",
+            "allowedValues": [
+                "servicebus.windows.net",
+                "servicebus.chinacloudapi.cn"
+            ],
+            "metadata": {
+                "description": "Suffix added to Service Bus endpoint"
+            }
+        },
+        "eventHubNamespaceName": {
+            "type": "string",
+            "defaultValue": "[concat('eventhubnamespace-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the Event Hub namespace created as part of the deployment."
+            }
+        },
+        "signalRName": {
+            "type": "string",
+            "defaultValue": "[concat('signalr-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the signalR endpoint created as part of this deployment."
+            }
+        },
+        "signalRSkuTier": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Free",
+                "Standard",
+                "Premium"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service SKU Tier to use."
+            }
+        },
+        "signalRSkuName": {
+            "type": "string",
+            "defaultValue": "Standard_S1",
+            "allowedValues": [
+                "Free_F1",
+                "Standard_S1"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service SKU to use."
+            }
+        },
+        "signalRServiceMode": {
+            "type": "string",
+            "defaultValue": "Default",
+            "allowedValues": [
+                "Default",
+                "Serverless"
+            ],
+            "metadata": {
+                "description": "The Azure SignalR Service mode to use. Defaults to Classic."
+            }
+        },
+        "signalRSkuCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "allowedValues": [
+                1,
+                2,
+                5,
+                10,
+                20,
+                50,
+                100
+            ],
+            "metadata": {
+                "description": "The Azure SignalR SKU Capacity"
+            }
+        },
+        "eventHubName": {
+            "type": "string",
+            "defaultValue": "[concat('eventhub-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "The name of the Event Hub created as part of the deployment."
+            }
+        },
+        "eventHubRetentionInDays": {
+            "type": "int",
+            "defaultValue": 2,
+            "metadata": {
+                "description": "The event hub message retention in days."
+            }
+        },
+        "eventHubPartitionCount": {
+            "type": "int",
+            "defaultValue": 4,
+            "metadata": {
+                "description": "The event hub partition count."
+            }
+        },
+        "eventHubSkuTier": {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [
+                "Basic",
+                "Standard"
+            ],
+            "metadata": {
+                "description": "The Azure Event Hub SKU Tier."
+            }
+        },
+        "eventHubSkuCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "metadata": {
+                "description": "The Azure Event Hub SKU Capacity to use."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy2/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "eventHubKeyName": "RootManageSharedAccessKey",
+        "eventHubKeyResourceId": "[resourceId('Microsoft.EventHub/namespaces/AuthorizationRules', parameters('eventHubNamespaceName'), variables('eventHubKeyName'))]",
+        "eventHubNamespaceResourceId": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]",
+        "eventHubResourceId": "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
+        "signalRResourceId": "[resourceId('Microsoft.SignalRService/SignalR', parameters('signalRName'))]",
+        "eventHubUxConsumerGroup": "telemetryux",
+        "configurationResourceName": "optional.configuration"
+    },
+    "resources": [
+        {
+            "comments": "Azure Event Hub Namespace for Device Telemetry events",
+            "type": "Microsoft.EventHub/namespaces",
+            "apiVersion": "2017-04-01",
+            "name": "[parameters('eventHubNamespaceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('eventHubSkuTier')]",
+                "tier": "[parameters('eventHubSkuTier')]",
+                "capacity": "[parameters('eventHubSkuCapacity')]"
+            },
+            "properties": {
+                "isAutoInflateEnabled": false,
+                "maximumThroughputUnits": 0
+            }
+        },
+        {
+            "comments": "Azure Event Hub for processed Device Telemetry",
+            "type": "Microsoft.EventHub/namespaces/eventhubs",
+            "name": "[concat(parameters('eventHubNamespaceName'), '/', parameters('eventHubName'))]",
+            "apiVersion": "2017-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "messageRetentionInDays": "[parameters('eventHubRetentionInDays')]",
+                "partitionCount": "[parameters('eventHubPartitionCount')]",
+                "status": "Active"
+            },
+            "dependsOn": [
+                "[variables('eventHubNamespaceResourceId')]"
+            ]
+        },
+        {
+            "comments": "SignalR service for UX and API events",
+            "type": "Microsoft.SignalRService/SignalR",
+            "name": "[parameters('signalRName')]",
+            "apiVersion": "2018-10-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "hostNamePrefix": "[parameters('signalRName')]",
+                "features": [
+                    {
+                        "flag": "ServiceMode",
+                        "value": "[parameters('signalRServiceMode')]"
+                    }
+                ],
+                "cors": {
+                    "allowedOrigins": [
+                        "*"
+                    ]
+                }
+            },
+            "sku": {
+                "name": "[parameters('signalRSkuName')]",
+                "tier": "[parameters('signalRSkuTier')]",
+                "capacity": "[parameters('signalRSkuCapacity')]"
+            }
+        },
+        {
+            "comments": "Consumer Group for UX and API telemetry consumers",
+            "type": "Microsoft.EventHub/namespaces/eventhubs/consumergroups",
+            "apiVersion": "2017-04-01",
+            "name": "[concat(parameters('eventHubNamespaceName'), '/', parameters('eventHubName'), '/', variables('eventHubUxConsumerGroup'))]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "userMetadata": "UX Telemetry Consumer Group"
+            },
+            "dependsOn": [
+                "[variables('eventHubResourceId')]"
+            ]
+        },
+        {
+            "comments": "Save platform configuration in keyVault.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('configurationResourceName')]",
+            "condition": "[not(empty(parameters('keyVaultName')))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[parameters('keyVaultName')]"
+                    },
+                    "configuration": {
+                        "value": [
+                            {
+                                "key": "PCS_SIGNALR_CONNSTRING",
+                                "value": "[listkeys(parameters('signalRName'), '2018-10-01').primaryConnectionString]"
+                            },
+                            {
+                                "key": "PCS_SIGNALR_MODE",
+                                "value": "[parameters('signalRServiceMode')]"
+                            },
+                            {
+                                "key": "PCS_EVENTHUB_CONNSTRING",
+                                "value": "[concat('Endpoint=sb://', parameters('eventHubNamespaceName'), '.', parameters('serviceBusEndpointSuffix'), '/;SharedAccessKeyName=', variables('eventHubKeyName'), ';SharedAccessKey=', listkeys(variables('eventHubKeyResourceId'), '2017-04-01').primaryKey, ';')]"
+                            },
+                            {
+                                "key": "PCS_EVENTHUB_NAME",
+                                "value": "[parameters('eventHubName')]"
+                            }
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.configuration.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('signalRResourceId')]",
+                "[variables('eventHubResourceId')]"
+            ]
+        }
+    ]
+}

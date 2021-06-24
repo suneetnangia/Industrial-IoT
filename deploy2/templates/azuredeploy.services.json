@@ -1,0 +1,472 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "applicationName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the services endpoint."
+            }
+        },
+        "deployEngineeringTool": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy engineering tool frontend."
+            }
+        },
+        "deployTelemetryProcessor": {
+            "type": "bool",
+            "defaultValue": "[parameters('deployEngineeringTool')]",
+            "metadata": {
+                "description": "Whether to deploy telemetry processor."
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created keyvault containing service configuration."
+            }
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "metadata": {
+                "description": "The Uri of the Azure Key Vault."
+            }
+        },
+		"aksNodeResourceGroup": { 
+			"type": "string", 
+            "metadata": {
+                "description": "The resource group of the cluster nodes."
+            }
+		},
+        "aksClusterName": {
+            "type": "string",
+            "metadata": {
+                "description": "The resource id of the Azure Managed Kubernetes Cluster to deploy the services to."
+            }
+        },
+        "aksKubeletIdentityPrincipalId": {
+            "type": "string",
+            "metadata": {
+                "description": "The kubelet principal being assigned managed operator role permissions to the resource group."
+            }
+        },
+        "aksAdminIdentityResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "The admin managed identity resource to access the cluster."
+            }
+        },
+        "helmChartName": {
+            "type": "string",
+            "defaultValue": "azure-industrial-iot",
+            "metadata": {
+                "description": "The name of the helm chart if it is different than the official released one."
+            }
+        },
+        "helmChartVersion": {
+            "type": "string",
+            "defaultValue": "0.4.0",
+            "metadata": {
+                "description": "Version of azure-industrial-iot Helm chart to use"
+            }
+        },
+        "helmRepoUrl": {
+            "type": "string",
+            "defaultValue": "https://microsoft.github.io/charts/repo",
+            "metadata": {
+                "description": "URL of the Helm repository containing azure-industrial-iot chart"
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
+            }
+        },
+        "dockerServer": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com",
+            "metadata": {
+                "description": "Specifies the endpoint of the Container Registry."
+            }
+        },
+        "dockerUser": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the user name to log into a private Container Registry."
+            }
+        },
+        "dockerPassword": {
+            "type": "secureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the password to use for a private Container Registry."
+            }
+        },
+        "imagesTag": {
+            "type": "string",
+            "defaultValue": "2.7",
+            "metadata": {
+                "description": "Specifies the image version tag to use for all images."
+            }
+        },
+        "managedIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('services-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5), '-msi')]",
+            "metadata": {
+                "description": "The name of the managed identity the micro services will use to access azure services."
+            }
+        },
+        "publicIpName": {
+            "type": "string",
+            "defaultValue": "[concat(resourceGroup().name, '-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5), '-ip')]",
+            "metadata": {
+                "description": "Name of the public ip resource in the node resource group of the cluster."
+            }
+        },
+        "publicIpSku": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "Standard"
+            ],
+            "defaultValue": "Standard",
+            "metadata": {
+                "description": "Public IP Sku to use"
+            }
+        },
+        "publicIpAllocationMethod": {
+            "type": "string",
+            "allowedValues": [
+                "Dynamic",
+                "Static"
+            ],
+            "defaultValue": "Static",
+            "metadata": {
+                "description": "Allocation method for the public IP Address."
+            }
+        },
+        "publicIpDomainNameLabel": {
+            "type": "string",
+            "defaultValue": "[parameters('applicationName')]",
+            "metadata": {
+                "description": "Public Ip domain label."
+            }
+        },
+        "aadPrincipalId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+        "aadRegistrationAdminIdentityId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Azure Active Directory web application management identity."
+            }
+        },
+        "aadRegistrationUpdateReplyUrls": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Udpate reply urls on the registered Azure Active Directory web application."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/master/deploy2/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "managedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
+        "managedIdentityRoleAssignmentsName": "[concat('services.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
+        "aksClusterKubeletIdentityRoleAssignmentsName": "[concat('services.kubelet.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aksClusterKubeletIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterKubeletIdentityRoleAssignmentsName'))]",
+        "helmChartsInstallScriptResourceName": "[concat('services.helm.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "aadReplyUrlUpdateResourceName": "[concat('services.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "publicIpDeploymentName": "services.ip",
+        "publicIpDeploymentId": "[resourceId(parameters('aksNodeResourceGroup'), 'Microsoft.Resources/deployments', variables('publicIpDeploymentName'))]",
+        "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
+        "configurationResourceName": "services.configuration"
+    },
+    "resources": [
+        {
+            "comments": "Create the managed identity for the micro services.",
+            "name": "[parameters('managedIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign permissions to the kubelet to link the service identity into the virtual machines.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('aksClusterKubeletIdentityRoleAssignmentsName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value": "[parameters('aksKubeletIdentityPrincipalId')]"
+                    },
+                    "assignRoles": {
+                        "value": [
+                            "ManagedIdentityOperator"
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            }
+        },
+        {
+            "comments": "Assign permissions to micro services to access rbac enabled Azure services.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('managedIdentityRoleAssignmentsName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value":  "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]"
+                    },
+                    "assignRoles": {
+                        "value": [ 
+                            "KeyVaultSecretOfficer",
+                            "KeyVaultCryptoOfficer",
+                            "StorageBlobDataContributor",
+                            "ManagedIdentityOperator" 
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('managedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Create a public IP address of the services endpoint in the node resource group.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('publicIpDeploymentName')]",
+            "resourceGroup": "[parameters('aksNodeResourceGroup')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "publicIpName": {
+                        "value": "[parameters('publicIpName')]"
+                    },
+                    "publicIpSku": {
+                        "value": "[parameters('publicIpSku')]"
+                    },
+                    "publicIpAllocationMethod": {
+                        "value": "[parameters('publicIpAllocationMethod')]"
+                    },
+                    "publicIpDomainNameLabel": {
+                        "value": "[parameters('publicIpDomainNameLabel')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.services.ip.json'), parameters('templateUrlQueryString'))]"
+                }
+            }
+        },
+        {
+            "comments": "Install the services into the AKS cluster using Helm and set up monitoring and TLS termination.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('helmChartsInstallScriptResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[parameters('aksAdminIdentityResourceId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[parameters('helmChartVersion')]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/cluster-setup.sh'), parameters('templateUrlQueryString'))]",
+                "arguments": "[concat(' --namespace ', '\"', parameters('applicationName'), '\"', ' --resourcegroup ', '\"', resourceGroup().name, '\"', ' --role ', '\"AzureKubernetesServiceClusterUserRole\"', ' --aksCluster ', '\"', parameters('aksClusterName'), '\"', ' --loadBalancerIp ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.ipAddress.value, '\"', ' --publicIpDnsLabel ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.domainNameLabel.value, '\"', if(or(empty(parameters('helmRepoUrl')), parameters('helmPullChartFromDockerServer')), '', concat(' --helmRepoUrl ', '\"', parameters('helmRepoUrl'), '\"')), if (not(empty(parameters('helmChartName'))), concat(' --helmChartName ', '\"', parameters('helmChartName'), '\"'), ''), if (not(empty(parameters('helmChartVersion'))), concat(' --helmChartVersion ', '\"', parameters('helmChartVersion'), '\"'), ''),  ' --keyVaultUri ', '\"',  parameters('keyVaultUri'), '\"', ' --servicesHostname ', '\"', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '\"', ' --managedIdentityId ', '\"', variables('managedIdentityResourceId'), '\"', ' --managedIdentityName ', '\"', parameters('managedIdentityName'), '\"',  ' --managedIdentityClientId ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').clientId, '\"', ' --tenant ', '\"', reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId, '\"', if (not(empty(parameters('imagesTag'))), concat(' --imagesTag ', '\"', parameters('imagesTag'), '\"'), ''), if (not(empty(parameters('dockerServer'))), concat(' --dockerServer ', '\"', parameters('dockerServer'), '\"'), ''), if (not(empty(parameters('dockerUser'))), concat(' --dockerUser ', '\"', parameters('dockerUser'), '\"'), ''), if (not(parameters('deployEngineeringTool')), ' --noEngineeringTool ', ''), if (and(not(parameters('deployEngineeringTool')), not(parameters('deployTelemetryProcessor'))), ' --noTelemetryProcessor ', ''))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "dockerPassword",
+                        "secureValue": "[if (not(empty(parameters('dockerPassword'))), parameters('dockerPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('configurationResourceId')]",
+                "[variables('publicIpDeploymentId')]",
+                "[variables('aksClusterKubeletIdentityRoleAssignmentsId')]",
+                "[variables('managedIdentityRoleAssignmentsId')]"
+            ]
+        },
+        {
+            "comments": "Update the reply urls on the web app application in AAD / Microsoft Graph.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('aadReplyUrlUpdateResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "condition": "[and(not(empty(parameters('aadPrincipalId'))), parameters('deployEngineeringTool'), parameters('aadRegistrationUpdateReplyUrls'))]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[parameters('aadRegistrationAdminIdentityId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[concat(parameters('aadPrincipalId'), parameters('applicationName'), variables('aadReplyUrlUpdateResourceName'))]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
+                "arguments": "[concat(' --serviceurl \"', reference(variables('publicIpDeploymentId')).outputs.fqdn.value, '\" --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "principalPassword",
+                        "secureValue": "[if(not(empty(parameters('aadPrincipalPassword'))), parameters('aadPrincipalPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnExpiration",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('publicIpDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Save platform configuration in keyVault.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('configurationResourceName')]",
+            "condition": "[not(empty(parameters('keyVaultName')))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[parameters('keyVaultName')]"
+                    },
+                    "configuration": {
+                        "value": [
+                            {
+                                "key": "PCS_SERVICE_NAME",
+                                "value": "[concat('https://', reference(variables('publicIpDeploymentId')).outputs.fqdn.value)]"
+                            },
+                            {
+                                "key": "PCS_MSI_APPID",
+                                "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').clientId]"
+                            },
+                            {
+                                "key": "PCS_MSI_TENANT",
+                                "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_SERVER",
+                                "value": "[parameters('dockerServer')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_USER",
+                                "value": "[parameters('dockerUser')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_PASSWORD",
+                                "value": "[parameters('dockerPassword')]"
+                            }
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.configuration.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('managedIdentityRoleAssignmentsId')]",
+                "[variables('publicIpDeploymentId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "serviceUrl": {
+            "type": "string",
+            "value": "[concat('https://', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value)]"
+        },
+        "managedIdentityResourceName": {
+            "type": "string",
+            "value": "[parameters('managedIdentityName')]"
+        },
+        "managedIdentityResourceId": {
+            "type": "string",
+            "value": "[variables('managedIdentityResourceId')]"
+        },
+        "managedIdentityClientId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).clientId]"
+        },
+        "managedIdentityPrincipalId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).principalId]"
+        },
+        "managedIdentityTenantId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).tenantId]"
+        }
+    }
+}
