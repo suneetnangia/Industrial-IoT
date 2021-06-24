@@ -479,6 +479,7 @@ $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
 Write-Host "Uploading task context $($taskArtifact) took $($elapsedString)..." 
 # -------------------------------------------------------------------------
+
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
 & (Join-Path $PSScriptRoot "acr-builder.ps1") -TaskArtifact $taskArtifact `

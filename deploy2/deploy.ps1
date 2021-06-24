@@ -223,7 +223,7 @@ Function Get-EnvironmentVariables() {
 # -------------------------------------------------------------------------
 $templateParameters = @{ }
 
-# Select branch component - default to master
+# Select branch component - default to main
 $branchName = $env:BUILD_SOURCEBRANCH
 if (![string]::IsNullOrEmpty($branchName)) {
     if ($branchName.StartsWith("refs/heads/")) {
@@ -246,8 +246,8 @@ if ([string]::IsNullOrEmpty($branchName)) {
         $argumentList = @("remote", "get-url", $remote)
         $branchName = $symbolic.Replace("$($remote)/", "")
         if ($branchName -eq "HEAD") {
-            Write-Warning "$($symbolic) is not a branch - using master."
-            $branchName = "master"
+            Write-Warning "$($symbolic) is not a branch - using main."
+            $branchName = "main"
         }
     }
     catch {
