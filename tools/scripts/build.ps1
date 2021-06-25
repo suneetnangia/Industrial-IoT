@@ -92,12 +92,13 @@ if ($projects.Count -eq 0) {
         Remove-Item $(Join-Path $script:Output "projects.json") `
             -ErrorAction SilentlyContinue
     }
-
     [array]$projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
         -Path $script:Path -Output $script:Output `
         -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
+    if (!$projects) {
+        throw "Failed to build projects."
+    }
     $projects | Write-Verbose
-
     # Save projects to output folder provided as specified and exit
     if ((![string]::IsNullOrEmpty($script:Output)) -and `
         ($projects.Count -gt 0)) {
@@ -114,9 +115,12 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
     & (Join-Path $PSScriptRoot "acr-tasks.ps1") -Projects $projects `
         -Registry $script:Registry -Subscription $script:Subscription `
         -Debug:$script:Debug -Fast:$script:Fast
+    if ($LastExitCode -eq 0) {
+        Remove-Item $(Join-Path $script:Output "projects.json") `
+            -ErrorAction SilentlyContinue
+    }
 }
 
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 Write-Host "... took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
-return $projects

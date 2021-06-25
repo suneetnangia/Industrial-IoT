@@ -229,7 +229,7 @@ ENTRYPOINT $($entryPoint)
 "@
         $buildContext = $script:Project.Name.Replace('/', '-')
         $dockerFile = "Dockerfile.$($buildContext)-$($platformTag)$($tagPostfix)"
-        Write-Host "Writing $dockerFile to $taskContext ..."
+        Write-Verbose "Writing $dockerFile to $taskContext ..."
         $dockerFileContent | Out-File -Encoding ascii `
             -FilePath (Join-Path $taskContext $dockerFile)
 
@@ -253,6 +253,7 @@ ENTRYPOINT $($entryPoint)
                 artifactCache = @{}
                 stepIndex = 0
                 images = @()
+                repo = "`$Registry`$Namespace/$($project.Name)"
                 taskyaml = @"
 version: v1.1.0
 stepTimeout: 2400
@@ -271,13 +272,13 @@ steps:
         }
        
         # Create image build definition 
-        $image = "`$Registry`$Namespace/$($project.Name)"
-        $image = "$($image):`$SourceTag-$($platformTag)$($tagPostfix)"
+        $image = "$($tasks[$taskname].repo):`$SourceTag"
+        $image = "$($image)-$($platformTag)$($tagPostfix)"
 
         # Select artifact to include in image
-        $artifact = "`$Registry`$Namespace/$($project.Name)"
-        $artifact = "$($artifact):`$SourceTag-artifact"
+        $artifact = "$($tasks[$taskname].repo):`$SourceTag-artifact"
         $artifact = "$($artifact)-$($runtimeId)$($tagPostfix)"
+
         $buildContext = "$($buildContext)$($tagPostfix)"
 
   # Add steps to pull the artifact into the build context and build the dockerfile
@@ -341,7 +342,7 @@ $tasks.Keys | ForEach-Object {
 
 "@
     $manifests = $manifestImages -join " "
-    $manifestList = "$($fullImageName):`$TargetTag$($tagPostfix)"
+    $manifestList = "$($buildtask.repo):`$TargetTag$($tagPostfix)"
     #
     # One problem we have to address is that images are built on 
     # multiple platforms, yet the manifest list must contain all
@@ -434,7 +435,7 @@ $tasks.Keys | ForEach-Object {
     $taskfile = "$_.yaml"
     $buildtask.taskyaml | Out-File -Encoding ascii `
         -FilePath (Join-Path $taskContext $taskfile)
-    Write-Host $buildtask.taskyaml
+    Write-Verbose $buildtask.taskyaml
     $annotations[$taskfile] = $buildtask.annotation
 }
 

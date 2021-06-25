@@ -1,7 +1,6 @@
 <#
  .SYNOPSIS
-    Sets up tasks from a task artifact.
-
+    Sets up tasks and runs these tasks using a task artifact as input.
  .DESCRIPTION
     The script requires az to be installed and already logged on to a 
     subscription.  This means it should be run in a azcliv2 task in the
@@ -22,11 +21,12 @@
 #>
 
 Param(
-    [string] $TaskArtifact,
-    [string] $Subscription = $null,
+    [Parameter(Mandatory = $true)] [string] $TaskArtifact,
+    [string] $Subscription = "IOT-OPC-WALLS",
     [switch] $IsLatest,
     [switch] $IsMajorUpdate,
-    [switch] $RemoveNamespaceOnRelease
+    [switch] $RemoveNamespaceOnRelease,
+    [int] $MaxConcurrentJobs = 8
 )
 
 # -------------------------------------------------------------------------
@@ -68,8 +68,6 @@ $argumentList = @("manifest", "inspect", $script:TaskArtifact)
 $manifest = (& docker $argumentList 2>&1 | ForEach-Object { "$_" }) `
     | ConvertFrom-Json
 
-$taskname = $taskname.Substring(0, [Math]::Min($taskname.Length, 45))
-
 # Get layers with annotations and based on those create all the tasks
 $tasks = @()
 $manifest.layers | ForEach-Object {
@@ -108,7 +106,8 @@ $manifest.layers | ForEach-Object {
         }
     }
     
-    Write-Verbose "Creating $($taskname) tasks for releases 
+    $taskname = $taskname.Substring(0, [Math]::Min($taskname.Length, 45))
+    Write-Verbose "Creating or updating $($taskname) tasks for releases 
 $($targetTags -join ", ") on $($platform) from $($script:TaskArtifact)
 and using $($taskfile)..."
     foreach ($targetTag in $targetTags) {
@@ -142,94 +141,83 @@ and using $($taskfile)..."
                 throw "Error: 'az $cmd' 2nd attempt failed with $LastExitCode."
             }
         }
-        Write-Host "Task $($fullName) created successfully."
+        Write-Host "Task $($fullName) created or updated successfully."
         $createLogs | Write-Verbose
         $tasks += $fullName
     }
 }
 
-$jobs = @()
-foreach ($taskName in $tasks) {
-    # run the task
-    $argumentList = @(
-        "--name", $taskName,
-        "--registry", $registryInfo.Registry,
-        "--resource-group", $registryInfo.ResourceGroup,
-        "--subscription", $registryInfo.Subscription
+# -------------------------------------------------------------------------
+# Picks a task from the queue to run and when completed picks the next
+function RunTask {
+    if($queue.Count -eq 0) {
+        return
+    }
+    $task = $queue.Dequeue()
+    if (!$task) {
+        return
+    }
+    # Run acr task as job
+    $job = Start-Job -Name $task.Name -ArgumentList @(
+        $PSScriptRoot, $registryInfo, $task.Name, $task.NoManifest
+    ) -ScriptBlock {
+        & (Join-Path $args[0] "acr-runner.ps1") `
+            -RegistryInfo $args[1] -TaskName $args[2] `
+            -NoManifest:$args[3]
+    }
+    # when event completes, start new and remove old job
+    Register-ObjectEvent -InputObject $job `
+        -EventName StateChanged -Action { 
+        $job = Get-Job $eventsubscriber.SourceIdentifier
+        $job | Out-Host
+     #   if ($job.State -ne "Completed") {
+     #       return
+     #   }
+        RunTask
+        Unregister-Event $eventsubscriber.SourceIdentifier
+        # Remove-Job $eventsubscriber.SourceIdentifier
+    } | Out-Null
+}
+
+# -------------------------------------------------------------------------
+# Run all tasks and wait for completion
+function RunAllTasks {
+    Param(
+        [array] $TaskNames,
+        [switch] $NoManifest
     )
-    $jobs += Start-Job -Name $taskName `
-        -ArgumentList @($argumentList, $taskName) -ScriptBlock {
-        
-        # measure run
-        $startTime = $(Get-Date)
-        $commonArgs = $args[0]
-        $taskName = $args[1]
-        Write-Host "Starting task run for $($taskName)..."
-        for($i = 0; $i -lt 5; $i++) {
-            $argumentList = @("acr", "task", "run", "--set", "NoManifest=1")
-            $argumentList += $commonArgs
-            $runLogs = & az $argumentList 2>&1 | ForEach-Object {
-                return "$taskName ($i) : $_"
-            } 
-            $cmd = $($argumentList -join " ")
-            $t = "Task $taskName ($i)"
-            if ($LastExitCode -ne 0) {
-                $runLogs | ForEach-Object { Write-Warning "$_" }
-                throw "Error: $t : 'az $cmd' failed with $LastExitCode."
-            }
-
-            # check last run
-            $argumentList = @("acr", "task", "list-runs", "--top", "1")
-            $argumentList += $commonArgs
-            $run = $null
-            while (!$run) {
-                $runResult = (& az $argumentList 2>&1 `
-                    | ForEach-Object { "$_" }) | ConvertFrom-Json
-                $run = $runResult.runId
-                $status = $runResult.status
-                $t = "$t (Run ID: $($run))"
-                if ([string]::IsNullOrEmpty($run) -or `
-                    ($status -ne "Succeeded")) {
-                    if (($status -eq "Queued") -or `
-                        ($status -eq "Running")) {
-                        Write-Verbose "$t in progress..."
-                        Start-Sleep -Seconds 5
-                        $run = $null
-                    }
-                    elseif ($status -eq "Timeout") {
-                        $runLogs | ForEach-Object { Write-Verbose "$_" }
-                        throw "Error: $t (az $cmd) timed out."
-                    }
-                    else {
-                        $runLogs | ForEach-Object { Write-Warning "$_" }
-                        Write-Warning "$t (az $cmd) completed with '$($status)'"
-                    }
-                }
-                elseif ($status -eq "Succeeded") { 
-                    # success
-                    $runLogs | ForEach-Object { Write-Verbose "$_" }
-                    $elapsedTime = $(Get-Date) - $startTime
-                    $elapsedString = $elapsedTime.ToString("hh\:mm\:ss")
-                    Write-Host "$t took $($elapsedString) (hh:mm:ss)..." 
-                    # exits job
-                    return
-                }
-            }
-            Start-Sleep -Seconds 1
-            Write-Host "Attempt #$i - re-starting task $($taskName) ..."
-        } 
-        # end of for loop t retry.
-        throw "Error: Task $($taskName) failed after $($i) times."
+    $queue = [System.Collections.Queue]::Synchronized(`
+        (New-Object System.Collections.Queue))
+    foreach ($taskName in $TaskNames) {
+        $queue.Enqueue(@{
+            Name = $taskName;
+            NoManifest = $NoManifest.IsPresent
+        })
     }
-}
-if ($jobs.Count -ne 0) {
-    # Wait until all jobs are completed
-    Receive-Job -Job $jobs -WriteEvents -Wait | Write-Verbose
-    $jobs | Where-Object { $_.State -ne "Completed" } | ForEach-Object {
-        throw "Error: Running task $($_.Name) resulted in $($_.State)."
+
+    # remove all jobs
+    Get-Job | Remove-Job
+    # Start task run jobs with max concurrency
+    for( $i = 0; $i -lt $script:MaxConcurrentJobs; $i++ ) {
+        RunTask 
+    }
+
+    # Wait until all jobs are completed and task queue is empty
+    while ($queue.Count -ne 0) {
+        $jobs = Get-Job
+        Receive-Job -Job $jobs -WriteEvents -Wait | Write-Verbose
+        $jobs | Where-Object { $_.State -eq "Failed" } | ForEach-Object {
+            throw "Error: Running task $($_.Name) failed."
+        }
     }
 }
 
+# -------------------------------------------------------------------------
+# first build without manifest to create the initial images
+Write-Host "Building without manifest..."
+RunAllTasks -TaskNames $tasks -NoManifest
+Write-Host "Running task steps with manifests..."
+RunAllTasks -TaskNames $tasks
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
