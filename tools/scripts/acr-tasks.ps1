@@ -14,6 +14,8 @@
     Container objects are provided)
  .PARAMETER Projects
     The project objects if already built before (Optional)
+ .PARAMETER Output
+    The root folder for all artifacts output (Optional).
 
  .PARAMETER Registry
     The name of the registry
@@ -29,23 +31,13 @@
 Param(
     [string] $Path = $null,
     [array] $Projects = $null,
+    [string] $Output = $null,
     [string] $Registry = $null,
     [string] $Subscription = $null,
     [switch] $Debug,
-    [switch] $Fast
+    [switch] $Fast,
+    [switch] $SkipPublish
 )
-
-# -------------------------------------------------------------------------
-# Build all projects if no container definition provided
-if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
-    [array]$script:Projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
-        -Path $script:Path `
-        -Debug:$script:Debug -Fast:$script:Fast -Clean
-    if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
-        Write-Warning "Nothing to build under $($script:Path)."
-        return
-    }
-}
 
 # -------------------------------------------------------------------------
 # Get registry information
@@ -57,29 +49,31 @@ if (!$registryInfo) {
 }
 
 # -------------------------------------------------------------------------
-# Publish all build artifacts 
-Write-Host "Publishing $($script:Projects.Count) projects as artifacts..."
-$startTime = $(Get-Date)
-foreach ($project in $script:Projects) {
-    if ($script:Fast.IsPresent -and (!$project.Metadata.buildAlways)) {
-        Write-Warning "Using fast build - Skipping $($project.Name)."
-        continue
+# Build all projects if no container definition provided
+if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
+    if ($script:SkipPublish.IsPresent) {
+        throw "-SkipPublish parameter not allowed with -Path."
     }
-    # Publish artifacts
-    $result = & (Join-Path $PSScriptRoot "acr-publish.ps1") `
-        -Project $project -RegistryInfo $registryInfo `
-        -Debug:$script:Debug -Fast:$script:Fast
-    if (!$result) {
-        Write-Warning "Failed to publish artifact $($project.Name)."
+    [array]$script:Projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
+        -Path $script:Path -Output $script:Output `
+        -Debug:$script:Debug -Fast:$script:Fast -Clean
+    if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
+        Write-Warning "Nothing to build under $($script:Path)."
+        return
     }
+    Write-Host ""
 }
-# -------------------------------------------------------------------------
-$elapsedTime = $(Get-Date) - $startTime
-$elapsedString = "took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
-Write-Host "Publishing $($script:Projects.Count) projects $($elapsedString)..." 
 
 # -------------------------------------------------------------------------
-Write-Host ""
+# Publish artifacts from all built projects 
+if (!$script:SkipPublish.IsPresent) {
+    & (Join-Path $PSScriptRoot "acr-publish-all.ps1") `
+        -Projects $script:Projects -RegistryInfo $registryInfo `
+        -Debug:$script:Debug -Fast:$script:Fast
+    Write-Host ""
+}
+
+# -------------------------------------------------------------------------
 $startTime = $(Get-Date)
 # Used to set the source tag 
 $buildTag = $env:Version_Prefix
@@ -99,7 +93,11 @@ if ([string]::IsNullOrEmpty($buildTag)) {
 Write-Host "Using version '$buildTag' as build tag."
 
 # Create dockerfile and acr task definitions and upload as task artifact
-$taskContext = Join-Path $project.PublishPath "tasks"
+$taskContext = $script:Output
+if (!$taskContext) {
+    $taskContext = $script:Path
+}
+$taskContext = Join-Path $taskContext "tasks"
 Remove-Item $taskContext -Recurse -Force -ErrorAction SilentlyContinue `
     | Out-Null
 New-Item -ItemType Directory -Force -Path $taskContext `
@@ -116,7 +114,10 @@ foreach ($project in $script:Projects) {
         @{
             runtimeId = "linux-arm"
             platform = "linux/arm"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+            images = @{
+    default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+    aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1"
+            }
             platformTag = "linux-arm32v7"
             runtimeOnly = "RUN chmod +x $($project.AssemblyName)"
             entryPoint = "[`"./$($project.AssemblyName)`"]"
@@ -124,7 +125,10 @@ foreach ($project in $script:Projects) {
         @{
             runtimeId = "linux-musl-arm64"
             platform = "linux/arm64"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine-arm64v8"
+            images = @{
+    default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine-arm64v8"
+    aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-alpine-arm64v8"
+            }
             platformTag = "linux-arm64v8"
             runtimeOnly = "RUN chmod +x $($project.AssemblyName)"
             entryPoint = "[`"./$($project.AssemblyName)`"]"
@@ -132,7 +136,10 @@ foreach ($project in $script:Projects) {
         @{
             runtimeId = "linux-musl-x64"
             platform = "linux/amd64"
-            image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine"
+            images = @{
+    default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine"
+    aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-alpine"
+            }
             platformTag = "linux-amd64"
             runtimeOnly = "RUN chmod +x $($project.AssemblyName)"
             always = $true
@@ -141,7 +148,10 @@ foreach ($project in $script:Projects) {
         @{
             runtimeId = "win-x64"
             platform = "windows/amd64"
-            image = "mcr.microsoft.com/windows/nanoserver:1809"
+            images = @{
+    default = "mcr.microsoft.com/windows/nanoserver:1809"
+    aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-nanoserver-1809"
+            }
             platformTag = "nanoserver-amd64-1809"
             always = $true
             entryPoint = "[`"$($project.AssemblyName).exe`"]"
@@ -149,8 +159,11 @@ foreach ($project in $script:Projects) {
         @{
             runtimeId = "win-x64"
             platform = "windows/amd64"
-            image = "mcr.microsoft.com/windows/nanoserver:1909"
-            platformTag = "nanoserver-amd64-1909"
+            images = @{
+    default = "mcr.microsoft.com/windows/nanoserver:2004"
+    aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-nanoserver-2004"
+            }
+            platformTag = "nanoserver-amd64-2004"
             entryPoint = "[`"$($project.AssemblyName).exe`"]"
         }
     )
@@ -159,7 +172,7 @@ foreach ($project in $script:Projects) {
         $platform = $platformInfo.platform.ToLower()
         $platformTag = $platformInfo.platformTag.ToLower()
         $runtimeId = $platformInfo.runtimeId
-        $baseImage = $platformInfo.image
+        $baseImage = $platformInfo.images.default
     
         # Create docker file
         $environmentVars = @("ENV DOTNET_RUNNING_IN_CONTAINER=true")
@@ -168,11 +181,16 @@ foreach ($project in $script:Projects) {
             break
         }
         #
-        # Check for overridden base image name - e.g. aspnet core images
+        # Check for overridden base image name - e.g. aspnetcore images
         # we then default to dotnet entry point and consume portable
         #
-        if (![string]::IsNullOrEmpty($project.Metadata.base)) {
-            $baseImage = $project.Metadata.base
+        $base = $project.Metadata.base
+        if (![string]::IsNullOrEmpty($base)) {
+            $baseImage = $platformInfo.images[$base]
+            if (!$baseImage) {
+                Write-Warning "The requested $base image is not supported."
+                break
+            }
             $runtimeId = "portable"
         }
         # 
@@ -281,8 +299,8 @@ steps:
 
         $buildContext = "$($buildContext)$($tagPostfix)"
 
-  # Add steps to pull the artifact into the build context and build the dockerfile
-    Write-Host "Adding $($image) build step for $($platform) from $($artifact)..."
+# Add steps to pull the artifact into the build context and build the dockerfile
+Write-Verbose "Adding $($image) build step for $($platform) from $($artifact)..."
         $tasks[$taskname].stepIndex += 1
         $tasks[$taskname].images += @{
             image = $image
@@ -474,16 +492,18 @@ if ($LastExitCode -ne 0) {
         throw "Error: 'docker $cmd' 2nd attempt failed with $LastExitCode."
     }
 }
+Remove-Item $taskContext -Recurse -Force -ErrorAction SilentlyContinue `
+    | Out-Null
 $pushLog | ForEach-Object { Write-Verbose "$_" }
+
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
 Write-Host "Uploading task context $($taskArtifact) took $($elapsedString)..." 
-# -------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
-& (Join-Path $PSScriptRoot "acr-builder.ps1") -TaskArtifact $taskArtifact `
+& (Join-Path $PSScriptRoot "acr-run-all.ps1") -TaskArtifact $taskArtifact `
     -Subscription $script:Subscription `
     -IsLatest:$script:Fast -RemoveNamespaceOnRelease:$script:Fast
 # -------------------------------------------------------------------------

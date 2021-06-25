@@ -111,7 +111,6 @@ if ($script:Project.Debug -and (!$script:Fast.IsPresent)) {
 # Publish runtime artifacts to registry
 $argumentList = @("pull", "ghcr.io/deislabs/oras:v0.11.1")
 & docker $argumentList 2>&1 | ForEach-Object { "$_" }
-$jobs = @()
 foreach ($runtime in $script:Project.Runtimes) {
     $created = $(Get-Date -Format "o")
     $root = Join-Path (Split-Path -Path $runtime.artifact -Parent) "workspaces"
@@ -159,33 +158,23 @@ foreach ($runtime in $script:Project.Runtimes) {
         "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password, "-v",
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile)
+
     $co = "uploading artifact $artifact"
-    $jobs += Start-Job -Name $artifact `
-        -ArgumentList @($argumentList, $co, $script:RegistryInfo.Password) `
-        -ScriptBlock {
-        $argumentList = $args[0]
-        $co = $args[1]
-        Write-Verbose "Start $($co)..."
-        $pushLog = & docker $argumentList 2>&1
-        if ($LastExitCode -ne 0) {
-            $cmd = $($argumentList -join " ") -replace $args[2], "***"
+    Write-Verbose "Start $($co)..."
+    $pushLog = & docker $argumentList 2>&1
+    if ($LastExitCode -ne 0) {
+        $cmd = $($argumentList -join " ")
+        $cmd = $cmd -replace $script:RegistryInfo.Password, "***"
 Write-Warning "Failed $($co). 'docker $cmd' exited with $LastExitCode - 2nd attempt..."
-            & docker $argumentList 2>&1 | ForEach-Object { "$_" }
-            if ($LastExitCode -ne 0) {
-                $pushLog | ForEach-Object { Write-Warning "$_" }
+        & docker $argumentList 2>&1 | ForEach-Object { "$_" }
+        if ($LastExitCode -ne 0) {
+            $pushLog | ForEach-Object { Write-Warning "$_" }
 throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode."
-            }
         }
-        $pushLog | ForEach-Object { Write-Verbose "$_" }
-        Write-Verbose "Completed $($co)."
     }
-}
-if ($jobs.Count -ne 0) {
-    # Wait until all jobs are completed
-    Receive-Job -Job $jobs -WriteEvents -Wait | Write-Verbose
-    $jobs | Where-Object { $_.State -ne "Completed" } | ForEach-Object {
-        throw "Error: Pushing artifact $($_.Name) resulted in $($_.State)."
-    }
+    Remove-Item $workspace -Recurse -Force -ErrorAction SilentlyContinue
+    $pushLog | ForEach-Object { Write-Verbose "$_" }
+    Write-Verbose "Completed $($co)."
 }
 
 # -------------------------------------------------------------------------

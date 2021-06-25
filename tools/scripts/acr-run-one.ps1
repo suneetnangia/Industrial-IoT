@@ -31,8 +31,7 @@ $commonArgs = @(
     "--subscription", $script:RegistryInfo.Subscription
 )
 # run the task
-Write-Host "Starting task run for $($script:TaskName)..."
-
+Write-Verbose "Starting task run for $($script:TaskName)..."
 # enable retries for resiliency
 $success = $false
 for ($i = 0; $i -lt 5; $i++) {
@@ -64,10 +63,8 @@ for ($i = 0; $i -lt 5; $i++) {
         $run = $runResult.runId
         $status = $runResult.status
         $t = "$t (Run ID: $($run))"
-        if ([string]::IsNullOrEmpty($run) -or `
-            ($status -ne "Succeeded")) {
-            if (($status -eq "Queued") -or `
-                ($status -eq "Running")) {
+        if ([string]::IsNullOrEmpty($run) -or ($status -ne "Succeeded")) {
+            if (($status -eq "Queued") -or ($status -eq "Running")) {
                 Write-Verbose "$t in progress..."
                 Start-Sleep -Seconds 5
                 $run = $null
@@ -76,14 +73,29 @@ for ($i = 0; $i -lt 5; $i++) {
                 $runLogs | ForEach-Object { Write-Verbose "$_" }
                 throw "Error: $t (az $cmd) timed out."
             }
+            elseif ($status -eq "Failed") {
+                $dlf = $runLogs | Where-Object { 
+                    $_.Contains("Error: failed to download context.") 
+                } | Select-Object -First 1
+                if ($dlf) {
+                    Write-Warning "$t failed to download context."
+                    $runLogs | ForEach-Object { Write-Verbose "$_" }
+                }
+                else {
+                    Write-Warning "$t (az $cmd) failed."
+                    $runLogs | ForEach-Object { Write-Warning "$_" }
+                }
+                break
+            }
             else {
-                $runLogs | ForEach-Object { Write-Warning "$_" }
                 Write-Warning "$t (az $cmd) completed with '$($status)'"
+                $runLogs | ForEach-Object { Write-Warning "$_" }
                 break
             }
         }
         elseif ($status -eq "Succeeded") {
             # done - break out
+            $runLogs | ForEach-Object { Write-Verbose "$_" }
             $success = $true
             break 
         }
@@ -93,13 +105,12 @@ for ($i = 0; $i -lt 5; $i++) {
         break
     }
     Start-Sleep -Seconds 1
-    Write-Host "Attempt #$i - re-starting task $($script:TaskName) ..."
+    Write-Host "Attempt #$i - re-start task $($script:TaskName) ..."
 } 
 if (!$success) {
     # end of for loop t retry.
     throw "Error: Task $($script:TaskName) failed after $($i) times."
 }
-
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"

@@ -114,7 +114,7 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
     Write-Host "Building registry artifacts and containers..."
     & (Join-Path $PSScriptRoot "acr-tasks.ps1") -Projects $projects `
         -Registry $script:Registry -Subscription $script:Subscription `
-        -Debug:$script:Debug -Fast:$script:Fast
+        -Output $script:Output -Debug:$script:Debug -Fast:$script:Fast
     if ($LastExitCode -eq 0) {
         Remove-Item $(Join-Path $script:Output "projects.json") `
             -ErrorAction SilentlyContinue

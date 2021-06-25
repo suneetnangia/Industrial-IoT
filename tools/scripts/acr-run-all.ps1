@@ -18,15 +18,17 @@
     Release as major update
  .PARAMETER RemoveNamespaceOnRelease
     Remove namespace (e.g. public) on release.
+ .PARAMETER ThrottleLimit
+    Max concurrent threads to run tasks.
 #>
 
 Param(
     [Parameter(Mandatory = $true)] [string] $TaskArtifact,
-    [string] $Subscription = "IOT-OPC-WALLS",
+    [string] $Subscription = $null,
     [switch] $IsLatest,
     [switch] $IsMajorUpdate,
     [switch] $RemoveNamespaceOnRelease,
-    [int] $MaxConcurrentJobs = 8
+    [int] $ThrottleLimit = 16
 )
 
 # -------------------------------------------------------------------------
@@ -141,43 +143,15 @@ and using $($taskfile)..."
                 throw "Error: 'az $cmd' 2nd attempt failed with $LastExitCode."
             }
         }
-        Write-Host "Task $($fullName) created or updated successfully."
+        Write-Verbose "Task $($fullName) created or updated successfully."
         $createLogs | Write-Verbose
         $tasks += $fullName
     }
 }
-
 # -------------------------------------------------------------------------
-# Picks a task from the queue to run and when completed picks the next
-function RunTask {
-    if($queue.Count -eq 0) {
-        return
-    }
-    $task = $queue.Dequeue()
-    if (!$task) {
-        return
-    }
-    # Run acr task as job
-    $job = Start-Job -Name $task.Name -ArgumentList @(
-        $PSScriptRoot, $registryInfo, $task.Name, $task.NoManifest
-    ) -ScriptBlock {
-        & (Join-Path $args[0] "acr-runner.ps1") `
-            -RegistryInfo $args[1] -TaskName $args[2] `
-            -NoManifest:$args[3]
-    }
-    # when event completes, start new and remove old job
-    Register-ObjectEvent -InputObject $job `
-        -EventName StateChanged -Action { 
-        $job = Get-Job $eventsubscriber.SourceIdentifier
-        $job | Out-Host
-     #   if ($job.State -ne "Completed") {
-     #       return
-     #   }
-        RunTask
-        Unregister-Event $eventsubscriber.SourceIdentifier
-        # Remove-Job $eventsubscriber.SourceIdentifier
-    } | Out-Null
-}
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Creating tasks from $($script:TaskArtifact) $($elapsedString)..." 
 
 # -------------------------------------------------------------------------
 # Run all tasks and wait for completion
@@ -186,34 +160,55 @@ function RunAllTasks {
         [array] $TaskNames,
         [switch] $NoManifest
     )
-    $queue = [System.Collections.Queue]::Synchronized(`
-        (New-Object System.Collections.Queue))
+$s = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $host)
+    $rspool.Open()
+    $jobs = @()
     foreach ($taskName in $TaskNames) {
-        $queue.Enqueue(@{
-            Name = $taskName;
-            NoManifest = $NoManifest.IsPresent
-        })
-    }
-
-    # remove all jobs
-    Get-Job | Remove-Job
-    # Start task run jobs with max concurrency
-    for( $i = 0; $i -lt $script:MaxConcurrentJobs; $i++ ) {
-        RunTask 
-    }
-
-    # Wait until all jobs are completed and task queue is empty
-    while ($queue.Count -ne 0) {
-        $jobs = Get-Job
-        Receive-Job -Job $jobs -WriteEvents -Wait | Write-Verbose
-        $jobs | Where-Object { $_.State -eq "Failed" } | ForEach-Object {
-            throw "Error: Running task $($_.Name) failed."
+        $PowerShell = [powershell]::Create()
+        $PowerShell.RunspacePool = $rspool
+        [void]$PowerShell.AddScript({
+            & (Join-Path $args[0] "acr-run-one.ps1") `
+                -RegistryInfo $args[1] -TaskName $args[2] `
+                -NoManifest:$args[3]
+        }, $True)
+        [void]$PowerShell.AddArgument($PSScriptRoot)
+        [void]$PowerShell.AddArgument($registryInfo)
+        [void]$PowerShell.AddArgument($taskName)
+        [void]$PowerShell.AddArgument($NoManifest.IsPresent)
+        $jobs += @{
+            PowerShell = $PowerShell
+            Name = $taskName
+            Handle = $PowerShell.BeginInvoke()
         }
     }
+    $complete = $false
+    while (!$complete) {
+        Start-Sleep 1
+        $complete = $true
+        foreach ($job in $jobs) {
+            if (!$job.Handle) {
+                continue
+            }
+            if ($job.Handle.IsCompleted) {
+                $job.PowerShell.EndInvoke($job.Handle) | Out-Host
+                $job.PowerShell.Dispose()
+                $job.Handle = $null
+                Write-Verbose "$($job.Name) completed."
+            }
+            else {
+                Write-Progress -Activity "task-run"
+                $complete = $false
+            }
+        }
+    }
+    Write-Progress -Activity "task-run" -Completed
+    $rspool.Close()
 }
 
 # -------------------------------------------------------------------------
 # first build without manifest to create the initial images
+$startTime = $(Get-Date)
 Write-Host "Building without manifest..."
 RunAllTasks -TaskNames $tasks -NoManifest
 Write-Host "Running task steps with manifests..."
