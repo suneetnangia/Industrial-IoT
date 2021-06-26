@@ -54,6 +54,9 @@ Get-ChildItem $script:Path -Recurse -Include "container.json" `
     $project = & (Join-Path $PSScriptRoot "build-one.ps1") `
         -Path $metadataPath -Output $script:Output `
         -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
+    if ($LastExitCode -ne 0) {
+        throw "build-one.ps1 failed with $($LastExitCode)."
+    }    
     if ($project) {
         $projects += $project
     }

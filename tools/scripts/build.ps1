@@ -95,7 +95,7 @@ if ($projects.Count -eq 0) {
     [array]$projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
         -Path $script:Path -Output $script:Output `
         -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
-    if (!$projects) {
+    if ((!$projects) -or ($LastExitCode -ne 0)) {
         throw "Failed to build projects."
     }
     $projects | Write-Verbose
@@ -115,10 +115,11 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
     & (Join-Path $PSScriptRoot "acr-tasks.ps1") -Projects $projects `
         -Registry $script:Registry -Subscription $script:Subscription `
         -Output $script:Output -Debug:$script:Debug -Fast:$script:Fast
-    if ($LastExitCode -eq 0) {
-        Remove-Item $(Join-Path $script:Output "projects.json") `
-            -ErrorAction SilentlyContinue
+    if ($LastExitCode -ne 0) {
+        throw "Failed to publish artifacts and containers."
     }
+    Remove-Item $(Join-Path $script:Output "projects.json") `
+        -ErrorAction SilentlyContinue
 }
 
 # -------------------------------------------------------------------------

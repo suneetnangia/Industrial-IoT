@@ -202,7 +202,7 @@ if ($script:Login.IsPresent) {
     & az $argumentList 2>&1 | Out-Null
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
-    }    
+    }
 }
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime

@@ -231,8 +231,11 @@ Write-Host "All copy jobs completed for $($targetRegistry.Registry)."
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
 foreach ($taskArtifact in $taskArtifacts) {
-    & (Join-Path $PSScriptRoot "acr-builder.ps1") -TaskArtifact $taskArtifact `
+    & (Join-Path $PSScriptRoot "acr-run-all.ps1") -TaskArtifact $taskArtifact `
         -Subscription $targetRegistry.Subscription `
         -IsLatest:$script:IsLatest -IsMajorUpdate $script:IsMajorUpdate
+    if ($LastExitCode -ne 0) {
+        throw "Failed to run tasks from $taskArtifact."
+    }
 }
 # -------------------------------------------------------------------------

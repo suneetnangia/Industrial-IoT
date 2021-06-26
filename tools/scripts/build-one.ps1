@@ -108,9 +108,8 @@ $runtimeInfos = @()
 foreach ($runtimeId in $runtimes) {
     $runtimeArtifact = Join-Path $publishPath $runtimeId
 
-    Write-Host "Cleaning $($projName)..."
     $argumentList = @("clean", $projFile.FullName)
-    & dotnet $argumentList 2>&1 | ForEach-Object { $_ | Out-Null }
+    & dotnet $argumentList 2>&1 | Out-Null
 
     # Create dotnet command line 
     $argumentList = @("publish", "-c", $configuration)

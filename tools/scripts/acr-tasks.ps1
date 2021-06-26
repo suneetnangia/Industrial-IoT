@@ -57,6 +57,9 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
     [array]$script:Projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
         -Path $script:Path -Output $script:Output `
         -Debug:$script:Debug -Fast:$script:Fast -Clean
+    if ($LastExitCode -ne 0) {
+        throw "build-all.ps1 failed with $($LastExitCode)."
+    }
     if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
         Write-Warning "Nothing to build under $($script:Path)."
         return
@@ -506,4 +509,7 @@ Write-Host "Uploading task context $($taskArtifact) took $($elapsedString)..."
 & (Join-Path $PSScriptRoot "acr-run-all.ps1") -TaskArtifact $taskArtifact `
     -Subscription $script:Subscription `
     -IsLatest:$script:Fast -RemoveNamespaceOnRelease:$script:Fast
+if ($LastExitCode -ne 0) {
+    throw "Failed to run tasks from $taskArtifact."
+}
 # -------------------------------------------------------------------------
