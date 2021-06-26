@@ -80,9 +80,6 @@ if ([string]::IsNullOrWhiteSpace($assemblyName)) {
 
 # -------------------------------------------------------------------------
 if ($script:Clean.IsPresent) {
-    Write-Host "Cleaning $($projName)..."
-    $argumentList = @("clean", $projFile.FullName)
-    & dotnet $argumentList 2>&1 | ForEach-Object { $_ | Out-Null }
     # Clean publish path as well
     Remove-Item $publishPath -Recurse -ErrorAction SilentlyContinue
 }
@@ -111,22 +108,9 @@ $runtimeInfos = @()
 foreach ($runtimeId in $runtimes) {
     $runtimeArtifact = Join-Path $publishPath $runtimeId
 
-    $argumentList = @("restore")
-    if ($runtimeId -ne "portable") {
-        $argumentList += "-r"
-        $argumentList += $runtimeId
-    }
-    $argumentList += $projFile.FullName
-    Write-Verbose "Restoring $($runtimeArtifact)..."
-    $buildlog = & dotnet $argumentList 2>&1
-    if ($LastExitCode -ne 0) {
-        $cmd = $($argumentList -join " ")
-        $buildlog | ForEach-Object { Write-Warning "$_" }
-        throw "Error: 'dotnet $($cmd)' failed with $($LastExitCode)."
-    }
-    else {
-        $buildlog | ForEach-Object { Write-Verbose "$_" }
-    }
+    Write-Host "Cleaning $($projName)..."
+    $argumentList = @("clean", $projFile.FullName)
+    & dotnet $argumentList 2>&1 | ForEach-Object { $_ | Out-Null }
 
     # Create dotnet command line 
     $argumentList = @("publish", "-c", $configuration)
@@ -135,7 +119,9 @@ foreach ($runtimeId in $runtimes) {
         $argumentList += $runtimeId
         $argumentList += "/p:TargetLatestRuntimePatch=true"
     }
-
+    if ($metadata.notSelfContained) {
+        $argumentList += "--self-contained=false"
+    }
     $argumentList += "-o"
     $argumentList += $runtimeArtifact
     $argumentList += $projFile.FullName
