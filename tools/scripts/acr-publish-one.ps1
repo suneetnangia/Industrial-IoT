@@ -107,32 +107,41 @@ if ($script:Project.Debug -and (!$script:Fast.IsPresent)) {
     $tagPostfix = "-debug"
 }
 
+$name = $script:Project.Metadata.name.Replace('/', '-')
+$created = $(Get-Date -Format "o")
+
 # -------------------------------------------------------------------------
 # Publish runtime artifacts to registry
 $argumentList = @("pull", "ghcr.io/deislabs/oras:v0.11.1")
 & docker $argumentList 2>&1 | ForEach-Object { "$_" }
 foreach ($runtime in $script:Project.Runtimes) {
-    $created = $(Get-Date -Format "o")
-    $root = Join-Path (Split-Path -Path $runtime.artifact -Parent) "workspaces"
-
-    $workspace = Join-Path $root "$($runtime.runtimeId)$($tagPostfix)"
-    Remove-Item $workspace -Recurse -Force -ErrorAction SilentlyContinue
-
-    # content of the artifact image
-    $artifactFolder = $runtime.runtimeId
-    New-Item -ItemType "directory" -Path $workspace -Name $artifactFolder `
-        -Force | Out-Null
-    Copy-Item -Recurse -Path (Join-Path $runtime.artifact "*") `
-        -Destination (Join-Path $workspace $artifactFolder)
+    $artifactId = "$($name)-$($runtimeId)$($tagPostfix)".ToLower()
+    $workspace = Split-Path -Path $runtime.artifact -Parent
+    $artifactFolder = $workspace = Split-Path -Path $runtime.artifact -Leaf
     
-    $configFile = "manifest.config.json"
+    if ($artifactFolder -ne $runtime.runtimeId) {
+    Write-Host "Provided artifact folder $artifactFolder invalid..."
+        # Create artifact structure to be the way it is supposed to be...
+        $workspace = Join-Path (Join-Path $workspace "workspaces") `
+            $artifactId
+        $artifactFolder = $runtime.runtimeId
+    Write-Host "... copying artifacts to $artificatFolder in $workspace..."
+        Remove-Item $workspace -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType "directory" -Path $workspace `
+            -Name $artifactFolder -Force | Out-Null
+        Copy-Item -Recurse -Path (Join-Path $runtime.artifact "*") `
+            -Destination (Join-Path $workspace $artifactFolder)
+    }
+    
+    $configFile = "$($artifactId).config.json"
     @{
         "created" = $created
         "author" = "Microsoft"
     } | ConvertTo-Json `
-      | Out-File -Encoding ascii -FilePath (Join-Path $workspace $configFile)
+    | Out-File -Force -Encoding ascii `
+        -FilePath (Join-Path $workspace $configFile)
 
-    $annotationFile = "manifest.annotations.json"
+    $annotationFile = "$($artifactId).annotations.json"
 #https://github.com/oras-project/oras-www/blob/main/docs/documentation/annotations.md
     @{
         "$($artifactFolder)" = @{
@@ -146,7 +155,8 @@ foreach ($runtime in $script:Project.Runtimes) {
             "org.opencontainers.image.created" = $created
         }
     } | ConvertTo-Json `
-      | Out-File -Encoding ascii -FilePath (Join-Path $workspace $annotationFile)
+      | Out-File -Force -Encoding ascii `
+        -FilePath (Join-Path $workspace $annotationFile)
 
     $artifact = "$($script:RegistryInfo.LoginServer)/$($namespace)"
     $artifact = "$($artifact)$($script:Project.Name)"
@@ -159,7 +169,7 @@ foreach ($runtime in $script:Project.Runtimes) {
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile)
 
-    $co = "uploading artifact $artifact"
+    $co = "uploading artifact $artifact from $artifactFolder ($workspace)"
     Write-Verbose "Start $($co)..."
     $pushLog = & docker $argumentList 2>&1
     if ($LastExitCode -ne 0) {
@@ -172,7 +182,6 @@ Write-Warning "Failed $($co). 'docker $cmd' exited with $LastExitCode - 2nd atte
 throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode."
         }
     }
-    Remove-Item $workspace -Recurse -Force -ErrorAction SilentlyContinue
     $pushLog | ForEach-Object { Write-Verbose "$_" }
     Write-Verbose "Completed $($co)."
 }

@@ -118,11 +118,9 @@ while (!$complete) {
         }
         else {
             $complete = $false
-            Write-Progress -Activity "publish"
         }
     }
 }
-Write-Progress -Activity "publish" -Completed
 $rspool.Close()
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime

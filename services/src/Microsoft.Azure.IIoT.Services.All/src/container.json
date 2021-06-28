@@ -1,6 +1,6 @@
 {
     "name": "iot/industrial-iot-services-all",
     "exposes": [51111, 9080],
-    "notSelfContained": true,
+    "base": "dotnet",
     "buildAlways": true
 }

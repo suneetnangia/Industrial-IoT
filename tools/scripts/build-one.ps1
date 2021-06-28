@@ -52,13 +52,13 @@ if ($script:Fast.IsPresent -and (!$metadata.buildAlways)) {
 }
 
 # set output publish path - publish path is unique to the path being built.
+$name = $metadata.name.Replace('/', '-')
 if ([string]::IsNullOrEmpty($script:Output)) {
     $publishPath = Join-Path $Path `
         (Join-Path "bin" (Join-Path "publish" $configuration))
 }
 else {
-    $publishPath = Join-Path $script:Output `
-        (Join-Path $configuration $metadata.name.Replace('/', '-'))
+    $publishPath = Join-Path $script:Output (Join-Path $configuration $name)
     New-Item -ItemType Directory -Force -Path $publishPath | Out-Null
 }
 
@@ -79,50 +79,53 @@ if ([string]::IsNullOrWhiteSpace($assemblyName)) {
 }
 
 # -------------------------------------------------------------------------
-if ($script:Clean.IsPresent) {
-    # Clean publish path as well
-    Remove-Item $publishPath -Recurse -ErrorAction SilentlyContinue
-}
-
-# -------------------------------------------------------------------------
 # Always build as portable.
 $runtimes = @("portable")
-if ($script:Fast.IsPresent) {
-    $runtimes += "linux-musl-x64"
-    # if iot edge also build for windows.
-    if ($metadata.iotedge) {
+if (!$metadata.base) {
+    if ($script:Fast.IsPresent) {
+        $runtimes += "linux-musl-x64"
+        # if iot edge also build for windows.
+        if ($metadata.iotedge) {
+            $runtimes += "win-x64"
+        }
+    }
+    else {
+        $runtimes += "linux-arm"
+        $runtimes += "linux-musl-arm"
+        $runtimes += "linux-arm64"
+        $runtimes += "linux-musl-arm64"
+        $runtimes += "linux-x64"
+        $runtimes += "linux-musl-x64"
         $runtimes += "win-x64"
     }
 }
-else {
-    $runtimes += "linux-arm"
-    $runtimes += "linux-musl-arm"
-    $runtimes += "linux-arm64"
-    $runtimes += "linux-musl-arm64"
-    $runtimes += "linux-x64"
-    $runtimes += "linux-musl-x64"
-    $runtimes += "win-x64"
-}
-
 $runtimeInfos = @()
 foreach ($runtimeId in $runtimes) {
+    $workspace = "$name-$runtimeId-$configuration".ToLower()
     $runtimeArtifact = Join-Path $publishPath $runtimeId
-
-    $argumentList = @("clean", $projFile.FullName)
-    & dotnet $argumentList 2>&1 | Out-Null
+    if ($script:Clean.IsPresent) {
+        # Clean artifact
+        Remove-Item $runtimeArtifact -Recurse `
+            -ErrorAction SilentlyContinue
+    }
 
     # Create dotnet command line 
-    $argumentList = @("publish", "-c", $configuration)
+    $argumentList = @("publish", 
+        "-c", $configuration, "--force", "-o", $runtimeArtifact, 
+        "/p:BaseIntermediateOutputPath=$($workspace)-obj/",
+        "/p:BaseOutputPath=$($workspace)-bin/")
     if ($runtimeId -ne "portable") {
         $argumentList += "-r"
         $argumentList += $runtimeId
         $argumentList += "/p:TargetLatestRuntimePatch=true"
+   
+        if (!$metadata.base) {
+            $argumentList += "--self-contained"
+        }
     }
-    if ($metadata.notSelfContained) {
+    else {
         $argumentList += "--self-contained=false"
     }
-    $argumentList += "-o"
-    $argumentList += $runtimeArtifact
     $argumentList += $projFile.FullName
 
 Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
@@ -144,8 +147,8 @@ Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
-Write-Host "Building $($projName) took $($elapsedString)..." 
-
+Write-Host "Building and publishing $($projName) took $($elapsedString)..." 
+# -------------------------------------------------------------------------
 return @{
     Name = $metadata.name
     ProjectName = $projName

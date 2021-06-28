@@ -61,11 +61,11 @@ Get-ChildItem $script:Path -Recurse -Include "container.json" `
         $projects += $project
     }
 }
-
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
 Write-Host "Build took $($elapsedString)..." 
+# -------------------------------------------------------------------------
 return $projects
 
 

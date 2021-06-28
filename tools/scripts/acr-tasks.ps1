@@ -119,6 +119,7 @@ foreach ($project in $script:Projects) {
             platform = "linux/arm"
             images = @{
     default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1"
+    dotnet = "mcr.microsoft.com/dotnet/runtime:3.1"
     aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1"
             }
             platformTag = "linux-arm32v7"
@@ -130,6 +131,7 @@ foreach ($project in $script:Projects) {
             platform = "linux/arm64"
             images = @{
     default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine-arm64v8"
+    dotnet = "mcr.microsoft.com/dotnet/runtime:3.1-alpine-arm64v8"
     aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-alpine-arm64v8"
             }
             platformTag = "linux-arm64v8"
@@ -141,6 +143,7 @@ foreach ($project in $script:Projects) {
             platform = "linux/amd64"
             images = @{
     default = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine"
+    dotnet = "mcr.microsoft.com/dotnet/runtime:3.1-alpine"
     aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-alpine"
             }
             platformTag = "linux-amd64"
@@ -153,6 +156,7 @@ foreach ($project in $script:Projects) {
             platform = "windows/amd64"
             images = @{
     default = "mcr.microsoft.com/windows/nanoserver:1809"
+    dotnet = "mcr.microsoft.com/dotnet/runtime:3.1-nanoserver-1809"
     aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-nanoserver-1809"
             }
             platformTag = "nanoserver-amd64-1809"
@@ -164,6 +168,7 @@ foreach ($project in $script:Projects) {
             platform = "windows/amd64"
             images = @{
     default = "mcr.microsoft.com/windows/nanoserver:2004"
+    dotnet = "mcr.microsoft.com/dotnet/runtime:3.1-nanoserver-2004"
     aspnetcore = "mcr.microsoft.com/dotnet/aspnet:3.1-nanoserver-2004"
             }
             platformTag = "nanoserver-amd64-2004"
@@ -181,7 +186,7 @@ foreach ($project in $script:Projects) {
         $environmentVars = @("ENV DOTNET_RUNNING_IN_CONTAINER=true")
         # Only build windows and linux in fast mode
         if ($script:Fast.IsPresent -and (!$platformInfo.always)) {
-            break
+            continue
         }
         #
         # Check for overridden base image name - e.g. aspnetcore images
@@ -192,7 +197,7 @@ foreach ($project in $script:Projects) {
             $baseImage = $platformInfo.images[$base]
             if (!$baseImage) {
                 Write-Warning "The requested $base image is not supported."
-                break
+                continue
             }
             $runtimeId = "portable"
         }
@@ -205,7 +210,7 @@ foreach ($project in $script:Projects) {
             | Select-Object -First 1
         if (!$runtime) {
             Write-Warning "No runtime build for $runtimeId!"
-            break
+            continue
         }
         $runtimeOnly = ""
         if (![string]::IsNullOrEmpty($platformInfo.runtimeOnly)) {
@@ -337,9 +342,6 @@ Write-Verbose "Adding $($image) build step for $($platform) from $($artifact)...
 # Add push task to all tasks and the manifest creation steps
 $tasks.Keys | ForEach-Object {
     $buildtask = $tasks.Item($_)
-    if ($buildtask.images.Count -eq 0) {
-        return
-    }
     $buildtask.stepIndex += 1
     $buildtask.taskyaml += @"
   - id: push-$($buildtask.stepIndex)
@@ -479,7 +481,7 @@ $annotationFile = "buildtask.annotations.json"
 $argumentList += (Get-ChildItem -Path $taskContext -File -Name)
 $annotations | ConvertTo-Json | Out-File -Encoding ascii `
     -FilePath (Join-Path $taskContext $annotationFile)
-Write-Verbose $($annotations | ConvertTo-Json)
+$($annotations | ConvertTo-Json) | Write-Verbose
 $argumentList += @("-u", $registryInfo.User, 
     "-p", $registryInfo.Password, "-v", 
     "--manifest-annotations", $annotationFile)
@@ -501,8 +503,8 @@ $pushLog | ForEach-Object { Write-Verbose "$_" }
 
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
-$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
-Write-Host "Uploading task context $($taskArtifact) took $($elapsedString)..." 
+$elapsedString = "took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Uploading $($tasks.Count) tasks as $($taskArtifact) $($elapsedString)..." 
 
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time

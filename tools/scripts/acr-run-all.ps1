@@ -197,12 +197,15 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
                 Write-Verbose "$($job.Name) completed."
             }
             else {
-                Write-Progress -Activity "task-run"
+                Write-Progress -Activity "Running all tasks" `
+                    -Status "$($(Get-Date) - $startTime)" `
+                    -PercentComplete -1 -SecondsRemaining -1
                 $complete = $false
             }
         }
     }
-    Write-Progress -Activity "task-run" -Completed
+    Write-Progress -Activity "Running all tasks" `
+        -Status "$($(Get-Date) - $startTime)" -Completed
     $rspool.Close()
 }
 
