@@ -99,7 +99,7 @@ foreach ($project in $script:Projects) {
 # -------------------------------------------------------------------------
 $complete = $false
 while (!$complete) {
-    Start-Sleep 1
+    Start-Sleep -Seconds 3
     $complete = $true
     foreach ($job in $jobs) {
         if (!$job.Handle) {

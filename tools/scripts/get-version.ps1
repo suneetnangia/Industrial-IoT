@@ -1,21 +1,27 @@
 <#
  .SYNOPSIS
-    Sets CI version build variables and/or returns version information.
+    Gets CI version build variables and/or returns version information.
 
  .DESCRIPTION
-    The script is a wrapper around any versioning tool we use and abstracts it from
-    the rest of the build system.
+    The script is a wrapper around any versioning tool we use and abstracts
+    it from the rest of the build system.
 #>
 
+# -------------------------------------------------------------------------
 try {
     # Try install tool
-    & dotnet @("tool", "install", "--tool-path", "./tools", "--framework", "netcoreapp3.1", "nbgv") 2>&1 
-
-    $props = (& ./tools/nbgv  @("get-version", "-f", "json")) | ConvertFrom-Json
+    & dotnet @("tool", "install", "--tool-path", "./tools", 
+        "--framework", "netcoreapp3.1", "nbgv") 2>&1 | Out-Null
+    $result = (& ./tools/nbgv  @("get-version", "-f", "json")) 
     if ($LastExitCode -ne 0) {
-        throw "Error: 'nbgv get-version -f json' failed with $($LastExitCode)."
+        & dotnet @("tool", "install", "--tool-path", "./tools",
+        "--framework", "netcoreapp3.1", "nbgv") 2>&1 | Out-Null
+        $result = (& ./tools/nbgv  @("get-version", "-f", "json")) 
+        if ($LastExitCode -ne 0) {
+throw "Error: 'nbgv get-version -f json' failed with $($LastExitCode)."
+        }
     }
-
+    $props = $result | ConvertFrom-Json
     return [pscustomobject] @{ 
         Full = $props.CloudBuildAllVars.NBGV_NuGetPackageVersion
         Version = $props.CloudBuildAllVars.NBGV_Version
@@ -27,3 +33,4 @@ catch {
     Write-Warning $_.Exception
     return $null
 }
+# -------------------------------------------------------------------------

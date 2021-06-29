@@ -196,7 +196,7 @@ foreach ($project in $script:Projects) {
         if (![string]::IsNullOrEmpty($base)) {
             $baseImage = $platformInfo.images[$base]
             if (!$baseImage) {
-                Write-Warning "The requested $base image is not supported."
+Write-Warning "Requested $base image for $($project.Name) not supported."
                 continue
             }
             $runtimeId = "portable"
@@ -209,7 +209,7 @@ foreach ($project in $script:Projects) {
             | Where-Object { $_.runtimeId -eq $runtimeId } `
             | Select-Object -First 1
         if (!$runtime) {
-            Write-Warning "No runtime build for $runtimeId!"
+            Write-Warning "No $runtimeId runtime for $($project.Name)!"
             continue
         }
         $runtimeOnly = ""
@@ -289,6 +289,8 @@ alias:
     TargetTag: {{with `$tag := .Values.Tag}}"{{`$tag}}"{{else}}$($buildTag){{end}}
     Namespace: {{with `$ns := .Values.Namespace}}"/{{`$ns}}"{{else}}""{{end}}
 steps:
+  {{with `$skipBuild := .Values.NoBuild}}
+  {{else}}
   - id: oras
     when: ["-"]
     build: -t oras -f Dockerfile.oras.$($os) .
@@ -339,11 +341,19 @@ Write-Verbose "Adding $($image) build step for $($platform) from $($artifact)...
     }
 }
 
-# Add push task to all tasks and the manifest creation steps
+# Add push task to all build tasks as well as the manifest creation step
 $tasks.Keys | ForEach-Object {
     $buildtask = $tasks.Item($_)
+    # finish build steps
+    $buildtask.taskyaml += @"
+  {{end}}
+
+"@
+    # add push
     $buildtask.stepIndex += 1
     $buildtask.taskyaml += @"
+  {{with `$skipBuild := .Values.NoBuild}}
+  {{else}}
   - id: push-$($buildtask.stepIndex)
     retries: 5
     retryDelay: 30
@@ -362,6 +372,7 @@ $tasks.Keys | ForEach-Object {
     }
     $buildtask.taskyaml += @"
     when: [$($when.TrimStart(','))]
+  {{end}}
 
 "@
     $manifests = $manifestImages -join " "
@@ -388,15 +399,19 @@ $tasks.Keys | ForEach-Object {
     #
     $buildtask.taskyaml += @"
   - id: manifest-$($buildtask.stepIndex)
+    {{with `$skipBuild := .Values.NoBuild}}
+    {{else}}
     when: ["push-$($buildtask.stepIndex)"]
+    {{end}}
     entryPoint: sh
     retries: 60
     retryDelay: 30
     cmd: |
       docker -c '
         {{with `$skipManifest := .Values.NoManifest}}
-        echo "Skipping manifest step $($buildtask.stepIndex)"
+        echo "Skip creation of manifest."
         {{else}}
+        set -x
         docker manifest create $manifestList $manifests
         createError=`$?
         docker manifest push --purge $manifestList

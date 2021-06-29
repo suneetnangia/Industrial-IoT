@@ -28,7 +28,7 @@ Param(
     [switch] $IsLatest,
     [switch] $IsMajorUpdate,
     [switch] $RemoveNamespaceOnRelease,
-    [int] $ThrottleLimit = 16
+    [int] $ThrottleLimit = 32
 )
 
 # -------------------------------------------------------------------------
@@ -143,7 +143,7 @@ and using $($taskfile)..."
                 throw "Error: 'az $cmd' 2nd attempt failed with $LastExitCode."
             }
         }
-        Write-Verbose "Task $($fullName) created or updated successfully."
+        Write-Host "Task $($fullName) created or updated successfully."
         $createLogs | Write-Verbose
         $tasks += $fullName
     }
@@ -158,6 +158,7 @@ Write-Host "Creating tasks from $($script:TaskArtifact) $($elapsedString)..."
 function RunAllTasks {
     Param(
         [array] $TaskNames,
+        [switch] $NoBuild,
         [switch] $NoManifest
     )
 $s = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
@@ -170,12 +171,13 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
         [void]$PowerShell.AddScript({
             & (Join-Path $args[0] "acr-run-one.ps1") `
                 -RegistryInfo $args[1] -TaskName $args[2] `
-                -NoManifest:$args[3]
+                -NoManifest:$args[3] -NoBuild:$args[4]
         }, $True)
         [void]$PowerShell.AddArgument($PSScriptRoot)
         [void]$PowerShell.AddArgument($registryInfo)
         [void]$PowerShell.AddArgument($taskName)
         [void]$PowerShell.AddArgument($NoManifest.IsPresent)
+        [void]$PowerShell.AddArgument($NoBuild.IsPresent)
         $jobs += @{
             PowerShell = $PowerShell
             Name = $taskName
@@ -184,7 +186,7 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
     }
     $complete = $false
     while (!$complete) {
-        Start-Sleep 1
+        Start-Sleep -Seconds 3
         $complete = $true
         foreach ($job in $jobs) {
             if (!$job.Handle) {
@@ -197,15 +199,10 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
                 Write-Verbose "$($job.Name) completed."
             }
             else {
-                Write-Progress -Activity "Running all tasks" `
-                    -Status "$($(Get-Date) - $startTime)" `
-                    -PercentComplete -1 -SecondsRemaining -1
                 $complete = $false
             }
         }
     }
-    Write-Progress -Activity "Running all tasks" `
-        -Status "$($(Get-Date) - $startTime)" -Completed
     $rspool.Close()
 }
 
@@ -214,8 +211,8 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
 $startTime = $(Get-Date)
 Write-Host "Building without manifest..."
 RunAllTasks -TaskNames $tasks -NoManifest
-Write-Host "Running task steps with manifests..."
-RunAllTasks -TaskNames $tasks
+Write-Host "Creating manifests..."
+RunAllTasks -TaskNames $tasks -NoBuild
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"

@@ -117,16 +117,17 @@ $argumentList = @("pull", "ghcr.io/deislabs/oras:v0.11.1")
 foreach ($runtime in $script:Project.Runtimes) {
     $artifactId = "$($name)-$($runtimeId)$($tagPostfix)".ToLower()
     $workspace = Split-Path -Path $runtime.artifact -Parent
-    $artifactFolder = $workspace = Split-Path -Path $runtime.artifact -Leaf
+    $artifactFolder = Split-Path -Path $runtime.artifact -Leaf
     
     if ($artifactFolder -ne $runtime.runtimeId) {
-    Write-Host "Provided artifact folder $artifactFolder invalid..."
+    Write-Warning "Provided artifact folder $artifactFolder invalid..."
         # Create artifact structure to be the way it is supposed to be...
         $workspace = Join-Path (Join-Path $workspace "workspaces") `
             $artifactId
         $artifactFolder = $runtime.runtimeId
-    Write-Host "... copying artifacts to $artificatFolder in $workspace..."
-        Remove-Item $workspace -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "... copying artifacts to $artifactFolder in $workspace..."
+        Remove-Item $workspace -Recurse -Force `
+            -ErrorAction SilentlyContinue
         New-Item -ItemType "directory" -Path $workspace `
             -Name $artifactFolder -Force | Out-Null
         Copy-Item -Recurse -Path (Join-Path $runtime.artifact "*") `
@@ -165,7 +166,7 @@ foreach ($runtime in $script:Project.Runtimes) {
 
     $argumentList = @("run", "--rm", "-v", "$($workspace):/workspace", 
         "ghcr.io/deislabs/oras:v0.11.1", "push", $artifact, $artifactFolder,
-        "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password, "-v",
+        "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password,
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile)
 

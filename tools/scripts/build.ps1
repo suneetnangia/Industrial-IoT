@@ -124,4 +124,4 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
 
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
-Write-Host "... took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 
+Write-Host "Build took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)" 

@@ -101,7 +101,6 @@ if (!$metadata.base) {
 }
 $runtimeInfos = @()
 foreach ($runtimeId in $runtimes) {
-    $workspace = "$name-$runtimeId-$configuration".ToLower()
     $runtimeArtifact = Join-Path $publishPath $runtimeId
     if ($script:Clean.IsPresent) {
         # Clean artifact
@@ -110,10 +109,7 @@ foreach ($runtimeId in $runtimes) {
     }
 
     # Create dotnet command line 
-    $argumentList = @("publish", 
-        "-c", $configuration, "--force", "-o", $runtimeArtifact, 
-        "/p:BaseIntermediateOutputPath=$($workspace)-obj/",
-        "/p:BaseOutputPath=$($workspace)-bin/")
+    $argumentList = @("publish", "-c", $configuration, "--force")
     if ($runtimeId -ne "portable") {
         $argumentList += "-r"
         $argumentList += $runtimeId
@@ -126,6 +122,11 @@ foreach ($runtimeId in $runtimes) {
     else {
         $argumentList += "--self-contained=false"
     }
+    #$workspace = "$name-$runtimeId-$configuration".ToLower()
+    #$argumentList += "/p:BaseIntermediateOutputPath=$($workspace)-obj/"
+    #$argumentList += "/p:BaseOutputPath=$($workspace)-bin/"
+    $argumentList += "-o"
+    $argumentList += $runtimeArtifact
     $argumentList += $projFile.FullName
 
 Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
@@ -147,7 +148,7 @@ Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
-Write-Host "Building and publishing $($projName) took $($elapsedString)..." 
+Write-Host "Building $($projName) took $($elapsedString)..." 
 # -------------------------------------------------------------------------
 return @{
     Name = $metadata.name
