@@ -123,7 +123,7 @@ echo Build failed.
 goto :done
 
 :copy
-if "%_version%" == "" goto :deploy
+if "%_version%" == "" goto :helm
 echo Copy...
 set __args=
 set __args=%__args% -BuildRegistry %_sourceRegistry%
@@ -136,10 +136,24 @@ set __args=%__args% -ReleaseVersion %_version%
 set __args=%__args% -RemoveNamespaceOnRelease
 set __args=%__args% -IsLatest
 pushd %build_root%\tools\scripts
-powershell ./acr-copy-release.ps1 %__args%
+powershell ./acr-release.ps1 %__args%
+popd
+if !ERRORLEVEL! == 0 goto :helm
+echo Copy failed.
+goto :done
+
+:helm
+echo Publish...
+set __args=
+set __args=%__args% -Registry acr%_resourceGroup%
+set __args=%__args% -Subscription %_subscription%
+set __args=%__args% -RemoveNamespaceOnRelease
+set __args=%__args% -IsLatest
+pushd %build_root%\tools\scripts
+powershell ./acr-helm.ps1 %__args%
 popd
 if !ERRORLEVEL! == 0 goto :deploy
-echo Copy failed.
+echo Publish failed.
 goto :done
 
 :deploy

@@ -81,7 +81,7 @@ foreach ($project in $script:Projects) {
     $PowerShell = [powershell]::Create()
     $PowerShell.RunspacePool = $rspool
     [void]$PowerShell.AddScript({
-        & (Join-Path $args[0] "acr-publish-one.ps1") `
+        & (Join-Path $args[0] "publish-one.ps1") `
             -RegistryInfo $args[1] -Project $args[2] `
             -Debug:$args[3] -Fast:$args[3]
     }, $True)

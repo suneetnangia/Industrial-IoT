@@ -169,7 +169,7 @@ $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $h
         $PowerShell = [powershell]::Create()
         $PowerShell.RunspacePool = $rspool
         [void]$PowerShell.AddScript({
-            & (Join-Path $args[0] "acr-run-one.ps1") `
+            & (Join-Path $args[0] "task-run-one.ps1") `
                 -RegistryInfo $args[1] -TaskName $args[2] `
                 -NoManifest:$args[3] -NoBuild:$args[4]
         }, $True)

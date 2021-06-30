@@ -70,7 +70,7 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
 # -------------------------------------------------------------------------
 # Publish artifacts from all built projects 
 if (!$script:SkipPublish.IsPresent) {
-    & (Join-Path $PSScriptRoot "acr-publish-all.ps1") `
+    & (Join-Path $PSScriptRoot "publish-all.ps1") `
         -Projects $script:Projects -RegistryInfo $registryInfo `
         -Debug:$script:Debug -Fast:$script:Fast
     Write-Host ""
@@ -523,7 +523,7 @@ Write-Host "Uploading $($tasks.Count) tasks as $($taskArtifact) $($elapsedString
 
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
-& (Join-Path $PSScriptRoot "acr-run-all.ps1") -TaskArtifact $taskArtifact `
+& (Join-Path $PSScriptRoot "task-run-all.ps1") -TaskArtifact $taskArtifact `
     -Subscription $script:Subscription `
     -IsLatest:$script:Fast -RemoveNamespaceOnRelease:$script:Fast
 if ($LastExitCode -ne 0) {

@@ -112,7 +112,7 @@ if ($projects.Count -eq 0) {
 if ((![string]::IsNullOrEmpty($script:Registry)) -and `
         ($projects.Count -gt 0)) {
     Write-Host "Building registry artifacts and containers..."
-    & (Join-Path $PSScriptRoot "acr-tasks.ps1") -Projects $projects `
+    & (Join-Path $PSScriptRoot "task-setup.ps1") -Projects $projects `
         -Registry $script:Registry -Subscription $script:Subscription `
         -Output $script:Output -Debug:$script:Debug -Fast:$script:Fast
     if ($LastExitCode -ne 0) {
