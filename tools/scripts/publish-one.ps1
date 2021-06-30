@@ -112,20 +112,20 @@ $created = $(Get-Date -Format "o")
 
 # -------------------------------------------------------------------------
 # Publish runtime artifacts to registry
-$argumentList = @("pull", "ghcr.io/deislabs/oras:v0.11.1")
+$argumentList = @("pull", "ghcr.io/deislabs/oras:v0.12.0")
 & docker $argumentList 2>&1 | ForEach-Object { "$_" }
 foreach ($runtime in $script:Project.Runtimes) {
-    $artifactId = "$($name)-$($runtimeId)$($tagPostfix)".ToLower()
+    $artifactId = "$($name)-$($runtime.runtimeId)$($tagPostfix)".ToLower()
     $workspace = Split-Path -Path $runtime.artifact -Parent
     $artifactFolder = Split-Path -Path $runtime.artifact -Leaf
     
     if ($artifactFolder -ne $runtime.runtimeId) {
-    Write-Warning "Provided artifact folder $artifactFolder invalid..."
+        Write-Warning "Provided artifact folder $artifactFolder invalid..."
         # Create artifact structure to be the way it is supposed to be...
         $workspace = Join-Path (Join-Path $workspace "workspaces") `
             $artifactId
         $artifactFolder = $runtime.runtimeId
-Write-Host "... copying artifacts to $artifactFolder in $workspace..."
+    Write-Host "... copying artifacts to $artifactFolder in $workspace..."
         Remove-Item $workspace -Recurse -Force `
             -ErrorAction SilentlyContinue
         New-Item -ItemType "directory" -Path $workspace `
@@ -165,10 +165,10 @@ Write-Host "... copying artifacts to $artifactFolder in $workspace..."
     $artifact = "$($artifact)-$($runtime.runtimeId)$($tagPostfix)"
 
     $argumentList = @("run", "--rm", "-v", "$($workspace):/workspace", 
-        "ghcr.io/deislabs/oras:v0.11.1", "push", $artifact, $artifactFolder,
+        "ghcr.io/deislabs/oras:v0.12.0", "push", $artifact, $artifactFolder,
         "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password,
         "--manifest-annotations", $annotationFile, 
-        "--manifest-config", $configFile)
+        "--manifest-config", $configFile, "-v")
 
     $co = "uploading artifact $artifact from $artifactFolder ($workspace)"
     Write-Verbose "Start $($co)..."
@@ -185,6 +185,7 @@ throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode
     }
     $pushLog | ForEach-Object { Write-Verbose "$_" }
     Write-Verbose "Completed $($co)."
+    $runtime.ociArtifact = $artifact
 }
 
 # -------------------------------------------------------------------------

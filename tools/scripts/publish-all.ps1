@@ -68,6 +68,8 @@ if (!$script:RegistryInfo) {
 # -------------------------------------------------------------------------
 # Publish the build output to the registry
 $startTime = $(Get-Date)
+$argumentList = @("pull", "ghcr.io/deislabs/oras:v0.12.0")
+& docker $argumentList 2>&1 | ForEach-Object { "$_" }
 $s = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $host)
 $rspool.Open()
@@ -97,6 +99,7 @@ foreach ($project in $script:Projects) {
     }
 }
 # -------------------------------------------------------------------------
+$projects = @()
 $complete = $false
 while (!$complete) {
     Start-Sleep -Seconds 3
@@ -106,14 +109,15 @@ while (!$complete) {
             continue
         }
         if ($job.Handle.IsCompleted) {
-            $result = $job.PowerShell.EndInvoke($job.Handle)
+            $project = $job.PowerShell.EndInvoke($job.Handle)
             $job.PowerShell.Dispose()
             $job.Handle = $null
-            if (!$result) {
+            if (!$project) {
                 Write-Warning "Publishing artifact for $($job.Name) skipped."
             }
             else {
                 Write-Verbose "Publishing artifact for $($job.Name) completed."
+                $projects += $project
             }
         }
         else {
@@ -127,3 +131,4 @@ $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "took $($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
 Write-Host "Publishing $($script:Projects.Count) projects $($elapsedString)..." 
 # -------------------------------------------------------------------------
+return $projects

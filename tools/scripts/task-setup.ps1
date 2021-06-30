@@ -70,9 +70,10 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
 # -------------------------------------------------------------------------
 # Publish artifacts from all built projects 
 if (!$script:SkipPublish.IsPresent) {
-    & (Join-Path $PSScriptRoot "publish-all.ps1") `
+    $published = & (Join-Path $PSScriptRoot "publish-all.ps1") `
         -Projects $script:Projects -RegistryInfo $registryInfo `
         -Debug:$script:Debug -Fast:$script:Fast
+    $published | Write-Host
     Write-Host ""
 }
 
@@ -491,7 +492,7 @@ $taskArtifact = "$($taskArtifact):$($buildTag)-artifact$($tagPostfix)"
 Write-Verbose "Uploading task context $taskContext as $taskArtifact..."
 
 $argumentList = @("run", "--rm", "-v", "$($taskContext):/workspace", 
-    "ghcr.io/deislabs/oras:v0.11.1", "push", $taskArtifact)
+    "ghcr.io/deislabs/oras:v0.12.0", "push", $taskArtifact)
 $annotationFile = "buildtask.annotations.json"
 $argumentList += (Get-ChildItem -Path $taskContext -File -Name)
 $annotations | ConvertTo-Json | Out-File -Encoding ascii `
