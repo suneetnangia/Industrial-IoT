@@ -279,7 +279,7 @@ namespace TestEventProcessor.BusinessLogic {
             var valueChangesCount = 0;
 
             DateTime entrySourceTimestamp = default(DateTime);
-            string entryNodeId = null;
+                string entryNodeId = null;
             object entryValue = null;
 
             foreach (dynamic entry in json) {
@@ -308,16 +308,16 @@ namespace TestEventProcessor.BusinessLogic {
                 }
                 else {
                     try {
-                        entrySourceTimestamp = (DateTime)entry.Value.SourceTimestamp;
-                        entryNodeId = entry.NodeId;
-                        entryValue = entry.Value.Value;
-                    }
+                    entrySourceTimestamp = (DateTime)entry.Value.SourceTimestamp;
+                    entryNodeId = entry.NodeId;
+                    entryValue = entry.Value.Value;
+                }
                     catch (Exception ex) {
                         _logger.LogError(ex, "Could not read value, nodeId and/or timestamp from " +
-                            "message. Please make sure that publisher is running with samples format and with " +
-                            "--fm parameter set.");
-                        continue;
-                    }
+                        "message. Please make sure that publisher is running with samples format and with " +
+                        "--fm parameter set.");
+                    continue;
+                }
 
                     Interlocked.Increment(ref _totalValueChangesCount);
                     valueChangesCount++;
@@ -331,6 +331,8 @@ namespace TestEventProcessor.BusinessLogic {
                 _missingValueChangesChecker.ProcessEvent(entrySourceTimestamp);
                 _incrementalIntValueChecker.ProcessEvent(entryNodeId, entrySourceTimestamp, entryValue);
 
+                Interlocked.Increment(ref _totalValueChangesCount);
+                valueChangesCount++;
             }
 
             _logger.LogDebug("Received {NumberOfValueChanges} messages from IoT Hub, partition {PartitionId}.",
@@ -361,5 +363,6 @@ namespace TestEventProcessor.BusinessLogic {
                 "{PartitionId}, operation {Operation}", arg.PartitionId, arg.Operation);
             return Task.CompletedTask;
         }
+
     }
 }

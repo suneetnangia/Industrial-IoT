@@ -261,10 +261,10 @@ namespace IIoTPlatform_E2E_Tests {
                         // Move file to the target folder with sudo permissions 
                         command = $"ssh -oStrictHostKeyChecking=no {edge} 'sudo mv {TestConstants.PublishedNodesFilename} {TestConstants.PublishedNodesFullName}'";
                         sshCient.RunCommand(command);
-                    }
-                }
+                    }                 
+                }             
             }
-
+            
             await SwitchToStandaloneModeAsync(context, ct);
         }
 

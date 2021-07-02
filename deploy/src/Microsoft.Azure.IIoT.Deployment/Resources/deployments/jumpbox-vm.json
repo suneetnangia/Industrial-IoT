@@ -150,13 +150,6 @@
             "type": "string",
             "defaultValue": "[guid(subscription().subscriptionId, resourceGroup().id, 'storageRbacGuid')]"
         },
-        "scriptFileUris": {
-            "type": "array",
-            "defaultValue": [],
-            "metadata": {
-                "description": "fileUris that should be set for VM setup step"
-            }
-        },
         "tags": {
             "type": "object",
             "defaultValue": {},

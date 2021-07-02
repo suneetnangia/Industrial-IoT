@@ -90,7 +90,7 @@ It is possible that the name of the website is already in use. If you run into t
 
 ### Azure Active Directory registration
 
-The deployment script tries to register 2 Azure Active Directory (AAD) applications representing the client and the platform (service).  Depending on your rights to the selected AAD tenant, this might fail.
+The deployment script tries to register three AAD applications representing the web app, the client and the platform (service). This requires [Global Administrator, Application Administrator or Cloud Application Administrator](https://docs.microsoft.com/azure/active-directory/manage-apps/grant-admin-consent) rights.
 
 If the deployment fails or if you see the following error when trying to sign-in, see further below for options:
 

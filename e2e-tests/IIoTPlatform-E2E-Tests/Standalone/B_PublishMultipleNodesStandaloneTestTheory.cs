@@ -152,7 +152,8 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
                 }
 
             }
-            Assert.Empty(expectedNodes);
+                Assert.Empty(expectedNodes);
+            }
         }
 
         [Fact, PriorityOrder(6)]

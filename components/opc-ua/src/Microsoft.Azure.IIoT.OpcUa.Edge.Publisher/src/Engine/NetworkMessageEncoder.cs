@@ -409,12 +409,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Engine {
                             .Select(q => q.Any() ? q.Dequeue() : null)
                                 .Where(s => s != null)
                                     .ToDictionary(
-                                        /*s => !string.IsNullOrEmpty(s.DisplayName) 
-                                            ? s.DisplayName 
-                                            : !string.IsNullOrEmpty(s.Id)
-                                            ? s.Id
-                                            : s.NodeId.ToExpandedNodeId(context.NamespaceUris)
-                                                .AsString(message.ServiceMessageContext),*/
                                         s => GetPayloadIdentifier(s, message,context),
                                         s => s.Value);
                         var dataSetMessage = new DataSetMessage() {

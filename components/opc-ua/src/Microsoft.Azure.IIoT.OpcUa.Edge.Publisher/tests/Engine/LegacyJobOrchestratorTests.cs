@@ -16,6 +16,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Tests.Engine {
     using Publisher.Engine;
     using Serializers.NewtonSoft;
     using Xunit;
+    using static Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Agent.PublisherJobsConfiguration;
     using PublisherJobSerializer = Api.Publisher.Clients.PublisherJobSerializer;
 
     /// <summary>

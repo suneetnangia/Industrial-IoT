@@ -15,6 +15,8 @@
 
  .PARAMETER BuildSubscription
     The subscription where the build registry is located
+ .PARAMETER BuildNamespace
+    The namespace in the build registry (optional)
 
  .PARAMETER ReleaseRegistry
     The name of the destination registry where release images will 
@@ -42,6 +44,7 @@
 Param(
     [string] $BuildRegistry = "industrialiot",
     [string] $BuildSubscription = "IOT_GERMANY",
+    [string] $BuildNamespace = $null,
     [string] $ReleaseRegistry = "industrialiotprod",
     [string] $ReleaseSubscription = "IOT_GERMANY",
     [string] $ResourceGroupName = $null,
@@ -130,6 +133,10 @@ $jobs = @()
 foreach ($Repository in $BuildRepositories) {
 
     $BuildTag = "$($Repository):$($script:ReleaseVersion)"
+    if (![string]::IsNullOrEmpty($script:BuildNamespace) -and `
+        !$Repository.StartsWith($script:BuildNamespace)) {
+        continue
+    }
 
     # see if build tag exists
     $argumentList = @("acr", "repository", "show", 
