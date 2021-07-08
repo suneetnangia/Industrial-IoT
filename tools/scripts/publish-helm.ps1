@@ -90,25 +90,32 @@ if (($LastExitCode -ne 0) -or ($helmVersion -notlike "v3.*")) {
 # -------------------------------------------------------------------------
 # Publish helm chart to registry
 $chartBase = "$($script:RegistryInfo.LoginServer)/$namespace"
-$chartBase = "$($chartBase)$($script:ChartName):latest"
+$chartBase = "$($chartBase)$($script:ChartName)"
 $env:HELM_EXPERIMENTAL_OCI = 1
 foreach ($targetTag in $targetTags) {
     $chart = "$($chartBase):$($targetTag)"
     $argumentList = @("chart", "save", $script:ChartPath, $chart)
-    & helm $argumentList 2>$null
+    $helmLog = & helm $argumentList 2>&1
     if ($LastExitCode -ne 0) {
-        throw "Failed to save Helm chart $chart as image locally."
+        $helmLog | ForEach-Object { Write-Warning "$_" }
+        $cmd = $($argumentList -join " ")
+        throw "Error: Failed to save Helm chart $chart as image ($cmd)."
     }
-    $argumentList = @("registry", "login", $script:RegistryInfo.LoginServer, `
-        "-u", $script:RegistryInfo.User, "--password-stdin")
-    $script:RegistryInfo.Password | & "helm" $argumentList 2>&1 `
-        | ForEach-Object { "$_" }
+    $argumentList = @("registry", "login",
+        $script:RegistryInfo.LoginServer,
+        "-u", $script:RegistryInfo.User, 
+        "--password-stdin")
+    $helmLog = $script:RegistryInfo.Password | & helm `
+        $argumentList 2>&1
     if ($LastExitCode -ne 0) {
-        throw "Failed to log into the registry using Helm."
+        $helmLog | ForEach-Object { Write-Warning "$_" }
+        $cmd = $($argumentList -join " ")
+        throw "Error: Failed to log into the registry using Helm ($cmd)."
     }
-    $ "helm" @("chart", "push", $chart)  2>&1 | ForEach-Object { "$_" }
+    $helmLog = & helm @("chart", "push", $chart) 2>&1
     if ($LastExitCode -ne 0) {
-        throw "Failed to upload Helm chart $chart."
+        $helmLog | ForEach-Object { Write-Warning "$_" }
+        throw "Error: Failed to upload Helm chart $chart ($cmd)."
     }
     Write-Verbose "Helm chart $chart uploaded successfully."
 }

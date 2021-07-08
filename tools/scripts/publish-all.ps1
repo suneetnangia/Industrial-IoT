@@ -68,8 +68,8 @@ if (!$script:RegistryInfo) {
 # -------------------------------------------------------------------------
 # Publish the build output to the registry
 $startTime = $(Get-Date)
-$argumentList = @("pull", "ghcr.io/deislabs/oras:v0.12.0")
-& docker $argumentList 2>&1 | ForEach-Object { "$_" }
+$argumentList = @("pull", "ghcr.io/oras-project/oras:v0.12.0")
+& docker $argumentList 2>&1 | Out-Null
 $s = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 $rspool = [runspacefactory]::CreateRunspacePool(1, $script:ThrottleLimit, $s, $host)
 $rspool.Open()
@@ -83,7 +83,7 @@ foreach ($project in $script:Projects) {
     $PowerShell = [powershell]::Create()
     $PowerShell.RunspacePool = $rspool
     [void]$PowerShell.AddScript({
-        & (Join-Path $args[0] "publish-one.ps1") `
+        return & (Join-Path $args[0] "publish-one.ps1") `
             -RegistryInfo $args[1] -Project $args[2] `
             -Debug:$args[3] -Fast:$args[3]
     }, $True)

@@ -130,13 +130,13 @@ set __args=%__args% -BuildRegistry %_sourceRegistry%
 set __args=%__args% -BuildSubscription %_sourceSubscription%
 set __args=%__args% -ReleaseRegistry acr%_resourceGroup%
 set __args=%__args% -ReleaseSubscription %_subscription%
+set __args=%__args% -ReleaseNamespace ""
 set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ReleaseVersion %_version%
-set __args=%__args% -RemoveNamespaceOnRelease
 set __args=%__args% -IsLatest
 pushd %build_root%\tools\scripts
-powershell ./acr-release.ps1 %__args%
+powershell ./release.ps1 %__args%
 popd
 if !ERRORLEVEL! == 0 goto :helm
 echo Copy failed.
@@ -147,10 +147,10 @@ echo Publish...
 set __args=
 set __args=%__args% -Registry acr%_resourceGroup%
 set __args=%__args% -Subscription %_subscription%
-set __args=%__args% -RemoveNamespaceOnRelease
+set __args=%__args% -NoNamespace
 set __args=%__args% -IsLatest
 pushd %build_root%\tools\scripts
-powershell ./acr-helm.ps1 %__args%
+powershell ./publish-helm.ps1 %__args%
 popd
 if !ERRORLEVEL! == 0 goto :deploy
 echo Publish failed.

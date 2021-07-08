@@ -112,8 +112,8 @@ $created = $(Get-Date -Format "o")
 
 # -------------------------------------------------------------------------
 # Publish runtime artifacts to registry
-$argumentList = @("pull", "ghcr.io/deislabs/oras:v0.12.0")
-& docker $argumentList 2>&1 | ForEach-Object { "$_" }
+$argumentList = @("pull", "ghcr.io/oras-project/oras:v0.12.0")
+& docker $argumentList 2>&1 | Out-Null
 foreach ($runtime in $script:Project.Runtimes) {
     $artifactId = "$($name)-$($runtime.runtimeId)$($tagPostfix)".ToLower()
     $workspace = Split-Path -Path $runtime.artifact -Parent
@@ -165,7 +165,7 @@ foreach ($runtime in $script:Project.Runtimes) {
     $artifact = "$($artifact)-$($runtime.runtimeId)$($tagPostfix)"
 
     $argumentList = @("run", "--rm", "-v", "$($workspace):/workspace", 
-        "ghcr.io/deislabs/oras:v0.12.0", "push", $artifact, $artifactFolder,
+        "ghcr.io/oras-project/oras:v0.12.0", "push", $artifact, $artifactFolder,
         "-u", $script:RegistryInfo.User, "-p", $script:RegistryInfo.Password,
         "--manifest-annotations", $annotationFile, 
         "--manifest-config", $configFile, "-v")
@@ -177,7 +177,8 @@ foreach ($runtime in $script:Project.Runtimes) {
         $cmd = $($argumentList -join " ")
         $cmd = $cmd -replace $script:RegistryInfo.Password, "***"
 Write-Warning "Failed $($co). 'docker $cmd' exited with $LastExitCode - 2nd attempt..."
-        & docker $argumentList 2>&1 | ForEach-Object { "$_" }
+        $pushLog | ForEach-Object { Write-Warning "$_" }
+        $pushLog = & docker $argumentList 2>&1
         if ($LastExitCode -ne 0) {
             $pushLog | ForEach-Object { Write-Warning "$_" }
 throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode."

@@ -22,12 +22,13 @@ param(
     [string] $Cluster = $null
 )
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
 $ErrorActionPreference = "Stop"
 
-# -------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
 # Log into azure
 $argumentList = @("account", "show")
 & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" } | Out-Null
@@ -39,8 +40,8 @@ if ($LastExitCode -ne 0) {
     }
 }
 
-# --------------------------------------------------------------------------------------
 
+# -------------------------------------------------------------------------
 # set default subscription
 if (![string]::IsNullOrEmpty($script:Subscription)) {
     Write-Debug "Setting subscription to $($script:Subscription)"
@@ -96,5 +97,4 @@ Start-Sleep -Seconds 5
 $url="http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
 Start-Process -FilePath $url
 Receive-Job -Job $Job -Wait -AutoRemoveJob
-
-# --------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------

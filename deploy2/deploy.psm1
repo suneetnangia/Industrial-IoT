@@ -1,5 +1,5 @@
 # -------------------------------------------------------------------------------
-Import-Module Az 
+Import-Module Az.Accounts -MaximumVersion "2.4.0"
 
 # -------------------------------------------------------------------------------
 <#
@@ -95,11 +95,11 @@ Function Connect-ToAzure() {
     }
     if (Test-Path $contextFile) {
         $imported = Import-AzContext -Path $contextFile
-        if (($null -ne $imported) `
+        if ($imported `
                 -and ($null -ne $imported.Context) `
                 -and ($null -ne (Get-AzSubscription))) {
             $context = $imported.Context
-            if (!$SwitchSubscription) {
+            if (!$script:SwitchSubscription.IsPresent) {
                 return $context
             }
         }

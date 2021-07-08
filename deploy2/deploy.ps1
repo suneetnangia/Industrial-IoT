@@ -1,67 +1,67 @@
 ﻿<#
  .SYNOPSIS
-  Deploys Industrial IoT platform to Azure.
+    Deploys Industrial IoT platform to Azure.
 
  .DESCRIPTION
-  Deploys the Industrial IoT platform and dependencies in an interactive 
-  way to Azure subscriptions.  The deployment is made up of the Azure
-  services required.  As default an AKS cluster will also be deployed.
+    Deploys the Industrial IoT platform and dependencies in an interactive 
+    way to Azure subscriptions.  The deployment is made up of the Azure
+    services required.  As default an AKS cluster will also be deployed.
 
  .PARAMETER Type
-  The type of deployment (local, services, app, simulation, all).
-  Defaults to all.
+    The type of deployment (local, services, app, simulation, all).
+    Defaults to all.
  .PARAMETER Minimal
-  Whether to not deploy optional services. Only valid in combination
-  with type local, services, all.
+    Whether to not deploy optional services. Only valid in combination
+    with type local, services, all.
  .PARAMETER Version
-  Set to a version number that corresponds to an mcr image tag of the 
-  concrete release you want to deploy.
+    Set to a version number that corresponds to an mcr image tag of the 
+    concrete release you want to deploy.
   
  .PARAMETER DockerServer
-  An optional name of an Azure container registry to deploy containers
-  from. If not set and run from a release branch the script deploys the 
-  release corresponding to the branch from mcr.microosft.com.
-  If the resource group provided by name contains a Azure Container 
-  registry the registry is used. Otherwise the developer registry is used. 
+    An optional name of an Azure container registry to deploy containers
+    from. If not set and run from a release branch the script deploys the 
+    release corresponding to the branch from mcr.microosft.com.
+    If the resource group provided by name contains a Azure Container 
+    registry the registry is used. Otherwise the developer registry is used. 
 
  .PARAMETER SourceUri
-  Source uri where the deployment scripts and template artifacts can be
-  found.  Defaults to github repo if not provided.
+    Source uri where the deployment scripts and template artifacts can be
+    found.  Defaults to github repo if not provided.
 
  .PARAMETER ResourceGroupName
-  Name of an existing or resource group to create. 
-  If not provided or in incorrect format the script will prompt
-  for a name.
+    Name of an existing or resource group to create. 
+    If not provided or in incorrect format the script will prompt
+    for a name.
  .PARAMETER ResourceGroupLocation
-  Azure region to deploy into.  
-  If not set script will ask to select a region from a list of possible
-  regions.
+    Azure region to deploy into.  
+    If not set script will ask to select a region from a list of possible
+    regions.
 
  .PARAMETER TenantId
-  An optional tenant id that should be used to access the subscriptions.
+    An optional tenant id that should be used to access the subscriptions.
  .PARAMETER Subscription
-  An identifier of a subscription, either name or id. If not provided or
-  not valid, will prompt user to select.
+    An identifier of a subscription, either name or id. If not provided or
+    not valid, will prompt user to select.
  .PARAMETER EnvironmentName
-  The cloud environment to use, defaults to AzureCloud.
+    The cloud environment to use, defaults to AzureCloud.
 
  .PARAMETER ApplicationName
-  Name of the application if deploying services.
+    Name of the application if deploying services.
  .PARAMETER AadPreConfiguration
-  The aad configuration object (use aad-register.ps1 to create object).
-  If not provided, calls graph-register.ps1 which can be found in the 
-  the same folder as this script.
+    The aad configuration object (use aad-register.ps1 to create object).
+    If not provided, calls graph-register.ps1 which can be found in the 
+    the same folder as this script.
 
  .PARAMETER SimulationProfile
-  If you are deploying a simulation, the simulation profile to use.
-  If not provided, uses default simulation profile consisting of 
-  simulated OPC UA PLC servers.
+    If you are deploying a simulation, the simulation profile to use.
+    If not provided, uses default simulation profile consisting of 
+    simulated OPC UA PLC servers.
  .PARAMETER NumberOfSimulationsPerEdge
-  Number of simulations to deploy per edge.
+    Number of simulations to deploy per edge.
  .PARAMETER NumberOfLinuxGateways
-  Number of Linux gateways to deploy into the simulation.
+    Number of Linux gateways to deploy into the simulation.
  .PARAMETER NumberOfWindowsGateways
-  Number of Windows gateways to deploy into the simulation.
+    Number of Windows gateways to deploy into the simulation.
 #>
 
 param(
@@ -86,12 +86,14 @@ param(
 
 # -------------------------------------------------------------------------
 Set-Item Env:\SuppressAzurePowerShellBreakingChangeWarnings "true"
-Import-Module Az 
+Import-Module Az.Accounts -MaximumVersion "2.4.0"
+Import-Module Az.Resources
 Import-Module Az.ContainerRegistry
+Import-Module Az.Compute
 Import-Module Az.ManagedServiceIdentity -WarningAction SilentlyContinue
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
-Remove-Module pwsh-setup -ErrorAction SilentlyContinue
-Import-Module $(join-path $script:ScriptDir pwsh-setup.psm1)
+Remove-Module deploy -ErrorAction SilentlyContinue
+Import-Module $(join-path $script:ScriptDir deploy.psm1)
 $ErrorActionPreference = "Stop"
 
 $script:requiredProviders = @(
@@ -135,6 +137,7 @@ Function Select-ResourceGroupLocations() {
     return $locations
 }
 
+# -------------------------------------------------------------------------
 # Update resource group tags
 Function Set-ResourceGroupTags() {
     Param(
@@ -192,6 +195,7 @@ Function Set-ResourceGroupTags() {
     $resourceGroup = Set-AzResourceGroup -Name $rgName -Tag $tags
 }
 
+# -------------------------------------------------------------------------
 # Get env file content from deployment
 Function Get-EnvironmentVariables() {
     Param(
@@ -389,7 +393,6 @@ if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
 }
 
 # -------------------------------------------------------------------------
-
 # Log in - allow user to switch subscription
 Write-Host "Preparing deployment..."
 $context = Connect-ToAzure -EnvironmentName $script:EnvironmentName `

@@ -25,8 +25,10 @@ Param(
     [string] $JobPrefix = ""
 )
 
-if ([string]::IsNullOrEmpty($BuildRoot)) {
-    $BuildRoot = & (Join-Path $PSScriptRoot "get-root.ps1") -fileName "*.sln"
+# -------------------------------------------------------------------------
+if ([string]::IsNullOrEmpty($script:BuildRoot)) {
+    $script:BuildRoot = & (Join-Path $PSScriptRoot "get-root.ps1") `
+        -fileName "*.sln"
 }
 
 if ([string]::IsNullOrEmpty($FileName)) {
@@ -42,16 +44,18 @@ $agents = @{
     # mac = "macOS-10.15"
 }
 
+# -------------------------------------------------------------------------
 $jobMatrix = @{}
-
 # Traverse from build root and find all files to create job matrix
 Get-ChildItem $BuildRoot -Recurse `
     | Where-Object Name -like $FileName `
     | ForEach-Object {
 
     $fullFolder = $_.DirectoryName.Replace("\", "/")
-    $folder = $_.DirectoryName.Replace($BuildRoot, "").Replace("\", "/").TrimStart("/")
-    $file = $_.FullName.Replace($BuildRoot, "").Replace("\", "/").TrimStart("/")
+    $folder = $_.DirectoryName.Replace($BuildRoot, "")
+    $folder = $folder.Replace("\", "/").TrimStart("/")
+    $file = $_.FullName.Replace($BuildRoot, "")
+    $file = $file.Replace("\", "/").TrimStart("/")
     if ([string]::IsNullOrEmpty($folder)) {
         $postFix = ""
     }
@@ -70,7 +74,7 @@ Get-ChildItem $BuildRoot -Recurse `
         })
     }
 }
-
+# -------------------------------------------------------------------------
 # Set pipeline variable
 Write-Host ("##vso[task.setVariable variable=jobMatrix;isOutput=true] {0}" `
     -f ($jobMatrix | ConvertTo-Json -Compress))
