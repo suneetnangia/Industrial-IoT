@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 usage(){
     echo '
 Usage: '"$0"'  
@@ -71,14 +71,15 @@ if [[ -z "$dockerserver" ]]; then
     dockerserver="industrialiotdev.azurecr.io"
 fi
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 if ! az account show > /dev/null 2>&1 ; then
     az login
 fi
 if [[ -n "$subscription" ]]; then 
     az account set -s $subscription
 fi
-    
+
+# -------------------------------------------------------------------------
 # updates subscription if id provided otherwise uses default
 . create-sp.sh -n $name -g $resourcegroup -l $location > /dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -175,6 +176,7 @@ echo '{
     }
 }' > deploy.json
 
+# -------------------------------------------------------------------------
 echo "Deploying..."
 az deployment group create -g $resourcegroup \
     --template-uri $templateUrl?$token \
@@ -189,3 +191,4 @@ if [[ -n "$storage" ]] ; then
     	> /dev/null 2>&1
 fi
 rm -f deploy.json > /dev/null 2>&1
+# -------------------------------------------------------------------------

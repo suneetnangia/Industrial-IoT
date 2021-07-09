@@ -12,15 +12,12 @@
     The operating system to enroll
 #>
 param(
-    [Parameter(Mandatory)]
-    [string] $dpsConnString,
-    [Parameter(Mandatory)] 
-    [string] $os
+    [Parameter(Mandatory)] [string] $dpsConnString,
+    [Parameter(Mandatory)] [string] $os
 )
 
-#******************************************************************************
+# -------------------------------------------------------------------------
 # Generate a random key
-#******************************************************************************
 Function New-Key() {
     param(
         $length = 15
@@ -38,6 +35,7 @@ Function New-Key() {
 
 $registrationId = (New-Key).ToLower()
 
+# -------------------------------------------------------------------------
 # Parse connection string
 $hostName = $null
 $keyName = $null
@@ -60,6 +58,7 @@ $dpsConnString.Split(';') | ForEach-Object {
     }
 }
 
+# -------------------------------------------------------------------------
 # Create sas token
 Add-Type -AssemblyName System.Web
 $audience = $hostName
@@ -75,8 +74,8 @@ $sasToken = "SharedAccessSignature " `
     + "&se=" + $expires `
     + "&skn=" + $keyName
 
+# -------------------------------------------------------------------------
 # Create enrollment
-
 $headers = @{"Authorization" = $sasToken; "Content-Type" = "application/json"}
 Add-Type -AssemblyName System.Net
 $deviceId = [System.Net.Dns]::GetHostName()
@@ -97,7 +96,7 @@ $body = @{
     }
 } | ConvertTo-Json
 
-
+# -------------------------------------------------------------------------
 $uri = "https://$($hostName)/enrollments/$($registrationId)?api-version=2019-03-31"
 try {
     $response = $body | Invoke-RestMethod -Method Put -Headers $headers -Uri $uri 
@@ -109,3 +108,4 @@ try {
     Write-Host $_.Exception.Message
     return $null
 }
+# -------------------------------------------------------------------------

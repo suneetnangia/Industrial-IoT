@@ -27,19 +27,23 @@ Param(
     [switch] $Yes
 )
 
+# -------------------------------------------------------------------------
 # set default subscription
 if (![string]::IsNullOrEmpty($script:Subscription)) {
     Write-Debug "Setting subscription to $($script:Subscription)"
-    $argumentList = @("account", "set", "--subscription", $script:Subscription, "-ojson")
+    $argumentList = @("account", "set", "--subscription", `
+        $script:Subscription, "-ojson")
     & az $argumentList 2`>`&1 | ForEach-Object { "$_" }
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
     }
 }
 
-if (-not $script:All.IsPresent) {
+# -------------------------------------------------------------------------
+if (!$script:All.IsPresent) {
     # get build registry credentials
-    $argumentList = @("acr", "credential", "show", "--name", $script:Registry, "-ojson")
+    $argumentList = @("acr", "credential", "show", "--name", 
+        $script:Registry, "-ojson")
     $result = (& az $argumentList 2>&1 | ForEach-Object { "$_" })
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
@@ -49,9 +53,12 @@ if (-not $script:All.IsPresent) {
     $dockerPassword = $dockerCredentials.passwords[0].value
 }
 
+# -------------------------------------------------------------------------
 # get list of repositories
-$argumentList = @("acr", "repository", "list", "--name", $script:Registry, "-ojson")
-$repositories = (& az $argumentList 2>&1 | ForEach-Object { "$_" }) | ConvertFrom-Json
+$argumentList = @("acr", "repository", "list", "--name",
+    $script:Registry, "-ojson")
+$repositories = (& az $argumentList 2>&1 | ForEach-Object { "$_" }) `
+    | ConvertFrom-Json
 foreach ($repository in $repositories) {
     
     if ($script:All.IsPresent) {
@@ -69,7 +76,8 @@ foreach ($repository in $repositories) {
     }
     else {
         # use acr cli to purge dangling manifests per repo
-        $argumentList = @("run", "-it", "mcr.microsoft.com/acr/acr-cli:0.4", "purge"
+        $argumentList = @("run", "-it", "mcr.microsoft.com/acr/acr-cli:0.4",
+            "purge"
             "--password", $dockerPassword,
             "--username", $dockerUser,
             "--registry", $script:Registry,
@@ -83,4 +91,5 @@ foreach ($repository in $repositories) {
         (& "docker" $argumentList 2>&1 | ForEach-Object { "$_" }) | Out-Host
     }
 }
+# -------------------------------------------------------------------------
 

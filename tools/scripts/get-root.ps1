@@ -10,6 +10,7 @@ param(
     [string] $fileName
 )
 
+# -------------------------------------------------------------------------
 if ([string]::IsNullOrEmpty($startDir)) {
     $startDir = $PSScriptRoot
 }
@@ -22,4 +23,5 @@ while (![string]::IsNullOrEmpty($cur)) {
     }
     $cur = Split-Path $cur
 }
+# -------------------------------------------------------------------------
 return $startDir

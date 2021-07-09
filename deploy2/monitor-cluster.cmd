@@ -61,5 +61,5 @@ set __args=
 set __args=%__args% -ResourceGroup %_resourceGroup%
 if not "%_name%" == "" set __args=%__args% -Cluster %_name%
 if not "%_subscription%" == "" set __args=%__args% -Subscription %_subscription%
-%PWSH% -ExecutionPolicy Unrestricted ./monitor-cluster.ps1 %__args%
+%PWSH% -ExecutionPolicy Unrestricted %current-path%/monitor-cluster.ps1 %__args%
 popd

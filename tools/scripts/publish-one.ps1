@@ -25,8 +25,10 @@
 
  .PARAMETER Debug
     Build and publish debug artifacts instead of release (default)
+ .PARAMETER NoNamespace
+    Do not publish using a namespace
  .PARAMETER Fast
-    Perform a fast build.  This will only build what is needed for 
+    Perform a fast build. This will only build what is needed for 
     the system to run in its default deployment setup.
 #>
 
@@ -37,6 +39,7 @@ Param(
     [string] $Subscription = $null,
     [object] $RegistryInfo = $null,
     [switch] $Debug,
+    [switch] $NoNamespace,
     [switch] $Fast
 )
 
@@ -57,8 +60,8 @@ if (!$script:Project) {
         return $null
     }
 }
-if ($script:Fast.IsPresent -and (!$script:Project.Metadata.buildAlways)) {
-    Write-Warning "Using fast build - Skipping $($script:Project.Name)."
+if (!$script:Project.Runtimes -or ($script:Project.Runtimes.Count -eq 0)) {
+    Write-Warning "Nothing found to publish - Skipping $($script:Project.Name)."
     return $null
 }
 
@@ -67,21 +70,21 @@ if ($script:Fast.IsPresent -and (!$script:Project.Metadata.buildAlways)) {
 if (!$script:RegistryInfo) {
     $script:RegistryInfo = & (Join-Path $PSScriptRoot "acr-login.ps1") `
         -Registry $script:Registry -Subscription $script:Subscription `
-        -NoNamespace:$script:Fast
+        -NoNamespace:$script:NoNamespace
     if (!$script:RegistryInfo) {
         throw "Failed to get registry information for $script:Registry"
     }
 }
 
 # -------------------------------------------------------------------------
-$startTime = $(Get-Date)
 # Set image namespace
+$startTime = $(Get-Date)
 $namespace = $script:RegistryInfo.Namespace
-if (![string]::IsNullOrEmpty($namespace)) {
-    $namespace = "$($namespace)/"
+if ([string]::IsNullOrEmpty($namespace) -or $script:NoNamespace.IsPresent) {
+    $namespace = ""
 }
 else {
-    $namespace = ""
+    $namespace = "$($namespace)/"
 }
 # set source tag and revision
 $sourceTag = $env:Version_Prefix
@@ -103,7 +106,7 @@ if ([string]::IsNullOrEmpty($sourceTag)) {
 }
 # Set postfix
 $tagPostfix = ""
-if ($script:Project.Debug -and (!$script:Fast.IsPresent)) {
+if ($script:Project.Debug) {
     $tagPostfix = "-debug"
 }
 

@@ -14,9 +14,13 @@
  .PARAMETER Clean
     Perform a clean build. This will remove all existing output
     ahead of publishing.
+ .PARAMETER LinuxOnly
+    Build linux only (except for edge modules at this time)
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
+ .PARAMETER LinuxOnly
+    Build linux only (except for edge modules at this time)
 #>
 
 Param(
@@ -24,7 +28,8 @@ Param(
     [string] $Output = $null,
     [switch] $Debug,
     [switch] $Clean,
-    [switch] $Fast
+    [switch] $Fast,
+    [switch] $LinuxOnly
 )
 
 # -------------------------------------------------------------------------
@@ -53,7 +58,8 @@ Get-ChildItem $script:Path -Recurse -Include "container.json" `
     # See if we should build into registry directly, otherwise just build
     $project = & (Join-Path $PSScriptRoot "build-one.ps1") `
         -Path $metadataPath -Output $script:Output `
-        -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
+        -LinuxOnly:$script:LinuxOnly -Clean:$script:Clean `
+        -Debug:$script:Debug -Fast:$script:Fast
     if ($LastExitCode -ne 0) {
         throw "build-one.ps1 failed with $($LastExitCode)."
     }    

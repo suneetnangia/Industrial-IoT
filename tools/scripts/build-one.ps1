@@ -18,6 +18,8 @@
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
+ .PARAMETER LinuxOnly
+    Build linux only (except for edge modules at this time)
 #>
 
 Param(
@@ -25,7 +27,8 @@ Param(
     [string] $Output = $null,
     [switch] $Debug,
     [switch] $Clean,
-    [switch] $Fast
+    [switch] $Fast,
+    [switch] $LinuxOnly
 )
 
 # -------------------------------------------------------------------------
@@ -82,7 +85,7 @@ if ([string]::IsNullOrWhiteSpace($assemblyName)) {
 # Always build as portable.
 $runtimes = @("portable")
 if (!$metadata.base) {
-    if ($script:Fast.IsPresent) {
+    if ($script:Fast.IsPresent -or $script:LinuxOnly.IsPresent) {
         $runtimes += "linux-musl-x64"
         # if iot edge also build for windows.
         if ($metadata.iotedge) {

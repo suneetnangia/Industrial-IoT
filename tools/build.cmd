@@ -108,6 +108,7 @@ set __args=
 set __args=%__args% -Subscription %_subscription%
 set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup%
+set __args=%__args% -NoNamespace
 if not exist "%TEMP%" goto :nooutput
 if "%_clean%" == "1" if exist %TEMP%\%_resourceGroup% rmdir /s /q %TEMP%\%_resourceGroup%
 if not exist %TEMP%\%_resourceGroup% mkdir %TEMP%\%_resourceGroup%

@@ -142,7 +142,8 @@ if ((!$registryInfo) -and `
         if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
             throw "Need a location to create the resource group."
         }
-        $argumentList = @("group", "create", "-g", $script:ResourceGroupName, `
+        $argumentList = @("group", "create", 
+            "-g", $script:ResourceGroupName, 
             "-l", $script:ResourceGroupLocation, 
             "--subscription", $script:Subscription)
         $group = & az $argumentList | ConvertFrom-Json
@@ -187,6 +188,7 @@ if (!$registryInfo) {
     throw "Could not find registry info.  Check if registry exists."
 }
 
+# -------------------------------------------------------------------------
 # get credentials
 $argumentList = @("acr", "credential", "show", "--name", 
     $registryInfo.name, "--subscription", $script:Subscription)
@@ -208,6 +210,7 @@ if ($script:Login.IsPresent) {
 $elapsedTime = $(Get-Date) - $startTime
 $elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
 Write-Host "Login to $($registryInfo.name) took $($elapsedString)..." 
+
 # -------------------------------------------------------------------------
 # return result
 return @{
@@ -219,3 +222,4 @@ return @{
     User = $credentials.username
     Password = $credentials.passwords[0].value
 }
+# -------------------------------------------------------------------------

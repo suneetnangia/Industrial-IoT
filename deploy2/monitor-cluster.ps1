@@ -23,10 +23,8 @@ param(
 )
 
 # -------------------------------------------------------------------------
-
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
 $ErrorActionPreference = "Stop"
-
 
 # -------------------------------------------------------------------------
 # Log into azure
@@ -39,7 +37,6 @@ if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
     }
 }
-
 
 # -------------------------------------------------------------------------
 # set default subscription

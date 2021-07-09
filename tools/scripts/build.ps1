@@ -30,6 +30,8 @@
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
+ .PARAMETER NoNamespace
+    Do not publish with a namespace
 #>
 
 Param(
@@ -41,6 +43,7 @@ Param(
     [string] $Subscription = $null,
     [switch] $Debug,
     [switch] $Clean,
+    [switch] $NoNamespace,
     [switch] $Fast
 )
 
@@ -94,7 +97,8 @@ if ($projects.Count -eq 0) {
     }
     [array]$projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
         -Path $script:Path -Output $script:Output `
-        -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean
+        -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean `
+        -LinuxOnly $script:NoNamespace
     if ((!$projects) -or ($LastExitCode -ne 0)) {
         throw "Failed to build projects."
     }
@@ -114,7 +118,8 @@ if ((![string]::IsNullOrEmpty($script:Registry)) -and `
     Write-Host "Building registry artifacts and containers..."
     & (Join-Path $PSScriptRoot "task-setup.ps1") -Projects $projects `
         -Registry $script:Registry -Subscription $script:Subscription `
-        -Output $script:Output -Debug:$script:Debug -Fast:$script:Fast
+        -Output $script:Output -Debug:$script:Debug -Fast:$script:Fast `
+        -NoNamespace $script:NoNamespace
     if ($LastExitCode -ne 0) {
         throw "Failed to publish artifacts and containers."
     }

@@ -18,6 +18,7 @@ param(
     [string] $idScope
 )
 
+# -------------------------------------------------------------------------
 $path = Split-Path $script:MyInvocation.MyCommand.Path
 $enrollPath = join-path $path dps-enroll.ps1
 if ($PsVersionTable.Platform -eq "Unix") {
@@ -85,3 +86,4 @@ else {
         Install-IoTEdge -Dps -ScopeId $idScope -ContainerOs Windows -RegistrationId `
             $enrollment.registrationId -SymmetricKey $enrollment.primaryKey
 }
+# -------------------------------------------------------------------------

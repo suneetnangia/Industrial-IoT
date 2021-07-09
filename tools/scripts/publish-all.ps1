@@ -25,6 +25,8 @@
 
  .PARAMETER Debug
     Build and publish debug artifacts instead of release (default)
+ .PARAMETER NoNamespace
+    Do not publish using a namespace
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
@@ -39,6 +41,7 @@ Param(
     [string] $Subscription = $null,
     [object] $RegistryInfo = $null,
     [switch] $Debug,
+    [switch] $NoNamespace,
     [switch] $Fast,
     [int] $ThrottleLimit = 16
 )
@@ -59,7 +62,7 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
 if (!$script:RegistryInfo) {
     $script:RegistryInfo = & (Join-Path $PSScriptRoot "acr-login.ps1") `
         -Registry $script:Registry -Subscription $script:Subscription `
-        -NoNamespace:$script:Fast
+        -NoNamespace:$script:NoNamespace
     if (!$script:RegistryInfo) {
         throw "Failed to get registry information for $script:Registry"
     }
@@ -76,8 +79,8 @@ $rspool.Open()
 $jobs = @()
 Write-Host "Publishing $($script:Projects.Count) projects as artifacts..."
 foreach ($project in $script:Projects) {
-    if ($script:Fast.IsPresent -and (!$project.Metadata.buildAlways)) {
-        Write-Warning "Using fast build - Skipping $($project.Name)."
+    if (!$script:Project.Runtimes -or ($script:Project.Runtimes.Count -eq 0)) {
+        Write-Warning "No runtimes to publish for $($project.Name)."
         continue
     }
     $PowerShell = [powershell]::Create()
@@ -85,13 +88,14 @@ foreach ($project in $script:Projects) {
     [void]$PowerShell.AddScript({
         return & (Join-Path $args[0] "publish-one.ps1") `
             -RegistryInfo $args[1] -Project $args[2] `
-            -Debug:$args[3] -Fast:$args[3]
-    }, $True)
+            -Debug:$args[3] -Fast:$args[3] -NoNamespace:$args[4]
+    }, $true)
     [void]$PowerShell.AddArgument($PSScriptRoot)
     [void]$PowerShell.AddArgument($script:RegistryInfo)
     [void]$PowerShell.AddArgument($project)
     [void]$PowerShell.AddArgument($script:Debug.IsPresent)
     [void]$PowerShell.AddArgument($script:Fast.IsPresent)
+    [void]$PowerShell.AddArgument($script:NoNamespace.IsPresent)
     $jobs += @{
         PowerShell = $PowerShell
         Name = $project.Name

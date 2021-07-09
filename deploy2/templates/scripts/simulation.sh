@@ -10,8 +10,7 @@ DEBIAN_FRONTEND=noninteractive
 
 APP_PATH="/app"
 ENVVARS="${APP_PATH}/.env"
-
-# ========================================================================
+# -------------------------------------------------------------------------
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -25,12 +24,12 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# ========================================================================
-
+# -------------------------------------------------------------------------
 apt-get update
 apt-get remove -y docker docker-engine docker.io
 apt-get autoremove -y
-apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl software-properties-common openssl
+apt-get install -y --no-install-recommends apt-transport-https \
+    ca-certificates curl software-properties-common openssl
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 apt-key fingerprint 0EBFCD88
 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
@@ -38,10 +37,11 @@ apt-get update
 apt-get install -y --no-install-recommends docker-ce
 usermod -aG docker $USER
 usermod -aG docker $ADMIN
-curl -fSsL "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+curl -fSsL "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" \
+    -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# ========================================================================
+# -------------------------------------------------------------------------
 
 mkdir -p ${APP_PATH}
 chmod ugo+rX ${APP_PATH}
@@ -51,7 +51,7 @@ cd ${APP_PATH}
 touch docker-compose.yml && chmod 644 docker-compose.yml
 chmod 755 simulation.sh
 
-# ========================================================================
+# -------------------------------------------------------------------------
 
 if [ -z "$DOCKER_SERVER" ]; then
     DOCKER_SERVER=mcr.microsoft.com
@@ -83,3 +83,4 @@ else
     echo "Failure: Cannot start simulation." >&2
     exit 1
 fi
+# -------------------------------------------------------------------------

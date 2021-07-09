@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 usage(){
     echo '
 Usage: '"$0"'  
     --namespace, -n            Namespace to use to install into.
     --resourcegroup, -g        Resource group in which the cluster resides.
+    --subscription, -s         Changes default subscription to this one.
     --help                     Shows this help.
 '
     exit 1
@@ -19,6 +20,7 @@ fi
 
 CWD=$(pwd)
 resourcegroup=
+subscription=
 namespace=
 aksCluster=
 roleName=
@@ -50,6 +52,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --namespace|-n)             namespace="$2"; shift ;;
         --resourcegroup|-g)         resourcegroup="$2"; shift ;;
+        --subscription|-s)          subscription="$2"; shift ;;
         --help)                     usage ;;
         # automation...
         --aksCluster)               aksCluster="$2"; shift ;;
@@ -80,7 +83,7 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     az login --identity
@@ -88,13 +91,16 @@ elif ! az account show > /dev/null 2>&1 ; then
     az login
 fi
 
-if [[ -z "$namespace" ]]; then
-    echo "ERROR: Missing namespace name. You must use --namespace parameter."
-    usage
-fi
 if [[ -z "$resourcegroup" ]]; then
     echo "ERROR: Missing resource group name.  Use --resourcegroup parameter."
     usage
+fi
+if [[ -z "$namespace" ]]; then
+    namespace=$resourcegroup
+    echo "WARNING: Using namespace $namespace."
+fi
+if [[ -n "$subscription" ]]; then
+    az account set -s $subscription
 fi
 if [[ -z "$aksCluster" ]]; then
     aksCluster=$(az aks list -g $resourcegroup \
@@ -267,7 +273,7 @@ echo "  userId=$userId"
 echo "  userEmail=$userEmail"
 echo ""
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Add user as member to admin group to get access
 if [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     if [[ -n "$userId" ]] ; then
@@ -281,16 +287,19 @@ fi
 # Go to home.
 cd ~
 
-if ! kubectl version > /dev/null 2>&1 ; then
+if ! kubectl version --client=true > /dev/null 2>&1 ; then
     echo "Install kubectl..."
-    if ! az aks install-cli > /dev/null 2>&1; then 
+    az aks install-cli --install-location /usr/local/bin/kubectl 
+    kubectl version
+    if ! kubectl version --client=true > /dev/null 2>&1 ; then 
         echo "ERROR: Failed to install kubectl."
         exit 1
     fi
 fi
 if ! helm version > /dev/null 2>&1 ; then
     echo "Install Helm..."
-    if ! az acr helm install-cli --client-version "3.3.4" -y > /dev/null 2>&1; then
+    az acr helm install-cli --client-version "3.3.4" -y > /dev/null 2>&1
+    if ! helm version > /dev/null 2>&1 ; then
         echo "ERROR: Failed to install helm. "
         exit 1
     fi
@@ -307,7 +316,7 @@ else
 fi
 echo "Credentials for AKS cluster acquired."
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 # Add Helm repos
 if ! helm repo add jetstack \
@@ -364,7 +373,7 @@ else
 fi
 helm repo update
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Install omsagent configuration if not already installed.
 echo ""
 echo "Configure Azure monitor..."
@@ -477,7 +486,7 @@ echo "Upgraded aad-pod-identity/aad-pod-identity aad-pod-identity release in nam
     fi
 fi
 
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Install services into cluster 
 echo "Installing services into namespace $namespace of cluster $aksCluster..."
 
@@ -703,4 +712,4 @@ fi
 
 echo "Installed all services into namespace $namespace of cluster $aksCluster."
 # todo - test access at https endpoint
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------

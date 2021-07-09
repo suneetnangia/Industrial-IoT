@@ -41,8 +41,8 @@ param(
     [string] $TenantId = $null,
     [object] $Context = $null
 )
-# -------------------------------------------------------------------------
 
+# -------------------------------------------------------------------------
 Import-Module Az.Accounts -MaximumVersion "2.4.0"
 Import-Module Az.Resources
 Import-Module Az.ManagedServiceIdentity 
@@ -233,5 +233,5 @@ if ($scripted) {
 else {
     return $result | ConvertTo-Json
 }
-# -------------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 

@@ -26,6 +26,8 @@
     Build debug and include debugger into images (where applicable)
  .PARAMETER Fast
     Perform a fast build. 
+ .PARAMETER NoNamespace
+    Do not publish using a namespace
 #>
 
 Param(
@@ -36,6 +38,7 @@ Param(
     [string] $Subscription = $null,
     [switch] $Debug,
     [switch] $Fast,
+    [switch] $NoNamespace,
     [switch] $SkipPublish
 )
 
@@ -43,7 +46,7 @@ Param(
 # Get registry information
 $registryInfo = & (Join-Path $PSScriptRoot "acr-login.ps1") `
     -Registry $script:Registry -Subscription $script:Subscription `
-    -NoNamespace:$script:Fast
+    -NoNamespace:$script:NoNamespace
 if (!$registryInfo) {
     throw "Failed to get registry information for $script:Registry"
 }
@@ -70,9 +73,10 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
 # -------------------------------------------------------------------------
 # Publish artifacts from all built projects 
 if (!$script:SkipPublish.IsPresent) {
-    $published = & (Join-Path $PSScriptRoot "publish-all.ps1") `
+    $script:Projects = & (Join-Path $PSScriptRoot "publish-all.ps1") `
         -Projects $script:Projects -RegistryInfo $registryInfo `
-        -Debug:$script:Debug -Fast:$script:Fast
+        -Debug:$script:Debug -Fast:$script:Fast `
+        -NoNamespace:$script:NoNamespace
     Write-Host "... published."
 }
 
@@ -110,7 +114,7 @@ $tasks = @{}
 foreach ($project in $script:Projects) {
     # Set postfix
     $tagPostfix = ""
-    if ($project.Debug -and (!$script:Fast.IsPresent)) {
+    if ($project.Debug) {
         $tagPostfix = "-debug"
     }
     $platforms = @(
@@ -524,8 +528,8 @@ Write-Host "Uploading $($tasks.Count) tasks as $($taskArtifact) $($elapsedString
 # -------------------------------------------------------------------------
 # Create tasks from task artifact and run them first time
 & (Join-Path $PSScriptRoot "task-run-all.ps1") -TaskArtifact $taskArtifact `
-    -Subscription $script:Subscription `
-    -IsLatest:$script:Fast -RemoveNamespaceOnRelease:$script:Fast
+    -Subscription $script:Subscription -IsLatest:$script:NoNamespace `
+    -NoNamespace:$script:NoNamespace
 if ($LastExitCode -ne 0) {
     throw "Failed to run tasks from $taskArtifact."
 }

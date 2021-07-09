@@ -19,8 +19,8 @@ fi
 echo "Prepare Ubuntu $osversion..."
 DEBIAN_FRONTEND=noninteractive
 
+# -------------------------------------------------------------------------
 # install powershell and iotedge
-
 curl -O https://packages.microsoft.com/config/ubuntu/$osversion/packages-microsoft-prod.deb
 dpkg -i packages-microsoft-prod.deb
 apt-get update
@@ -48,3 +48,4 @@ systemctl restart iotedge
 sleep 3
 systemctl status iotedge
 echo "Iotedge running."
+# -------------------------------------------------------------------------

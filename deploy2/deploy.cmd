@@ -112,5 +112,5 @@ if not "%_version%" == "" set __args=%__args% -Version %_version%
 if not "%_tenant%" == "" set __args=%__args% -TenantId %_tenant%
 if not "%_simulation%" == "" set __args=%__args% -SimulationProfile %_simulation%
 if not "%_minimal%" == "" set __args=%__args% -Minimal
-%PWSH% -ExecutionPolicy Unrestricted ./deploy.ps1 %__args%
+%PWSH% -ExecutionPolicy Unrestricted %current-path%/deploy.ps1 %__args%
 popd

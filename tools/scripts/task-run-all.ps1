@@ -16,7 +16,7 @@
     Release as latest image
  .PARAMETER IsMajorUpdate
     Release as major update
- .PARAMETER RemoveNamespaceOnRelease
+ .PARAMETER NoNamespace
     Remove namespace (e.g. public) on release.
  .PARAMETER ThrottleLimit
     Max concurrent threads to run tasks.
@@ -27,7 +27,7 @@ Param(
     [string] $Subscription = $null,
     [switch] $IsLatest,
     [switch] $IsMajorUpdate,
-    [switch] $RemoveNamespaceOnRelease,
+    [switch] $NoNamespace,
     [int] $ThrottleLimit = 32
 )
 
@@ -43,7 +43,7 @@ if (!$registry -like "*.azurecr.io") {
 $namespace = $TaskArtifact.Replace("$($registry)/", "")
 $artifactTag = $namespace.Split(':')[1]
 # add the output / release image tags
-if ($script:RemoveNamespaceOnRelease.IsPresent) {
+if ($script:NoNamespace.IsPresent) {
     $namespace = ""
 }
 else {
