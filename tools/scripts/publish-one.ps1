@@ -27,9 +27,6 @@
     Build and publish debug artifacts instead of release (default)
  .PARAMETER NoNamespace
     Do not publish using a namespace
- .PARAMETER Fast
-    Perform a fast build. This will only build what is needed for 
-    the system to run in its default deployment setup.
 #>
 
 Param(
@@ -39,8 +36,7 @@ Param(
     [string] $Subscription = $null,
     [object] $RegistryInfo = $null,
     [switch] $Debug,
-    [switch] $NoNamespace,
-    [switch] $Fast
+    [switch] $NoNamespace
 )
 
 # -------------------------------------------------------------------------
@@ -55,7 +51,7 @@ if (!$script:Project) {
     }
     $Path = Resolve-Path -LiteralPath $Path
     $script:Project = & (Join-Path $PSScriptRoot "build-one.ps1") `
-        -Path $Path -Debug:$script:Debug -Fast:$script:Fast -Clean
+        -Path $Path -Debug:$script:Debug -Clean
     if (!$script:Project) {
         return $null
     }
@@ -97,7 +93,7 @@ if ([string]::IsNullOrEmpty($sourceTag)) {
     }
     catch {
         # build as latest if not building from ci/cd pipeline
-        if (!$script:Fast.IsPresent) {
+        if (![string]::IsNullOrEmpty($env:BUILD_SOURCEVERSION)) {
             throw "Unable to determine version - skip image build."
         }
         $sourceTag = "latest"

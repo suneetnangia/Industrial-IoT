@@ -75,8 +75,7 @@ if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
 if (!$script:SkipPublish.IsPresent) {
     $script:Projects = & (Join-Path $PSScriptRoot "publish-all.ps1") `
         -Projects $script:Projects -RegistryInfo $registryInfo `
-        -Debug:$script:Debug -Fast:$script:Fast `
-        -NoNamespace:$script:NoNamespace
+        -Debug:$script:Debug -NoNamespace:$script:NoNamespace
     Write-Host "... published."
 }
 
@@ -91,7 +90,7 @@ if ([string]::IsNullOrEmpty($buildTag)) {
     }
     catch {
         # build as latest if not building from ci/cd pipeline
-        if (!$script:Fast.IsPresent) {
+        if (![string]::IsNullOrEmpty($env:BUILD_SOURCEVERSION)) {
             throw "Unable to determine version - skip image build."
         }
         $buildTag = "latest"

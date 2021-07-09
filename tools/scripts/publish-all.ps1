@@ -26,10 +26,7 @@
  .PARAMETER Debug
     Build and publish debug artifacts instead of release (default)
  .PARAMETER NoNamespace
-    Do not publish using a namespace
- .PARAMETER Fast
-    Perform a fast build.  This will only build what is needed for 
-    the system to run in its default deployment setup.
+    Do not publish using a namespace.
  .PARAMETER ThrottleLimit
     Max concurrent threads to run publishing work on.
 #>
@@ -42,7 +39,6 @@ Param(
     [object] $RegistryInfo = $null,
     [switch] $Debug,
     [switch] $NoNamespace,
-    [switch] $Fast,
     [int] $ThrottleLimit = 16
 )
 
@@ -50,8 +46,7 @@ Param(
 # Build all projects if no project objects provided
 if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
     [array]$script:Projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
-        -Path $script:Path `
-        -Debug:$script:Debug -Fast:$script:Fast -Clean
+        -Path $script:Path -Debug:$script:Debug -Clean
     if ((!$script:Projects) -or ($script:Projects.Count -eq 0)) {
         Write-Warning "Nothing to build under $($script:Path)."
         return
@@ -88,13 +83,12 @@ foreach ($project in $script:Projects) {
     [void]$PowerShell.AddScript({
         return & (Join-Path $args[0] "publish-one.ps1") `
             -RegistryInfo $args[1] -Project $args[2] `
-            -Debug:$args[3] -Fast:$args[3] -NoNamespace:$args[4]
+            -Debug:$args[3] -NoNamespace:$args[4]
     }, $true)
     [void]$PowerShell.AddArgument($PSScriptRoot)
     [void]$PowerShell.AddArgument($script:RegistryInfo)
     [void]$PowerShell.AddArgument($project)
     [void]$PowerShell.AddArgument($script:Debug.IsPresent)
-    [void]$PowerShell.AddArgument($script:Fast.IsPresent)
     [void]$PowerShell.AddArgument($script:NoNamespace.IsPresent)
     $jobs += @{
         PowerShell = $PowerShell
