@@ -202,6 +202,7 @@
         "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
         "deployCluster": "[and(parameters('deployToCluster'), variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
+        "deployingToCluster": "[and(parameters('deployToCluster'), variables('clusterAvailable'))]",
         "aksClusterAdminDeploymentName": "aks.admin",
         "aksClusterAdminDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminDeploymentName'))]",
         "aksClusterDeploymentName": "aks",
@@ -214,8 +215,8 @@
         "aadAppRegistrationDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationDeploymentName'))]",
         "microServicesDeploymentName": "services",
         "microServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('microServicesDeploymentName'))]",
-        "alternativeAppServiceDeploymentName": "platform",
-        "alternativeAppServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('alternativeAppServiceDeploymentName'))]",
+        "alternativeWebAppDeploymentName": "webapp",
+        "alternativeWebAppsDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('alternativeWebAppDeploymentName'))]",
         "simulationDeploymentName": "simulation"
     },
     "resources": [
@@ -400,7 +401,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('microServicesDeploymentName')]",
-            "condition": "[and(parameters('deployToCluster'), variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
+            "condition": "[and(variables('deployingToCluster'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -494,8 +495,8 @@
             "comments": "Deploy Azure Industrial IoT micro services into app service as alternative to cluster.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
-            "name": "[variables('microServicesDeploymentName')]",
-            "condition": "[and(not(and(parameters('deployToCluster'), variables('clusterAvailable'))), parameters('deployPlatformComponents'))]",
+            "name": "[variables('alternativeWebAppDeploymentName')]",
+            "condition": "[and(not(variables('deployingToCluster')), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -535,7 +536,7 @@
                 },
                 "templateLink": {
                     "contentVersion": "1.0.0.0",
-                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.appservice.json'), parameters('templateUrlQueryString'))]"
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.webapp.json'), parameters('templateUrlQueryString'))]"
                 }
             },
             "dependsOn": [
@@ -637,11 +638,11 @@
         },
         "serviceUrl": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, '')]"
+            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployingToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.serviceUrl.value), '')]"
         },
         "appUrl": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, '')]"
+            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployingToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.appUrl.value), '')]"
         },
         "clusterName": {
             "type": "string",

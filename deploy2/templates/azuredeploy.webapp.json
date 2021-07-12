@@ -129,7 +129,7 @@
         "serviceSiteResourceName": "[if(empty(parameters('serviceName')), concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('serviceName'))]",
         "serviceSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceSiteResourceName'))]",
         "serviceContainerImageName": "[concat('iot/industrial-iot-services-all', ':', parameters('imagesTag'))]",
-        "configurationResourceName": "platform.service.configuration",
+        "configurationResourceName": "webapp.configuration",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
         "appSiteResourceName": "[if(empty(parameters('applicationName')), concat('app', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('applicationName'))]",
         "appSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('appSiteResourceName'))]",
@@ -145,7 +145,7 @@
             "tags": "[parameters('tags')]"
         },
         {
-            "comments": "Hosting plan to host platform services and application.",
+            "comments": "Hosting plan to host all in one services and engineering tool containers as web app.",
             "type": "Microsoft.Web/serverfarms",
             "apiVersion": "2018-02-01",
             "kind": "linux",
@@ -161,7 +161,7 @@
             }
         },
         {
-            "comments": "Deploy all in one services container.",
+            "comments": "Deploy all in one services container as web app.",
             "type": "Microsoft.Web/sites",
             "kind": "app,linux,container",
             "name": "[variables('serviceSiteResourceName')]",
@@ -238,7 +238,7 @@
             },
             "resources": [
                 {
-                    "comments": "Configuration for all in one services application.",
+                    "comments": "Configuration for all in one services container web app.",
                     "condition": "[not(empty(parameters('serviceName')))]",
                     "type": "config",
                     "name": "appsettings",
@@ -266,7 +266,7 @@
             ]
         },
         {
-            "comments": "Save service url as configuration.",
+            "comments": "Save service url and managed identity information as configuration.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('configurationResourceName')]",
@@ -319,7 +319,7 @@
             ]
         },
         {
-            "comments": "Deploy engineering tool container if desired.",
+            "comments": "Deploy engineering tool container as web app if desired.",
             "condition": "[and(parameters('deployEngineeringTool'), not(empty(parameters('applicationName'))))]",
             "type": "Microsoft.Web/sites",
             "kind": "app,linux,container",

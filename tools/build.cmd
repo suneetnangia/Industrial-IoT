@@ -159,27 +159,15 @@ goto :done
 
 :deploy
 if not "%_deploy%" == "1" goto :done
+echo Deploy...
 set __args=
 set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ApplicationName %_resourceGroup%
-if "%_full%" == "" goto :notcluster
-:cluster
-echo Deploy to Cluster...
 set __args=%__args% -Subscription %_subscription%
-pushd %build_root%\deploy2
-powershell ./deploy.ps1 -type all %__args% 
-popd
-if !ERRORLEVEL! == 0 goto :done
-echo Deploy failed.
-goto :done
+if "%_full%" == "" set __args=%__args% -NoCluster
 
-:notcluster
-echo Deploy...
-set __args=%__args% -acrSubscriptionName %_subscription%
-set __args=%__args% -acrRegistryName acr%_resourceGroup%
-set __args=%__args% -subscriptionName %_subscription%
-pushd %build_root%\deploy\scripts
+pushd %build_root%\deploy2
 powershell ./deploy.ps1 -type all %__args% 
 popd
 if !ERRORLEVEL! == 0 goto :done
