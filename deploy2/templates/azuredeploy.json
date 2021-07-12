@@ -245,7 +245,7 @@
             }
         },
         {
-            "comments": "Deploy Azure optional Azure services for the platform components.",
+            "comments": "Deploy optional Azure services for the micro services.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('optionalServicesDeploymentName')]",
@@ -276,11 +276,11 @@
             ]
         },
         {
-            "comments": "Register AKS administrator group in Microsoft Graph.",
+            "comments": "Register AKS administrator group in Microsoft Graph for the new or existing cluster.",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aksClusterAdminDeploymentName')]",
-            "condition": "[and(variables('deployCluster'), variables('canCreateAdminGroup'))]",
+            "condition": "[and(variables('clusterAvailable'), variables('canCreateAdminGroup'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -320,15 +320,15 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aksClusterDeploymentName')]",
-            "condition": "[and(variables('deployCluster'), parameters('deployPlatformComponents'))]",
+            "condition": "[variables('deployCluster')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
                     "clusterName": {
-                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.clusterName.value]"
+                        "value": "[reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.clusterName.value]"
                     },
                     "aksAdminGroupObjectIds": {
-                        "value": "[createArray(reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value)]"
+                        "value": "[createArray(reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupObjectId.value)]"
                     },
                     "templateUrl": {
                         "value": "[parameters('templateUrl')]"
