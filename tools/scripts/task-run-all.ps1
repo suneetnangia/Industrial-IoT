@@ -99,7 +99,7 @@ $manifest.layers | ForEach-Object {
     $versionParts = $version.Split('.')
     if ($versionParts.Count -gt 0) {
         $versionTag = $versionParts[0]
-        if ($script:IsMajorUpdate.IsPresent -or $script:IsLatest.IsPresent) {
+        if ($script:IsMajorUpdate.IsPresent) {
             $targetTags += $versionTag
         }
         for ($i = 1; $i -lt ($versionParts.Count); $i++) {

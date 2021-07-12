@@ -86,9 +86,15 @@ done
 # -------------------------------------------------------------------------
 
 if [[ -n "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
-    az login --identity
+    if ! az login --identity ; then 
+        echo "ERROR: Failed to log in using managed identity."
+        exit 1
+    fi
 elif ! az account show > /dev/null 2>&1 ; then
-    az login
+    if ! az login ; then 
+        echo "ERROR: Failed to log in."
+        exit 1
+    fi
 fi
 
 if [[ -z "$resourcegroup" ]]; then
@@ -175,10 +181,12 @@ if [[ -z "$loadBalancerIp" ]] || \
         exit 1
     fi
 fi
+
 if [[ -z "$userEmail" ]] || \
    [[ -z "$userId" ]] ; then
     IFS=$'\n'; user=($(az ad signed-in-user show \
-        --query "[objectId, mail]" -o tsv | tr -d '\r')); unset IFS;
+        --query "[objectId, mail]" -o tsv 2>/dev/null \
+            | tr -d '\r')); unset IFS;
     if [[ -z "$userId" ]]; then
         userId=${user[0]}
     fi
@@ -201,7 +209,7 @@ if [[ -z "$helmChartVersion" ]]; then
     if [[ -n "$helmRepoUrl" ]]; then
         helmChartVersion="0.4.0"
         if [[ -z "$imagesTag" ]]; then
-            imagesTag="2.7"
+            imagesTag="2.8"
         fi
         if [[ -z "$dockerServer" ]]; then
             dockerServer="mcr.microsoft.com"
@@ -289,8 +297,7 @@ cd ~
 
 if ! kubectl version --client=true > /dev/null 2>&1 ; then
     echo "Install kubectl..."
-    az aks install-cli --install-location /usr/local/bin/kubectl 
-    kubectl version
+    az aks install-cli --install-location /usr/local/bin/kubectl > /dev/null 2>&1
     if ! kubectl version --client=true > /dev/null 2>&1 ; then 
         echo "ERROR: Failed to install kubectl."
         exit 1

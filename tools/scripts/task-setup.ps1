@@ -110,12 +110,11 @@ New-Item -ItemType Directory -Force -Path $taskContext `
     | Out-Null
 
 $tasks = @{}
+$imagesForProject = @{}
 foreach ($project in $script:Projects) {
     # Set postfix
-    $tagPostfix = ""
-    if ($project.Debug) {
-        $tagPostfix = "-debug"
-    }
+    $tagPostfix = if ($project.Debug) { "-debug" } else { "" }
+    $imagesForProject[$project.Name] = @()
     $platforms = @(
         @{
             runtimeId = "linux-arm"
@@ -178,7 +177,6 @@ foreach ($project in $script:Projects) {
             entryPoint = "[`"$($project.AssemblyName).exe`"]"
         }
     )
-
     foreach ($platformInfo in $platforms) {
         $platform = $platformInfo.platform.ToLower()
         $platformTag = $platformInfo.platformTag.ToLower()
@@ -187,9 +185,11 @@ foreach ($project in $script:Projects) {
     
         # Create docker file
         $environmentVars = @("ENV DOTNET_RUNNING_IN_CONTAINER=true")
-        # Only build windows and linux in fast mode
-        if ($script:Fast.IsPresent -and (!$platformInfo.always)) {
-            continue
+        if (!$platformInfo.always) {
+            if ($script:Fast.IsPresent -or $script:NoNamespace.IsPresent) {
+                # Perf: Only windows + linux in fast or no-namespace mode
+                continue
+            }
         }
         #
         # Check for overridden base image name - e.g. aspnetcore images
@@ -256,7 +256,7 @@ $($environmentVars | Out-String)
 ENTRYPOINT $($entryPoint)
 
 "@
-        $buildContext = $script:Project.Name.Replace('/', '-')
+        $buildContext = $project.Name.Replace('/', '-')
         $dockerFile = "Dockerfile.$($buildContext)-$($platformTag)$($tagPostfix)"
         Write-Verbose "Writing $dockerFile to $taskContext ..."
         $dockerFileContent | Out-File -Encoding ascii `
@@ -268,7 +268,7 @@ ENTRYPOINT $($entryPoint)
             $taskname = "win"
         }
         # Create tasks per project and platform. 
-        $sn = $script:Project.Name.Split('/') | Select-Object -Last 1
+        $sn = $project.Name.Split('/') | Select-Object -Last 1
         $sn = $sn.Replace("industrial-iot-", "").Replace("iot-opc-", "")
         $sn = $sn.Substring(0, [Math]::Min($sn.Length, 35))
         $taskname = "$($sn)$($tagPostfix)-$($taskname)"
@@ -281,6 +281,7 @@ ENTRYPOINT $($entryPoint)
                 }
                 artifactCache = @{}
                 stepIndex = 0
+                projectName = $project.Name
                 images = @()
                 repo = "`$Registry`$Namespace/$($project.Name)"
                 taskyaml = @"
@@ -305,15 +306,16 @@ steps:
         # Create image build definition 
         $image = "$($tasks[$taskname].repo):`$SourceTag"
         $image = "$($image)-$($platformTag)$($tagPostfix)"
-
         # Select artifact to include in image
         $artifact = "$($tasks[$taskname].repo):`$SourceTag-artifact"
         $artifact = "$($artifact)-$($runtimeId)$($tagPostfix)"
-
         $buildContext = "$($buildContext)$($tagPostfix)"
 
-# Add steps to pull the artifact into the build context and build the dockerfile
-Write-Verbose "Adding $($image) build step for $($platform) from $($artifact)..."
+        # Add steps to pull the artifact into the build context 
+        # and build the dockerfile
+        $s = "build $($image) for $($platform) from $($artifact)"
+        Write-Verbose "Adding build step to $($taskname) to $s..."
+        $imagesForProject[$project.Name] += $image 
         $tasks[$taskname].stepIndex += 1
         $tasks[$taskname].images += @{
             image = $image
@@ -344,7 +346,9 @@ Write-Verbose "Adding $($image) build step for $($platform) from $($artifact)...
     }
 }
 
-# Add push task to all build tasks as well as the manifest creation step
+# -------------------------------------------------------------------------
+# Finally create task yaml for all tassk. This includes the push task 
+# for previous build steps and the manifest creation step.
 $tasks.Keys | ForEach-Object {
     $buildtask = $tasks.Item($_)
     # finish build steps
@@ -354,6 +358,7 @@ $tasks.Keys | ForEach-Object {
 "@
     # add push
     $buildtask.stepIndex += 1
+    Write-Verbose "Adding push step push-$($buildtask.stepIndex) to $_."
     $buildtask.taskyaml += @"
   {{with `$skipBuild := .Values.NoBuild}}
   {{else}}
@@ -364,13 +369,11 @@ $tasks.Keys | ForEach-Object {
 
 "@
     $when = ""
-    $manifestImages = @()
     $buildtask.images | ForEach-Object {
         $buildtask.taskyaml += @"
     - $($_.image)
 
 "@
-        $manifestImages += $_.image
         $when = "$when,`"build-$($_.index)`""
     }
     $buildtask.taskyaml += @"
@@ -378,8 +381,6 @@ $tasks.Keys | ForEach-Object {
   {{end}}
 
 "@
-    $manifests = $manifestImages -join " "
-    $manifestList = "$($buildtask.repo):`$TargetTag$($tagPostfix)"
     #
     # One problem we have to address is that images are built on 
     # multiple platforms, yet the manifest list must contain all
@@ -400,6 +401,13 @@ $tasks.Keys | ForEach-Object {
     # script is re-run, rather than just the single manifest
     # command. A run will time out after 30 minutes.
     #
+    $manifestImages = $imagesForProject[$buildtask.projectName] 
+    if (!$manifestImages -or ($manifestImages.Count -eq 0)) {
+        throw "ERROR: No images for $($buildtask.projectName)."
+    }
+    $manifests = $manifestImages -join " "
+    $manifestList = "$($buildtask.repo):`$TargetTag$($tagPostfix)"
+Write-Verbose "Adding step to $_ to create $manifestList from '$manifests'."
     $buildtask.taskyaml += @"
   - id: manifest-$($buildtask.stepIndex)
     {{with `$skipBuild := .Values.NoBuild}}
