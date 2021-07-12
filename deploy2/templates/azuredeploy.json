@@ -415,7 +415,7 @@
                         "value": "[if(empty(parameters('existingAksClusterResourceId')), reference(variables('aksClusterDeploymentId')).outputs.aksKubeletIdentityPrincipalId.value, reference(parameters('existingAksClusterResourceId'), '2020-09-01').identityProfile.kubeletidentity.objectId)]"
                     },
                     "aksAdminIdentityResourceId": {
-                        "value": "[reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminIdentityResourceId.value]"
+                        "value": "[reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminIdentityResourceId.value]"
                     },
                     "keyVaultName": {
                         "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
@@ -654,11 +654,11 @@
         },
         "aksAdminGroupObjectId": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupObjectId.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupObjectId.value, '')]"
         },
         "aksAdminGroupName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId')).outputs.aksAdminGroupName.value, '')]"
+            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupName.value, '')]"
         }
     }
 }
