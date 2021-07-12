@@ -168,7 +168,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     fi
     IFS=$'\n'; client=($(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$clientId \
-        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;^
+        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
     if [ $? -ne 0 ] ; then
         echo "ERROR: Failed to show '$applicationName-client'"
         exit 1
