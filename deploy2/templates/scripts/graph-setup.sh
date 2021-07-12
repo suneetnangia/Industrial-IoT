@@ -108,9 +108,7 @@ fi
 if [[ -z "$audience" ]] ; then
     audience="AzureADMyOrg"
 fi
-tenantId=$(az account show --query tenantId -o tsv | tr -d '\r')
-trustedTokenIssuer="https://sts.windows.net/$tenantId"
-authorityUri="https://login.microsoftonline.com"
+
 
 # ---------- Unregister ---------------------------------------------------------
 if [[ "$mode" == "unregisteronly" ]] || [[ "$mode" == "clean" ]] ; then
@@ -134,6 +132,13 @@ if [[ "$mode" == "unregisteronly" ]] || [[ "$mode" == "clean" ]] ; then
 fi
 
 # ---------- Register -----------------------------------------------------------
+trustedTokenIssuer="https://sts.windows.net/$tenantId"
+authorityUri="https://login.microsoftonline.com"
+if ! tenantId=$(az account show --query tenantId -o tsv | tr -d '\r') ; then
+    echo "ERROR: Failed to get tenant id."
+    exit 1
+fi
+
 # see https://docs.microsoft.com/en-us/graph/api/resources/application?view=graph-rest-1.0
 if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     if [[ -z "$applicationName" ]] ; then 
@@ -152,14 +157,22 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
             --body '{ 
                 "displayName": "'"$applicationName"'-client",
                 "signInAudience": "'"$audience"'"
-            }' --query id -o tsv | tr -d '\r')
+            }' --query id -o tsv | tr -d '\r') 
+        if [ $? -ne 0 ] ;  then
+            echo "ERROR: Failed to register '$applicationName-client'"
+            exit 1
+        fi
         echo "'$applicationName-client' registered in graph as $clientId..."
     else
         echo "'$applicationName-client' found in graph as $clientId..."
     fi
     IFS=$'\n'; client=($(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$clientId \
-        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
+        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;^
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to show '$applicationName-client'"
+        exit 1
+    fi
     clientAppId=${client[0]}
 
     # ---------- web app --------------------------------------------------------
@@ -175,6 +188,10 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
                 "displayName": "'"$applicationName"'-web",
                 "signInAudience": "'"$audience"'"
             }' --query id -o tsv | tr -d '\r')
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to register '$applicationName-web'"
+            exit 1
+        fi
         echo "'$applicationName-web' registered in graph as $webappId..."
     else
         echo "'$applicationName-web' found in graph as $webappId..."
@@ -182,6 +199,10 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     IFS=$'\n'; webapp=($(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$webappId \
         --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to show '$applicationName-web'"
+        exit 1
+    fi
     webappAppId=${webapp[0]}
   
     # ---------- service --------------------------------------------------------
@@ -212,6 +233,10 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
                    } ]
                 }
             }' --query id -o tsv | tr -d '\r')
+        if [ $? -ne 0 ] ;  then
+            echo "ERROR: Failed to register '$applicationName-service'"
+            exit 1
+        fi
         echo "'$applicationName-service' registered in graph as $serviceId..."
     else
         echo "'$applicationName-service' found in graph as $serviceId..."
@@ -219,11 +244,19 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     permissionScopeIds=$(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
         --query "api.oauth2PermissionScopes[].id" -o json | tr -d '\r')
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to show '$applicationName-service' scope ids."
+        exit 1
+    fi
     IFS=$'\n'; service=($(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
         --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to show '$applicationName-service'"
+        exit 1
+    fi
     serviceAppId=${service[0]}
-
+    
     # todo - require resource accss to all permission scopes
 
      # ---------- update owners -------------------------------------------------
@@ -266,6 +299,10 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
               "resourceAppId": "'"$serviceAppId"'"
             } ]
         }'
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to update '$applicationName-client'."
+        exit 1
+    fi
     echo "'$applicationName-client' updated..."
 
     # ---------- update web app -------------------------------------------------
@@ -319,11 +356,23 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
               "resourceAppId": "'"$serviceAppId"'"
             } ]
         }'
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to update '$applicationName-web'."
+        exit 1
+    fi
     # add webapp secret
     webappAppSecret=$(az rest --method post \
         --uri https://graph.microsoft.com/v1.0/applications/$webappId/addPassword \
         --headers Content-Type=application/json --body '{}' \
         --query secretText -o tsv | tr -d '\r')
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to update '$applicationName-web secret'."
+        exit 1
+    fi
+    if [[ -z "$webappAppSecret" ]] ; then
+        echo "ERROR: Failed to get '$applicationName-web' secret."
+        exit 1
+    fi
     echo "'$applicationName-web' updated..."
         
     # ---------- update service app ---------------------------------------------
@@ -352,17 +401,33 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
                 ]
             }
         }'
-       
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to update '$applicationName-service'."
+        exit 1
+    fi
+   
     # add service secret
     serviceAppSecret=$(az rest --method post \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId/addPassword \
         --headers Content-Type=application/json --body '{}' \
         --query secretText -o tsv | tr -d '\r')
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to update '$applicationName-service' secret."
+        exit 1
+    fi
+    if [[ -z "$serviceAppSecret" ]] ; then
+        echo "ERROR: Failed to get '$applicationName-service' secret."
+        exit 1
+    fi
     echo "'$applicationName-service' updated..."
 
     serviceAudience=$(az rest --method get \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
         --query "[identifierUris[0]]" -o tsv | tr -d '\r')
+    if [ $? -ne 0 ] ; then
+        echo "ERROR: Failed to get '$applicationName-service' audience."
+        exit 1
+    fi
 else
     # parse config
               tenantId=$(jq -r ".tenantId? // empty" <<< $config)
@@ -400,18 +465,22 @@ if [[ -n "$keyVaultName" ]] ; then
             name=$(az role assignment create --assignee-object-id $user \
                 --role b86a8fe4-44ce-4948-aee5-eccb2c155cd7 --scope $rgid \
                 --query principalName -o tsv | tr -d '\r')
+            if [ $? -ne 0 ] ; then
+                echo "ERROR: Failed to assign secret offer to $name."
+                exit 1
+            fi
             echo "Assigned secret officer role to $name ($user) ..."
         fi 
     fi
     
     # there can be a delay in permissions or otherwise - retry
     while ! az keyvault secret set --vault-name $keyVaultName \
-                     -n pcs-auth-required --value true 
-    do 
+                     -n pcs-auth-required --value true ; do 
         echo "... retry in 30 seconds..."
         sleep 30s; 
     done
-                   
+
+    set -e
     az keyvault secret set --vault-name $keyVaultName \
                      -n pcs-auth-tenant --value "$tenantId"
     az keyvault secret set --vault-name $keyVaultName \
@@ -430,6 +499,7 @@ if [[ -n "$keyVaultName" ]] ; then
                -n pcs-auth-client-appid --value "$webappAppId"
     az keyvault secret set --vault-name $keyVaultName \
               -n pcs-auth-client-secret --value "$webappAppSecret"
+    set +e
 
     webappAppSecret=
     serviceAppSecret=
