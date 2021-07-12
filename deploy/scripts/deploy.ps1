@@ -1143,8 +1143,10 @@ $script:requiredProviders = @(
     "microsoft.containerregistry"
 )
 
-Import-Module Az
+Import-Module Az.Accounts -MaximumVersion "2.4.0"
+Import-Module Az.Resources
 Import-Module Az.ContainerRegistry
+Import-Module Az.Compute
 
 Select-RepositoryAndBranch
 $script:context = Select-Context -context $script:context `

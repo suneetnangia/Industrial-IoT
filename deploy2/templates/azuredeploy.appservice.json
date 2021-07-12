@@ -1,0 +1,429 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "applicationName": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The name of the application to create. Leave empty for local or services only development."
+            }
+        },
+        "deployEngineeringTool": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy engineering tool frontend."
+            }
+        },
+        "serviceName": {
+            "type": "string",
+            "defaultValue": "[if(not(empty(parameters('applicationName'))), concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), '')]",
+            "metadata": {
+                "description": "The name of the services endpoint. Leave empty for local development."
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "A user created keyvault containing service and client configuration."
+            }
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "metadata": {
+                "description": "The endpoint of the keyvault."
+            }
+        },
+        "authTenantId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies an Azure Active Directory tenant for authentication that is different from the one tied to the subscription."
+            }
+        },
+        "dockerServer": {
+            "type": "string",
+            "defaultValue": "mcr.microsoft.com",
+            "metadata": {
+                "description": "Specifies the endpoint of the Container Registry."
+            }
+        },
+        "dockerUser": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the user name to log into a private Container Registry."
+            }
+        },
+        "dockerPassword": {
+            "type": "secureString",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Specifies the password to use for a private Container Registry."
+            }
+        },
+        "imagesTag": {
+            "type": "string",
+            "defaultValue": "latest",
+            "metadata": {
+                "description": "Specifies the image version tag to use for all images."
+            }
+        },
+        "managedIdentityName": {
+            "type": "string",
+            "defaultValue": "[concat('appservices-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5), '-msi')]",
+            "metadata": {
+                "description": "The name of the managed identity the micro services will use to access azure services."
+            }
+        },
+        "hostingPlanName": {
+            "type": "string",
+            "defaultValue": "[concat('appservices-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+            "metadata": {
+                "description": "Specifies the name of App Service Hosting Plan."
+            }
+        },
+        "hostingPlanSku": {
+            "type": "string",
+            "defaultValue": "S1",
+            "allowedValues": [
+                "B1",
+                "B2",
+                "B3",
+                "S1",
+                "S2",
+                "S3",
+                "P1v2",
+                "P2v2",
+                "P3v2"
+            ],
+            "metadata": {
+                "description": "The pricing sku for the hosting plan."
+            }
+        },
+        "templateUrl": {
+            "type": "string",
+            "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy2/templates/')]",
+            "metadata": {
+                "description": "The artifacts url from which to pull all linked templates. Default is official repository."
+            }
+        },
+        "templateUrlQueryString": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The query string to use for the template url.  Default is empty."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "defaultValue": {},
+            "metadata": {
+                "description": "Tags for Azure resources."
+            }
+        }
+    },
+    "variables": {
+        "managedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
+        "serviceSiteResourceName": "[if(empty(parameters('serviceName')), concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('serviceName'))]",
+        "serviceSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceSiteResourceName'))]",
+        "serviceContainerImageName": "[concat('iot/industrial-iot-services-all', ':', parameters('imagesTag'))]",
+        "configurationResourceName": "platform.service.configuration",
+        "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
+        "appSiteResourceName": "[if(empty(parameters('applicationName')), concat('app', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('applicationName'))]",
+        "appSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('appSiteResourceName'))]",
+        "appContainerImageName": "[concat('iot/industrial-iot-frontend', ':', parameters('imagesTag'))]"
+    },
+    "resources": [
+        {
+            "comments": "Create the managed identity for the micro services.",
+            "name": "[parameters('managedIdentityName')]",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Hosting plan to host platform services and application.",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-02-01",
+            "kind": "linux",
+            "name": "[parameters('hostingPlanName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "sku": {
+                "name": "[parameters('hostingPlanSku')]",
+                "capacity": "[if(empty(parameters('applicationName')), if(empty(parameters('serviceName')), '0', '1'), '2')]"
+            },
+            "properties": {
+                "name": "[parameters('hostingPlanName')]"
+            }
+        },
+        {
+            "comments": "Deploy all in one services container.",
+            "type": "Microsoft.Web/sites",
+            "kind": "app,linux,container",
+            "name": "[variables('serviceSiteResourceName')]",
+            "apiVersion": "2018-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                   "[variables('managedIdentityResourceId')]": {}
+                }
+            },
+            "condition": "[not(empty(parameters('serviceName')))]",
+            "properties": {
+                "enabled": true,
+                "clientAffinityEnabled": true,
+                "serverFarmId": "[parameters('hostingPlanName')]",
+                "httpsOnly": true,
+                "siteConfig": {
+                    "numberOfWorkers": 1,
+                    "linuxFxVersion": "[concat('DOCKER|', parameters('dockerServer'), '/', variables('serviceContainerImageName'))]",
+                    "managedPipelineMode": "Integrated",
+                    "requestTracingEnabled": true,
+                    "httpLoggingEnabled": true,
+                    "detailedErrorLoggingEnabled": true,
+                    "alwaysOn": true,
+                    "minTlsVersion": "1.2",
+                    "http20Enabled": true,
+                    "xManagedServiceIdentityId": "[variables('managedIdentityResourceId')]",
+                    "webSocketsEnabled": true,
+                    "appSettings": [
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_URL",
+                            "value": "[concat('https://', parameters('dockerServer'))]"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                            "value": "[parameters('dockerUser')]"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                            "value": "[parameters('dockerPassword')]"
+                        },
+                        {
+                            "name": "DOCKER_ENABLE_CI",
+                            "value": "false"
+                        },
+                        {
+                            "name": "WEBSITES_PORT",
+                            "value": "9080"
+                        },
+                        {
+                            "name": "PCS_KEYVAULT_URL",
+                            "value": "[parameters('keyVaultUri')]"
+                        },
+                        {
+                            "name": "PCS_MSI_APPID",
+                            "value": "[reference(variables('managedIdentityResourceId')).clientId]"
+                        },
+                        {
+                            "name": "PCS_MSI_TENANT",
+                            "value": "[reference(variables('managedIdentityResourceId')).tenantId]"
+                        },
+                        {
+                            "name": "PCS_AUTH_TENANT",
+                            "value": "[if(not(empty(parameters('authTenantId'))), parameters('authTenantId'), reference(variables('managedIdentityResourceId')).tenantId)]"
+                        },
+                        {
+                            "name": "PCS_SERVICE_URL",
+                            "value": "[if(empty(parameters('serviceName')), '', concat('https://', variables('serviceSiteResourceName'), '.azurewebsites.net'))]"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "comments": "Configuration for all in one services application.",
+                    "condition": "[not(empty(parameters('serviceName')))]",
+                    "type": "config",
+                    "name": "appsettings",
+                    "apiVersion": "2018-11-01",
+                    "properties": {
+                        "PCS_SERVICE_URL": "[if(empty(parameters('serviceName')), '', concat('https://', reference(variables('serviceSiteResourceId'), '2018-11-01').hostNames[0]))]",
+                        "PCS_KEYVAULT_URL": "[parameters('keyVaultUri')]",
+                        "PCS_MSI_APPID": "[reference(variables('managedIdentityResourceId')).clientId]",
+                        "PCS_MSI_TENANT": "[reference(variables('managedIdentityResourceId')).tenantId]",
+                        "PCS_AUTH_TENANT": "[if(not(empty(parameters('authTenantId'))), parameters('authTenantId'), reference(variables('managedIdentityResourceId')).tenantId)]",
+                        "DOCKER_ENABLE_CI": "false",
+                        "DOCKER_REGISTRY_SERVER_URL": "[concat('https://', parameters('dockerServer'))]",
+                        "DOCKER_REGISTRY_SERVER_USERNAME": "[parameters('dockerUser')]",
+                        "DOCKER_REGISTRY_SERVER_PASSWORD": "[parameters('dockerPassword')]",
+                        "WEBSITES_PORT": "9080"
+                    },
+                    "dependsOn": [
+                        "[variables('serviceSiteResourceId')]"
+                    ]
+                }
+            ],
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                "[variables('managedIdentityResourceId')]"
+            ]
+        },
+        {
+            "comments": "Save service url as configuration.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('configurationResourceName')]",
+            "condition": "[and(not(empty(parameters('keyVaultName'))), not(empty(parameters('serviceName'))))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[parameters('keyVaultName')]"
+                    },
+                    "configuration": {
+                        "value": [
+                            {
+                                "key": "PCS_SERVICE_NAME",
+                                "value": "[concat('https://', reference(variables('serviceSiteResourceId'), '2018-11-01').hostNames[0])]"
+                            },
+                            {
+                                "key": "PCS_MSI_APPID",
+                                "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').clientId]"
+                            },
+                            {
+                                "key": "PCS_MSI_TENANT",
+                                "value": "[reference(variables('managedIdentityResourceId'), '2018-11-30').tenantId]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_SERVER",
+                                "value": "[parameters('dockerServer')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_USER",
+                                "value": "[parameters('dockerUser')]"
+                            },
+                            {
+                                "key": "PCS_DOCKER_PASSWORD",
+                                "value": "[parameters('dockerPassword')]"
+                            }
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.configuration.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('serviceSiteResourceId')]"
+            ]
+        },
+        {
+            "comments": "Deploy engineering tool container if desired.",
+            "condition": "[and(parameters('deployEngineeringTool'), not(empty(parameters('applicationName'))))]",
+            "type": "Microsoft.Web/sites",
+            "kind": "app,linux,container",
+            "name": "[variables('appSiteResourceName')]",
+            "apiVersion": "2018-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                   "[variables('managedIdentityResourceId')]": {}
+                }
+            },
+            "properties": {
+                "enabled": true,
+                "clientAffinityEnabled": true,
+                "serverFarmId": "[parameters('hostingPlanName')]",
+                "httpsOnly": true,
+                "siteConfig": {
+                    "numberOfWorkers": 1,
+                    "linuxFxVersion": "[concat('DOCKER|', parameters('dockerServer'), '/', variables('appContainerImageName'))]",
+                    "managedPipelineMode": "Integrated",
+                    "requestTracingEnabled": true,
+                    "httpLoggingEnabled": true,
+                    "detailedErrorLoggingEnabled": true,
+                    "alwaysOn": true,
+                    "minTlsVersion": "1.2",
+                    "http20Enabled": true,
+                    "xManagedServiceIdentityId": "[variables('managedIdentityResourceId')]",
+                    "webSocketsEnabled": true,
+                    "appSettings": [
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_URL",
+                            "value": "[concat('https://', parameters('dockerServer'))]"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                            "value": "[parameters('dockerUser')]"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                            "value": "[parameters('dockerPassword')]"
+                        },
+                        {
+                            "name": "DOCKER_ENABLE_CI",
+                            "value": "false"
+                        },
+                        {
+                            "name": "PCS_KEYVAULT_URL",
+                            "value": "[parameters('keyVaultUri')]"
+                        },
+                        {
+                            "name": "PCS_MSI_APPID",
+                            "value": "[reference(variables('managedIdentityResourceId')).clientId]"
+                        },
+                        {
+                            "name": "PCS_MSI_TENANT",
+                            "value": "[reference(variables('managedIdentityResourceId')).tenantId]"
+                        },
+                        {
+                            "name": "PCS_AUTH_TENANT",
+                            "value": "[if(not(empty(parameters('authTenantId'))), parameters('authTenantId'), reference(variables('managedIdentityResourceId')).tenantId)]"
+                        },
+                        {
+                            "name": "PCS_SERVICE_URL",
+                            "value": "[if(empty(parameters('serviceName')), '', concat('https://', reference(variables('serviceSiteResourceId'), '2018-11-01').hostNames[0]))]"
+                        }
+                    ]
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
+                "[variables('configurationResourceId')]"
+            ]
+        }
+    ],
+    "outputs": {
+        "serviceUrl": {
+            "type": "string",
+            "value": "[if(empty(parameters('serviceName')), '', concat('https://', reference(variables('serviceSiteResourceId'), '2018-11-01').hostNames[0]))]"
+        },
+        "appUrl": {
+            "type": "string",
+            "value": "[if(or(not(parameters('deployEngineeringTool')), empty(parameters('applicationName'))), '', concat('https://', reference(variables('appSiteResourceId'), '2018-11-01').hostNames[0]))]"
+        },
+        "managedIdentityResourceName": {
+            "type": "string",
+            "value": "[parameters('managedIdentityName')]"
+        },
+        "managedIdentityResourceId": {
+            "type": "string",
+            "value": "[variables('managedIdentityResourceId')]"
+        },
+        "managedIdentityClientId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).clientId]"
+        },
+        "managedIdentityPrincipalId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).principalId]"
+        },
+        "managedIdentityTenantId": {
+            "type": "string",
+            "value": "[reference(variables('managedIdentityResourceId')).tenantId]"
+        }
+    }
+}

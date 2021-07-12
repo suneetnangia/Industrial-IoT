@@ -13,6 +13,9 @@
  .PARAMETER Minimal
     Whether to not deploy optional services. Only valid in combination
     with type local, services, all.
+ .PARAMETER NoCluster
+    Deploy into app service instead of cluster.  This option will be 
+    deprecated eventually and is not supported for production use.
  .PARAMETER Version
     Set to a version number that corresponds to an mcr image tag of the 
     concrete release you want to deploy.
@@ -67,7 +70,8 @@
 param(
     [ValidateSet("local", "services", "app", "simulation", "all")] 
     [string] $Type = "all",
-    [switch] $Minimal = $false,
+    [switch] $Minimal,
+    [switch] $NoCluster,
     [string] $Version = $null,
     [string] $DockerServer = $null,
     [string] $ResourceGroupName = $null,
@@ -222,6 +226,10 @@ Function Get-EnvironmentVariables() {
     if (![string]::IsNullOrEmpty($var)) {
         Write-Output "PCS_SERVICE_URL=$($var)"
     }
+    $var = $deployment.Outputs["appUrl"].Value
+    if (![string]::IsNullOrEmpty($var)) {
+        Write-Output "PCS_APP_URL=$($var)"
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -351,6 +359,7 @@ else {
 if ($script:Type -eq "local") {
     $templateParameters.Add("deployPlatformComponents", $false)
     $templateParameters.Add("deployEngineeringTool", $false)
+    $templateParameters.Add("deployToCluster", $false)
     $templateParameters.Add("deployOptionalServices", -not $script:Minimal.IsPresent)
 }
 else {
@@ -363,7 +372,13 @@ else {
         $templateParameters.Add("deployOptionalServices", -not $script:Minimal.IsPresent)
         $templateParameters.Add("deployEngineeringTool", $false)
     }
-    Write-Host "... Deploying platform using Helm chart."
+    if ($script:NoCluster.IsPresent) {
+        $templateParameters.Add("deployToCluster", $false)
+        Write-Host "... Deploying platform to app services (not for production use!)."
+    }
+    else {
+        Write-Host "... Deploying platform using Helm chart."
+    }
 }
 
 # Configure simulation if not local or services only deployment
@@ -542,7 +557,6 @@ if ($script:Type -ne "local") {
                 $templateParameters.Add("dockerUser", $creds.Username)
                 $templateParameters.Add("dockerPassword", $creds.Password)
             }
-            $templateParameters.Add("helmPullChartFromDockerServer", $true)
             $templateParameters.Add("helmChartVersion", $script:Version)
         }
         else {
@@ -650,16 +664,15 @@ while ($true) {
 
         # Try to open the engineering tool in a web browser.
         if ($templateParameters["deployEngineeringTool"]) {
-            $serviceUrl = $deployment.Outputs["serviceUrl"].Value
-            $frontend = "$serviceUrl/frontend"
-            if (![string]::IsNullOrEmpty($serviceUrl)) {
+            $appUrl =  $deployment.Outputs["appUrl"].Value
+            if (![string]::IsNullOrEmpty($appUrl)) {
                 try {
-                    Start-Process $frontend -ErrorAction SilentlyContinue `
+                    Start-Process $appUrl -ErrorAction SilentlyContinue `
                         | Out-Null
                 }
                 catch {
                     # Ignore if there is no web browser available.
-        Write-Host "Open a browser to $frontend to use the engineering tool."
+        Write-Host "Open a browser to $appUrl to use the engineering tool."
                 }
             }
         }

@@ -4,13 +4,10 @@
 @setlocal EnableExtensions EnableDelayedExpansion
 @echo off
 
-set PWSH=powershell
 set current-path=%~dp0
 rem // remove trailing slash
 set current-path=%current-path:~0,-1%
 shift
-pushd %current-path%\deploy\scripts
-rem // check and if needed install powershell and required modules
-call pwsh-setup.cmd
-%PWSH% -ExecutionPolicy Unrestricted ./deploy.ps1 %*
-popd
+
+if "%PWSH%" == "" set PWSH=powershell
+%PWSH% -ExecutionPolicy Unrestricted %current-path%/pwsh-setup.ps1 -Scope CurrentUser

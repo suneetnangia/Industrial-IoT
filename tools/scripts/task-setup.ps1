@@ -497,7 +497,8 @@ else {
     $namespace = ""
 }
 
-$taskArtifact = "$($registryInfo.LoginServer)/$($namespace)tasks"
+$taskArtifact = "$($registryInfo.LoginServer)/$($namespace)"
+$taskArtifact = "$($taskArtifact)iot/build-tasks"
 $taskArtifact = "$($taskArtifact):$($buildTag)-artifact$($tagPostfix)"
 Write-Verbose "Uploading task context $taskContext as $taskArtifact..."
 

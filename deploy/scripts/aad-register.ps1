@@ -594,7 +594,8 @@ $ErrorActionPreference = "Stop"
 $script:ScriptDir = Split-Path $script:MyInvocation.MyCommand.Path
 
 # Import Azure tools
-Import-Module Az
+Import-Module Az.Accounts -MaximumVersion "2.4.0"
+Import-Module Az.Resources
 # For CloudShell
 $isCloudShell = $false
 if (Get-Module -ListAvailable -Name "AzureAD.Standard.Preview") {
@@ -615,7 +616,7 @@ if (Get-Module -ListAvailable -Name "AzureAD.Standard.Preview") {
     Set-Alias -Name Connect-AzureADAlias -Value "AzureADPreview\Connect-AzureAD"
 } elseif (Get-Module -ListAvailable -Name "AzureAD")  {
     Write-Host "Importing module AzureAD"
-    Import-Module  "AzureAD"
+    Import-Module "AzureAD"
     Set-Alias -Name Connect-AzureADAlias -Value "AzureAD\Connect-AzureAD"
 } else {
     throw "This script is not compatible with your computer, please use Azure CloudShell https://shell.azure.com/powershell"

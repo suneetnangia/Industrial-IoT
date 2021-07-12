@@ -44,6 +44,13 @@
                 "description": "The resource id of a Azure Managed Kubernetes Cluster to deploy platform bits to - if not provided a AKS cluster will be created."
             }
         },
+        "deployToCluster": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Whether to deploy to an AKS cluster (default) or to app service instead (set to false)."
+            }
+        },
         "deployPlatformComponents": {
             "type": "bool",
             "defaultValue": true,
@@ -60,30 +67,30 @@
         },
         "helmChartName": {
             "type": "string",
-            "defaultValue": "azure-industrial-iot",
+            "defaultValue": "",
             "metadata": {
                 "description": "The name of the helm chart if it is different than the official released one."
             }
         },
         "helmChartVersion": {
             "type": "string",
-            "defaultValue": "0.4.1",
+            "defaultValue": "",
             "metadata": {
-                "description": "Version of azure-industrial-iot Helm chart to use"
+                "description": "Version of azure-industrial-iot Helm chart to use if different from latest."
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
             }
         },
         "helmRepoUrl": {
             "type": "string",
             "defaultValue": "https://microsoft.github.io/charts/repo",
             "metadata": {
-                "description": "URL of the Helm repository containing azure-industrial-iot chart"
-            }
-        },
-        "helmPullChartFromDockerServer": {
-            "type": "bool",
-            "defaultValue": false,
-            "metadata": {
-                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
+                "description": "URL of the Helm repository containing the chart if not pulled from docker server."
             }
         },
         "numberOfSimulations": {
@@ -193,7 +200,7 @@
         "canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
         "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
         "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
-        "deployCluster": "[and(variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
+        "deployCluster": "[and(parameters('deployToCluster'), variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
         "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
         "aksClusterAdminDeploymentName": "aks.admin",
         "aksClusterAdminDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminDeploymentName'))]",
@@ -207,6 +214,8 @@
         "aadAppRegistrationDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aadAppRegistrationDeploymentName'))]",
         "microServicesDeploymentName": "services",
         "microServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('microServicesDeploymentName'))]",
+        "alternativeAppServiceDeploymentName": "platform",
+        "alternativeAppServicesDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('alternativeAppServiceDeploymentName'))]",
         "simulationDeploymentName": "simulation"
     },
     "resources": [
@@ -391,7 +400,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('microServicesDeploymentName')]",
-            "condition": "[and(variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
+            "condition": "[and(parameters('deployToCluster'), variables('clusterAvailable'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -476,6 +485,60 @@
             "dependsOn": [
                 "[variables('aksClusterDeploymentId')]",
                 "[variables('aksClusterAdminDeploymentId')]",
+                "[variables('requiredServicesDeploymentId')]",
+                "[variables('optionalServicesDeploymentId')]",
+                "[variables('aadAppRegistrationDeploymentId')]"
+            ]
+        },
+        {
+            "comments": "Deploy Azure Industrial IoT micro services into app service as alternative to cluster.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('microServicesDeploymentName')]",
+            "condition": "[and(not(and(parameters('deployToCluster'), variables('clusterAvailable'))), parameters('deployPlatformComponents'))]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultName.value]"
+                    },
+                    "keyVaultUri": {
+                        "value": "[reference(variables('requiredServicesDeploymentId')).outputs.keyVaultUri.value]"
+                    },
+                    "applicationName": {
+                        "value": "[parameters('applicationName')]"
+                    },
+                    "deployEngineeringTool": {
+                        "value": "[parameters('deployEngineeringTool')]"
+                    },
+                    "dockerServer": {
+                        "value": "[parameters('dockerServer')]"
+                    },
+                    "dockerUser": {
+                        "value": "[parameters('dockerUser')]"
+                    },
+                    "dockerPassword": {
+                        "value": "[parameters('dockerPassword')]"
+                    },
+                    "imagesTag": {
+                        "value": "[parameters('imagesTag')]"
+                    },
+                    "templateUrl": {
+                        "value": "[parameters('templateUrl')]"
+                    },
+                    "templateUrlQueryString": {
+                        "value": "[parameters('templateUrlQueryString')]"
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.appservice.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
                 "[variables('requiredServicesDeploymentId')]",
                 "[variables('optionalServicesDeploymentId')]",
                 "[variables('aadAppRegistrationDeploymentId')]"
@@ -575,6 +638,10 @@
         "serviceUrl": {
             "type": "string",
             "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, '')]"
+        },
+        "appUrl": {
+            "type": "string",
+            "value": "[if (parameters('deployPlatformComponents'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, '')]"
         },
         "clusterName": {
             "type": "string",

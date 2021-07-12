@@ -90,7 +90,7 @@ if (($LastExitCode -ne 0) -or ($helmVersion -notlike "v3.*")) {
 # -------------------------------------------------------------------------
 # Publish helm chart to registry
 $chartBase = "$($script:RegistryInfo.LoginServer)/$namespace"
-$chartBase = "$($chartBase)$($script:ChartName)"
+$chartBase = "$($chartBase)iot/$($script:ChartName)"
 $env:HELM_EXPERIMENTAL_OCI = 1
 foreach ($targetTag in $targetTags) {
     $chart = "$($chartBase):$($targetTag)"

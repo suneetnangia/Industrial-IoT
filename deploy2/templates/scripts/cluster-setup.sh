@@ -202,19 +202,25 @@ if [[ -n "$servicesAppId" ]]; then
         exit 1
     fi
 fi
-if [[ -z "$helmChartName" ]]; then
-    helmChartName="azure-industrial-iot"
-fi
-if [[ -z "$helmChartVersion" ]]; then
-    if [[ -n "$helmRepoUrl" ]]; then
+
+if [[ -n "$helmRepoUrl" ]]; then
+    if [[ -z "$helmChartName" ]]; then
+        helmChartName="azure-industrial-iot"
+    fi
+    if [[ -z "$imagesTag" ]]; then
+        imagesTag="2.8"
+    fi
+    if [[ -z "$helmChartVersion" ]]; then
         helmChartVersion="0.4.0"
-        if [[ -z "$imagesTag" ]]; then
-            imagesTag="2.8"
-        fi
-        if [[ -z "$dockerServer" ]]; then
-            dockerServer="mcr.microsoft.com"
-        fi
-    else
+    fi
+    if [[ -z "$dockerServer" ]]; then
+        dockerServer="mcr.microsoft.com"
+    fi
+else
+    if [[ -z "$helmChartName" ]]; then
+        helmChartName="iot/azure-industrial-iot"
+    fi
+    if [[ -z "$dockerServer" ]]; then
         # See if there is a registry in the resource group 
         IFS=$'\n'; registry=($(az acr list -g $resourcegroup \
             --query "[[0].name,[0].loginServer]" \
@@ -233,15 +239,18 @@ if [[ -z "$helmChartVersion" ]]; then
             fi
             echo "Using $imagesTag images from $dockerServer."
         else 
-            # if there is not, use default preview registry
-            dockerServer="industrialiotdev.azurecr.io"
+            # if there is not, use default registry
             if [[ -z "$imagesTag" ]]; then
-                imagesTag="latest"
+                imagesTag="2.8"
             fi
+            dockerServer="mcr.microsoft.com"
         fi
+    fi
+    if [[ -z "$helmChartVersion" ]]; then
         helmChartVersion=$imagesTag
     fi
 fi
+
 if [[ -z "$roleName" ]]; then
     roleName="AzureKubernetesServiceClusterUserRole"
 fi
@@ -344,7 +353,7 @@ then
     echo "ERROR: Failed to add aad-pod-identity repo."
     exit 1
 fi
-
+# see if the app is in oci helm or traditional chart repo - should be in oci
 if [[ -z "$helmRepoUrl" ]] ; then
     export HELM_EXPERIMENTAL_OCI=1
     # docker server is the oci registry from where to consume the helm chart
@@ -360,13 +369,13 @@ if [[ -z "$helmRepoUrl" ]] ; then
             exit 1
         fi
     fi
-    echo "Download $chart..."
+    echo "Downloading $chart locally..."
     if ! helm chart pull $chart ; then
         echo "ERROR: Failed to download chart $chart."
         exit 1
     fi
     helm chart export $chart --destination ./aiiot
-    helm_chart_location="./aiiot/$helmChartName"
+    helmChartLocation="./aiiot/$helmChartName"
     echo "Downloaded Helm chart $chart will be installed..."
 else
     # add the repo
@@ -375,7 +384,7 @@ else
         echo "ERROR: Failed to add azure-industrial-iot repo."
         exit 1
     fi
-    helm_chart_location="aiiot/$helmChartName --version $helmChartVersion"
+    helmChartLocation="aiiot/$helmChartName --version $helmChartVersion"
     echo "Helm chart from $helmRepoUrl/$helmChartName will be installed..."
 fi
 helm repo update
@@ -588,7 +597,8 @@ else
 fi
 
 # Create Let's encrypt issuer in the namespace if it does not exist.
-# issuer must be in the same namespace as the Ingress for which the certificate is retrieved.
+# issuer must be in the same namespace as the Ingress for which the 
+# certificate is retrieved.
 if ! kubectl get Issuer letsencrypt-$namespace -o=name > /dev/null 2>&1 ; then
     echo ""
     echo "Create Let's Encrypt Issuer for $namespace..."
@@ -660,9 +670,9 @@ fi
 
 releases=($(helm ls -f azure-industrial-iot --namespace $namespace -q))
 if [[ -z "$releases" ]] ; then
-    echo "Installing Helm chart from $helm_chart_location into $namespace..."
+    echo "Installing Helm chart from $helmChartLocation into $namespace..."
     set -x
-    helm install --atomic azure-industrial-iot $helm_chart_location \
+    helm install --atomic azure-industrial-iot $helmChartLocation \
         --namespace $namespace --timeout 30m0s $extra_settings \
         --set image.tag="$imagesTag" \
         --set image.registry="$dockerServer" \
@@ -687,14 +697,15 @@ if [[ -z "$releases" ]] ; then
         --set deployment.ingress.tls[0].secretName=tls-secret \
         --set deployment.ingress.hostName=$servicesHostname
 
+    set +x
     if [ $? -eq 0 ] ; then
-        echo "Helm chart from $helm_chart_location installed into $namespace as azure-industrial-iot."
+        echo "Helm chart from $helmChartLocation installed into $namespace."
     else
-        echo "ERROR: Failed to install helm chart from $helm_chart_location."
+        echo "ERROR: Failed to install helm chart from $helmChartLocation."
         exit 1
     fi
 else
-    helm upgrade --atomic azure-industrial-iot $helm_chart_location \
+    helm upgrade --atomic azure-industrial-iot $helmChartLocation \
         --namespace $namespace --timeout 30m0s --reuse-values $extra_settings \
         --set image.tag="$imagesTag" \
         --set image.registry="$dockerServer" \
@@ -710,7 +721,7 @@ else
         --set deployment.ingress.hostName=$servicesHostname > /dev/null 2>&1
 
     if [ $? -eq 0 ] ; then
-        echo "Upgraded release azure-industrial-iot from $helm_chart_location in $namespace."
+        echo "Upgraded release azure-industrial-iot from $helmChartLocation in $namespace."
     else
         echo "ERROR: Failed to upgrade azure-industrial-iot release."
         exit 1

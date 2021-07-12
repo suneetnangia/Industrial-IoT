@@ -28,20 +28,18 @@ if ! [ -x "$(command -v pwsh)" ]; then
   fi
 fi
 
-test=$(pwsh -Command "Get-Module -ListAvailable -Name Az.* | ForEach-Object Name")
+test=$(pwsh -Command "Get-Module -ListAvailable -Name Az.Accounts | ForEach-Object Name")
 if [ -z "$test" ]; then  
   if [ -n $silent ]; then
-    echo -e "\033[1;31mAz Powershell module is not installed but is required to deploy.\033[0m"
+    echo -e "\033[1;31mAz Powershell modules are not installed but are required to deploy.\033[0m"
     while true; do
-      read -p "Do you want to install Az module (requires sudo privileges)? (y/n) " yn
+      read -p "Do you want to install Az modules (requires sudo privileges)? (y/n) " yn
       case $yn in
         [Yy]* ) break;;
-        * ) echo "You must install Az Powershell module manually to continue..."; exit 1;;
+        * ) echo "You must install Az Powershell modules manually to continue..."; exit 1;;
       esac
     done
   fi
-  sudo pwsh -Command "Set-psrepository -Name PSGallery -InstallationPolicy Trusted"
-  sudo pwsh -Command "Install-Module -Repository PSGallery -Name Az -AllowClobber"
   silent="yes"
 fi
 

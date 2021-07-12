@@ -151,18 +151,6 @@ echo '{
     "deployEngineeringTool": {
         "value": false
     },
-    "helmPullChartFromDockerServer": {
-        "value": false
-    },
-    "helmRepoUrl": {
-        "value": "https://microsoft.github.io/charts/repo"
-    },
-    "helmChartName": {
-        "value": "azure-industrial-iot"
-    },
-    "helmChartVersion": {
-        "value": "0.4.0"
-    },
     "imagesTag": {
         "value": "'"$version"'"
     },

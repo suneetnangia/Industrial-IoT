@@ -60,30 +60,30 @@
         },
         "helmChartName": {
             "type": "string",
-            "defaultValue": "azure-industrial-iot",
+            "defaultValue": "",
             "metadata": {
                 "description": "The name of the helm chart if it is different than the official released one."
             }
         },
         "helmChartVersion": {
             "type": "string",
-            "defaultValue": "0.4.0",
+            "defaultValue": "",
             "metadata": {
-                "description": "Version of azure-industrial-iot Helm chart to use"
+                "description": "Version of azure-industrial-iot Helm chart to use if different than latest."
+            }
+        },
+        "helmPullChartFromDockerServer": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
             }
         },
         "helmRepoUrl": {
             "type": "string",
             "defaultValue": "https://microsoft.github.io/charts/repo",
             "metadata": {
-                "description": "URL of the Helm repository containing azure-industrial-iot chart"
-            }
-        },
-        "helmPullChartFromDockerServer": {
-            "type": "bool",
-            "defaultValue": false,
-            "metadata": {
-                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
+                "description": "Otherwise use URL of this Helm repository containing helmChartName chart"
             }
         },
         "dockerServer": {
@@ -447,6 +447,10 @@
         "serviceUrl": {
             "type": "string",
             "value": "[concat('https://', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value)]"
+        },
+        "appUrl": {
+            "type": "string",
+            "value": "[concat('https://', reference(variables('publicIpDeploymentId'), '2019-08-01').outputs.fqdn.value, '/frontend')]"
         },
         "managedIdentityResourceName": {
             "type": "string",
