@@ -224,7 +224,6 @@
         "keyVaultResourceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
         "appinsightsResourceId": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
         "logAnalyticsWorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
-        "workbookConfigurationResourceName":  "required.workbook",
         "configurationResourceName": "required.configuration"
     },
     "resources": [
@@ -477,34 +476,6 @@
             },
             "properties": {
             }
-        },
-        {
-            "comments": "Monitoring workbook as dashboard for the platform and services",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2019-08-01",
-            "name": "[variables('workbookConfigurationResourceName')]",
-            "properties": {
-                "mode": "Incremental",
-                "parameters": {
-                    "appInsightsId": {
-                        "value": "[variables('appinsightsResourceId')]"
-                    },
-                    "workbookSourceId": {
-                        "value": "[variables('logAnalyticsWorkspaceResourceId')]"
-                    },
-                    "tags": {
-                        "value": "[parameters('tags')]"
-                    }
-                },
-                "templateLink": {
-                    "contentVersion": "1.0.0.0",
-                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.workbook.json'), parameters('templateUrlQueryString'))]"
-                }
-            },
-            "dependsOn": [
-                "[variables('logAnalyticsWorkspaceResourceId')]",
-                "[variables('appInsightsResourceId')]"
-            ]
         },
         {
             "comments": "Save configuration in keyVault.",
