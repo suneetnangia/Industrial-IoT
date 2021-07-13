@@ -196,13 +196,14 @@
         }
     },
     "variables": {
-        "performAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
-        "canCreateAdminGroup": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
-        "clusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
-        "defaultClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
-        "deployCluster": "[and(parameters('deployToCluster'), variables('clusterNotProvided'), variables('canCreateAdminGroup'))]",
-        "clusterAvailable": "[or(variables('deployCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
-        "deployingToCluster": "[and(parameters('deployToCluster'), variables('clusterAvailable'))]",
+        "deployAadAppRegistration": "[not(and(empty(parameters('aadPreConfiguration')), empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "canDeployClusterAdmin": "[not(and(empty(parameters('aadPrincipalId')), empty(parameters('aadPrincipalPassword'))))]",
+        "deployClusterAdmin": "[and(variables('aksClusterAvailableForMicroServicesDeployment'), variables('canDeployClusterAdmin'))]",
+        "defaultAksClusterName": "[concat('aks-', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 6))]",
+        "aksClusterNotProvided": "[empty(parameters('existingAksClusterResourceId'))]",
+        "deployNewAksCluster": "[and(parameters('deployToCluster'), variables('aksClusterNotProvided'), variables('canDeployClusterAdmin'))]",
+        "aksClusterAvailableForMicroServicesDeployment": "[or(variables('deployNewAksCluster'), not(empty(parameters('existingAksClusterResourceId'))))]",
+        "deployMicroServicesToCluster": "[and(parameters('deployToCluster'), variables('aksClusterAvailableForMicroServicesDeployment'))]",
         "aksClusterAdminDeploymentName": "aks.admin",
         "aksClusterAdminDeploymentId": "[resourceId('Microsoft.Resources/deployments', variables('aksClusterAdminDeploymentName'))]",
         "aksClusterDeploymentName": "aks",
@@ -280,12 +281,12 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aksClusterAdminDeploymentName')]",
-            "condition": "[and(variables('clusterAvailable'), variables('canCreateAdminGroup'))]",
+            "condition": "[variables('deployClusterAdmin')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
                     "aksClusterName": {
-                        "value": "[if(empty(parameters('existingAksClusterResourceId')), variables('defaultClusterName'), reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
+                        "value": "[if(empty(parameters('existingAksClusterResourceId')), variables('defaultAksClusterName'), reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').name)]"
                     },
                     "aksClusterResourceGroup": {
                         "value": "[if(empty(parameters('existingAksClusterResourceId')), resourceGroup().name, reference(parameters('existingAksClusterResourceId'), '2020-09-01', 'Full').resourceGroup)]"
@@ -320,7 +321,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aksClusterDeploymentName')]",
-            "condition": "[variables('deployCluster')]",
+            "condition": "[variables('deployNewAksCluster')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -354,7 +355,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('aadAppRegistrationDeploymentName')]",
-            "condition": "[variables('performAadAppRegistration')]",
+            "condition": "[variables('deployAadAppRegistration')]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -371,7 +372,7 @@
                         "value": "[parameters('aadPrincipalId')]"
                     },
                     "aadPrincipalAssignDeploymentScriptRole": {
-                        "value": "[not(and(variables('deployCluster'), variables('canCreateAdminGroup')))]"
+                        "value": "[not(and(variables('deployNewAksCluster'), variables('canDeployClusterAdmin')))]"
                     },
                     "aadPrincipalPassword": {
                         "value": "[parameters('aadPrincipalPassword')]"
@@ -401,7 +402,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('microServicesDeploymentName')]",
-            "condition": "[and(variables('deployingToCluster'), parameters('deployPlatformComponents'))]",
+            "condition": "[and(variables('deployMicroServicesToCluster'), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -496,7 +497,7 @@
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2019-08-01",
             "name": "[variables('alternativeWebAppDeploymentName')]",
-            "condition": "[and(not(variables('deployingToCluster')), parameters('deployPlatformComponents'))]",
+            "condition": "[and(not(variables('deployMicroServicesToCluster')), parameters('deployPlatformComponents'))]",
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
@@ -638,27 +639,27 @@
         },
         "serviceUrl": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployingToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.serviceUrl.value), '')]"
+            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployMicroServicesToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.serviceUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.serviceUrl.value), '')]"
         },
         "appUrl": {
             "type": "string",
-            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployingToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.appUrl.value), '')]"
+            "value": "[if (parameters('deployPlatformComponents'), if (variables('deployMicroServicesToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.appUrl.value), '')]"
         },
         "clusterName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.clusterName.value, '')]"
+            "value": "[if(variables('deployNewAksCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.clusterName.value, '')]"
         },
         "aksControlPlaneUrl": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.aksControlPlaneUrl.value, '')]"
+            "value": "[if(variables('deployNewAksCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.aksControlPlaneUrl.value, '')]"
         },
         "aksAdminGroupObjectId": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupObjectId.value, '')]"
+            "value": "[if(variables('deployClusterAdmin'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupObjectId.value, '')]"
         },
         "aksAdminGroupName": {
             "type": "string",
-            "value": "[if(variables('deployCluster'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupName.value, '')]"
+            "value": "[if(variables('deployClusterAdmin'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupName.value, '')]"
         }
     }
 }
