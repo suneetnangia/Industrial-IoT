@@ -11,14 +11,13 @@
     The type of deployment (local, services, app, simulation, all).
     Defaults to all.
  .PARAMETER Minimal
-    Whether to not deploy optional services. Only valid in combination
-    with type local, services, all.
+    Whether to not deploy optional Azure services. 
  .PARAMETER NoCluster
     Deploy into app service instead of cluster.  This option will be 
-    deprecated eventually and is not supported for production use.
+    deprecated.  It is not supported for production use.
  .PARAMETER Version
     Set to a version number that corresponds to an mcr image tag of the 
-    concrete release you want to deploy.
+    concrete release you want to deploy.  Default is "latest"
   
  .PARAMETER DockerServer
     An optional name of an Azure container registry to deploy containers
