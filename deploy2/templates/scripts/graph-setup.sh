@@ -136,7 +136,7 @@ if [[ "$mode" == "unregisteronly" ]] || [[ "$mode" == "clean" ]] ; then
 fi
 
 # ---------- Register -----------------------------------------------------------
-trustedIssuer="https://sts.windows.net/$tenantId"
+trustedTokenIssuer="https://sts.windows.net/$tenantId"
 authorityUri="https://login.microsoftonline.com"
 if ! tenantId=$(az account show --query tenantId -o tsv | tr -d '\r') ; then
     echo "ERROR: Failed to get tenant id."
@@ -435,7 +435,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
 else
     # parse config
               tenantId=$(jq -r ".tenantId? // empty" <<< $config)
-    trustedIssuer=$(jq -r ".trustedIssuer? // empty" <<< $config)
+    trustedTokenIssuer=$(jq -r ".trustedTokenIssuer? // empty" <<< $config)
           authorityUri=$(jq -r ".authorityUri? // empty" <<< $config)
           serviceAppId=$(jq -r ".serviceAppId? // empty" <<< $config)
       serviceAppSecret=$(jq -r ".serviceAppSecret? // empty" <<< $config)
@@ -484,13 +484,13 @@ if [[ -n "$keyVaultName" ]] ; then
         sleep 30s; 
     done
     if ! az keyvault secret set --vault-name $keyVaultName \
-                                  -n pcs-auth-tenant --value "$tenantId" ; then
-                echo "ERROR: Failed to set pcs-auth-tenant to $tenantId"
+                                   -n pcs-auth-tenant --value "$tenantId" ; then
+                 echo "ERROR: Failed to set pcs-auth-tenant to $tenantId"
         exit 1
     fi
     if ! az keyvault secret set --vault-name $keyVaultName \
-                              -n pcs-auth-issuer --value "$trustedIssuer" ; then
-            echo "ERROR: Failed to set pcs-auth-issuer to $trustedIssuer"
+                         -n pcs-auth-issuer --value "$trustedTokenIssuer" ; then
+       echo "ERROR: Failed to set pcs-auth-issuer to $trustedTokenIssuer"
         exit 1
     fi
     if ! az keyvault secret set --vault-name $keyVaultName \
@@ -542,7 +542,7 @@ echo '
     "webappAppSecret": "'"$webappAppSecret"'",
     "clientAppId": "'"$clientAppId"'",
     "tenantId": "'"$tenantId"'",
-    "trustedTokenIssuer": "'"$trustedIssuer"'",
+    "trustedTokenIssuer": "'"$trustedTokenIssuer"'",
     "authorityUri": "'"$authorityUri"'"
 }' | tee $AZ_SCRIPTS_OUTPUT_PATH
 # -------------------------------------------------------------------------
