@@ -83,14 +83,14 @@
             "type": "bool",
             "defaultValue": true,
             "metadata": {
-                "description": "Set to true to pull the chart from the docker server instead of the helm repo."
+                "description": "Set to false to pull the chart from helm repo instead of as oci from docker server."
             }
         },
         "helmRepoUrl": {
             "type": "string",
             "defaultValue": "https://microsoft.github.io/charts/repo",
             "metadata": {
-                "description": "URL of the Helm repository containing the chart if not pulled from docker server."
+                "description": "If not using OCI download use chart repository with URL containing chart with the helmChartName name."
             }
         },
         "numberOfSimulations": {
