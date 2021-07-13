@@ -126,6 +126,8 @@
     },
     "variables": {
         "managedIdentityResourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
+        "managedIdentityRoleAssignmentsName": "[concat('webapp.rbac.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
+        "managedIdentityRoleAssignmentsId": "[resourceId('Microsoft.Resources/deployments', variables('managedIdentityRoleAssignmentsName'))]",
         "serviceSiteResourceName": "[if(empty(parameters('serviceName')), concat('svc', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('serviceName'))]",
         "serviceSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceSiteResourceName'))]",
         "serviceContainerImageName": "[concat('iot/industrial-iot-services-all', ':', parameters('imagesTag'))]",
@@ -143,6 +145,36 @@
             "apiVersion": "2018-11-30",
             "location": "[resourceGroup().location]",
             "tags": "[parameters('tags')]"
+        },
+        {
+            "comments": "Assign permissions to micro services to access rbac enabled Azure services.",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('managedIdentityRoleAssignmentsName')]",
+            "properties": {
+                "mode": "Incremental",
+                "parameters": {
+                    "principalId": {
+                        "value":  "[reference(variables('managedIdentityResourceId'), '2018-11-30').principalId]"
+                    },
+                    "assignRoles": {
+                        "value": [ 
+                            "KeyVaultSecretOfficer",
+                            "KeyVaultCryptoOfficer"
+                        ]
+                    },
+                    "tags": {
+                        "value": "[parameters('tags')]"
+                    }
+                },
+                "templateLink": {
+                    "contentVersion": "1.0.0.0",
+                    "uri": "[concat(uri(parameters('templateUrl'), 'azuredeploy.rbac.json'), parameters('templateUrlQueryString'))]"
+                }
+            },
+            "dependsOn": [
+                "[variables('managedIdentityResourceId')]"
+            ]
         },
         {
             "comments": "Hosting plan to host all in one services and engineering tool containers as web app.",
@@ -263,7 +295,8 @@
             ],
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
-                "[variables('managedIdentityResourceId')]"
+                "[variables('managedIdentityResourceId')]",
+                "[variables('managedIdentityRoleAssignmentsId')]"
             ]
         },
         {
@@ -393,7 +426,8 @@
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
-                "[variables('configurationResourceId')]"
+                "[variables('configurationResourceId')]",
+                "[variables('managedIdentityRoleAssignmentsId')]"
             ]
         }
     ],
