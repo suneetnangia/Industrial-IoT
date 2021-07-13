@@ -645,13 +645,13 @@
             "type": "string",
             "value": "[if (parameters('deployPlatformComponents'), if (variables('deployMicroServicesToCluster'), reference(variables('microServicesDeploymentId'), '2017-05-10').outputs.appUrl.value, reference(variables('alternativeWebAppsDeploymentId'), '2017-05-10').outputs.appUrl.value), '')]"
         },
-        "clusterName": {
+        "aksAdminGroupObjectId": {
             "type": "string",
-            "value": "[if(variables('deployNewAksCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.clusterName.value, '')]"
+            "value": "[if(variables('deployClusterAdmin'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupObjectId.value, '')]"
         },
-        "aksControlPlaneUrl": {
+        "aksAdminGroupName": {
             "type": "string",
-            "value": "[if(variables('deployNewAksCluster'), reference(variables('aksClusterDeploymentId'), '2017-05-10').outputs.aksControlPlaneUrl.value, '')]"
+            "value": "[if(variables('deployClusterAdmin'), reference(variables('aksClusterAdminDeploymentId'), '2017-05-10').outputs.aksAdminGroupName.value, '')]"
         }
     }
 }
