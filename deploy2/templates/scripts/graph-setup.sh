@@ -170,14 +170,18 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     else
         echo "'$applicationName-client' found in graph as $clientId..."
     fi
-    IFS=$'\n'; client=($(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/applications/$clientId \
-        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to show '$applicationName-client'"
-        exit 1
-    fi
-    clientAppId=${client[0]}
+    clientAppId=
+    while [[ -z "$clientAppId" ]] ; do
+        IFS=$'\n'; client=($(az rest --method get \
+            --uri https://graph.microsoft.com/v1.0/applications/$clientId \
+            --query "[appId, publisherDomain, id]" -o tsv \
+            | tr -d '\r')); unset IFS;
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to show '$applicationName-client'"
+            exit 1
+        fi
+        clientAppId=${client[0]}
+    done
 
     # ---------- web app --------------------------------------------------------
     webappId=$(az rest --method get \
@@ -200,14 +204,18 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     else
         echo "'$applicationName-web' found in graph as $webappId..."
     fi
-    IFS=$'\n'; webapp=($(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/applications/$webappId \
-        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to show '$applicationName-web'"
-        exit 1
-    fi
-    webappAppId=${webapp[0]}
+    webappAppId=
+    while [[ -z "$webappAppId" ]] ; do
+        IFS=$'\n'; webapp=($(az rest --method get \
+            --uri https://graph.microsoft.com/v1.0/applications/$webappId \
+            --query "[appId, publisherDomain, id]" -o tsv \
+            | tr -d '\r')); unset IFS;
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to show '$applicationName-web'"
+            exit 1
+        fi
+        webappAppId=${webapp[0]}
+    done
   
     # ---------- service --------------------------------------------------------
     user_impersonationScopeId=be8ef2cb-ee19-4f25-bc45-e2d27aac303b
@@ -245,21 +253,29 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     else
         echo "'$applicationName-service' found in graph as $serviceId..."
     fi
-    permissionScopeIds=$(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
-        --query "api.oauth2PermissionScopes[].id" -o json | tr -d '\r')
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to show '$applicationName-service' scope ids."
-        exit 1
-    fi
-    IFS=$'\n'; service=($(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
-        --query "[appId, publisherDomain, id]" -o tsv | tr -d '\r')); unset IFS;
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to show '$applicationName-service'"
-        exit 1
-    fi
-    serviceAppId=${service[0]}
+    permissionScopeIds=
+    while [[ -z "$permissionScopeIds" ]] ; do
+        permissionScopeIds=$(az rest --method get \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
+            --query "api.oauth2PermissionScopes[].id" -o json | tr -d '\r')
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to show '$applicationName-service' scope ids."
+            exit 1
+        fi
+    done
+    servicePD=
+    while [[ -z "$servicePD" ]] ; do
+        IFS=$'\n'; service=($(az rest --method get \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
+            --query "[appId, publisherDomain]" -o tsv \
+            | tr -d '\r')); unset IFS;
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to show '$applicationName-service'"
+            exit 1
+        fi
+        serviceAppId=${service[0]}
+        servicePD=${service[1]}
+    done
     
     # todo - require resource accss to all permission scopes
 
@@ -365,34 +381,37 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
         exit 1
     fi
     # add webapp secret
-    webappAppSecret=$(az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/applications/$webappId/addPassword \
-        --headers Content-Type=application/json --body '{}' \
-        --query secretText -o tsv | tr -d '\r')
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to update '$applicationName-web secret'."
-        exit 1
-    fi
-    if [[ -z "$webappAppSecret" ]] ; then
-        echo "ERROR: Failed to get '$applicationName-web' secret."
-        exit 1
-    fi
+    webappAppSecret=
+    while [[ -z "$webappAppSecret" ]] ; do
+        webappAppSecret=$(az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/applications/$webappId/addPassword \
+            --headers Content-Type=application/json --body '{}' \
+            --query secretText -o tsv | tr -d '\r')
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to update '$applicationName-web secret'."
+            exit 1
+        fi
+    done
     echo "'$applicationName-web' updated..."
         
     # ---------- update service app ---------------------------------------------
     # Add 1) Azure CLI and 2) Visual Studio to allow login the platform as clients
+    echo "Permission scope ids: $permissionScopeIds."
+    echo "Identifier Uri: https://$servicePD/$applicationName-service"
     az rest --method patch \
         --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
         --headers Content-Type=application/json \
         --body '{
             "isFallbackPublicClient": false,
-            "identifierUris": [ "'"https://${service[1]}/$applicationName-service"'" ],
+            "identifierUris": [ "'"https://$servicePD/$applicationName-service"'" ],
             "api": {
                 "requestedAccessTokenVersion": null,
                 "knownClientApplications": [
                     "04b07795-8ddb-461a-bbee-02f9e1bf7b46", 
                     "872cd9fa-d31f-45e0-9eab-6e460a02d1f1",
-                    "'"$clientAppId"'", "'"$webappAppId"'" ],
+                    "'"$clientAppId"'", 
+                    "'"$webappAppId"'" 
+                ],
                 "preAuthorizedApplications": [
                     {"appId": "04b07795-8ddb-461a-bbee-02f9e1bf7b46", 
                         "delegatedPermissionIds": '"$permissionScopeIds"' },
@@ -411,27 +430,29 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
     fi
    
     # add service secret
-    serviceAppSecret=$(az rest --method post \
-        --uri https://graph.microsoft.com/v1.0/applications/$serviceId/addPassword \
-        --headers Content-Type=application/json --body '{}' \
-        --query secretText -o tsv | tr -d '\r')
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to update '$applicationName-service' secret."
-        exit 1
-    fi
-    if [[ -z "$serviceAppSecret" ]] ; then
-        echo "ERROR: Failed to get '$applicationName-service' secret."
-        exit 1
-    fi
+    serviceAppSecret=
+    while [[ -z "$serviceAppSecret" ]] ; do
+        serviceAppSecret=$(az rest --method post \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId/addPassword \
+            --headers Content-Type=application/json --body '{}' \
+            --query secretText -o tsv | tr -d '\r')
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to update '$applicationName-service' secret."
+            exit 1
+        fi
+    done
     echo "'$applicationName-service' updated..."
 
-    serviceAudience=$(az rest --method get \
-        --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
-        --query "[identifierUris[0]]" -o tsv | tr -d '\r')
-    if [ $? -ne 0 ] ; then
-        echo "ERROR: Failed to get '$applicationName-service' audience."
-        exit 1
-    fi
+    serviceAudience=
+    while [[ -z "$serviceAudience" ]] ; do
+        serviceAudience=$(az rest --method get \
+            --uri https://graph.microsoft.com/v1.0/applications/$serviceId \
+            --query "[identifierUris[0]]" -o tsv | tr -d '\r')
+        if [ $? -ne 0 ] ; then
+            echo "ERROR: Failed to get '$applicationName-service' audience."
+            exit 1
+        fi
+    done
 else
     # parse config
               tenantId=$(jq -r ".tenantId? // empty" <<< $config)
