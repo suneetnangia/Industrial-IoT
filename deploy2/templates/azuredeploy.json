@@ -513,6 +513,18 @@
                     "deployEngineeringTool": {
                         "value": "[parameters('deployEngineeringTool')]"
                     },
+                    "aadPrincipalId": {
+                        "value": "[parameters('aadPrincipalId')]"
+                    },
+                    "aadPrincipalPassword": {
+                        "value": "[parameters('aadPrincipalPassword')]"
+                    },
+                    "aadRegistrationAdminIdentityId": {
+                        "value": "[reference(variables('aadAppRegistrationDeploymentId')).outputs.aadRegistrationAdminIdentityId.value]"
+                    },
+                    "aadRegistrationUpdateReplyUrls": {
+                        "value": "[reference(variables('aadAppRegistrationDeploymentId')).outputs.aadRegistrationUpdateReplyUrls.value]"
+                    },
                     "dockerServer": {
                         "value": "[parameters('dockerServer')]"
                     },

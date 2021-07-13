@@ -102,6 +102,34 @@
                 "description": "The pricing sku for the hosting plan."
             }
         },
+        "aadPrincipalId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "The managed resource identity id or the name of the service principal that should register the AAD applications."
+            }
+        },
+        "aadPrincipalPassword": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "If the aadPrincipalId parameter refers to a service principal name then specify the service principal password to use."
+            }
+        },
+        "aadRegistrationAdminIdentityId": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Azure Active Directory web application management identity."
+            }
+        },
+        "aadRegistrationUpdateReplyUrls": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Udpate reply urls on the registered Azure Active Directory web application."
+            }
+        },
         "templateUrl": {
             "type": "string",
             "defaultValue": "[if(contains(deployment().properties, 'templateLink'), deployment().properties.templateLink.uri, 'https://raw.githubusercontent.com/Azure/Industrial-IoT/deployer/deploy2/templates/')]",
@@ -133,6 +161,7 @@
         "serviceContainerImageName": "[concat('iot/industrial-iot-services-all', ':', parameters('imagesTag'))]",
         "configurationResourceName": "webapp.configuration",
         "configurationResourceId": "[resourceId('Microsoft.Resources/deployments', variables('configurationResourceName'))]",
+        "aadReplyUrlUpdateResourceName": "[concat('webapp.aad.', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5))]",
         "appSiteResourceName": "[if(empty(parameters('applicationName')), concat('app', take(uniqueString(subscription().subscriptionId, resourceGroup().id), 5)), parameters('applicationName'))]",
         "appSiteResourceId": "[resourceId('Microsoft.Web/sites', variables('appSiteResourceName'))]",
         "appContainerImageName": "[concat('iot/industrial-iot-frontend', ':', parameters('imagesTag'))]"
@@ -428,6 +457,40 @@
                 "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]",
                 "[variables('configurationResourceId')]",
                 "[variables('managedIdentityRoleAssignmentsId')]"
+            ]
+        },
+        {
+            "comments": "Update the reply urls on the web app application in AAD / Microsoft Graph.",
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2020-10-01",
+            "name": "[variables('aadReplyUrlUpdateResourceName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tags')]",
+            "kind": "AzureCLI",
+            "condition": "[and(not(empty(parameters('aadPrincipalId'))), not(empty(parameters('applicationName'))), parameters('deployEngineeringTool'), parameters('aadRegistrationUpdateReplyUrls'))]",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[parameters('aadRegistrationAdminIdentityId')]": {}
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "[concat(parameters('aadPrincipalId'), parameters('applicationName'), variables('aadReplyUrlUpdateResourceName'))]",
+                "azCliVersion": "2.15.1",
+                "primaryScriptURI": "[concat(uri(parameters('templateUrl'), 'scripts/graph-setup.sh'), parameters('templateUrlQueryString'))]",
+                "arguments": "[concat(' --serviceurl \"', concat('https://', reference(variables('serviceSiteResourceId'), '2018-11-01').hostNames[0]), '\" --name \"', parameters('applicationName'), '\" --subscription \"', subscription().subscriptionId, '\" --user \"', parameters('aadPrincipalId'), '\" --tenant \"', subscription().tenantId, '\"', if(not(empty(parameters('aadPrincipalPassword'))), '', ' --identity'))]",
+                "timeout": "PT1H",
+                "environmentVariables": [
+                    {
+                        "name": "principalPassword",
+                        "secureValue": "[if(not(empty(parameters('aadPrincipalPassword'))), parameters('aadPrincipalPassword'), '')]"
+                    }
+                ],
+                "cleanupPreference": "OnExpiration",
+                "retentionInterval": "P1D"
+            },
+            "dependsOn": [
+                "[variables('appSiteResourceId')]"
             ]
         }
     ],
