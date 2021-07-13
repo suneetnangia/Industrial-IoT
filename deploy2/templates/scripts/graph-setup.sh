@@ -98,10 +98,14 @@ elif [[ -n "$principalId" ]] && \
     fi
 elif [[ -z "$AZ_SCRIPTS_OUTPUT_PATH" ]] ; then
     if ! az account show > /dev/null 2>&1 ; then
-        az login
+        if ! az login; then
+            echo "Failed to log in."
+            exit 1
+        fi
     fi
-    if [[ -n "$ownerId" ]] ; then
-        ownerId=$(az ad signed-in-user show --query objectId -o tsv | tr -d '\r')
+    if [[ -z "$ownerId" ]] ; then
+        ownerId=$(az ad signed-in-user show --query objectId -o tsv 2>/dev/null \
+            | tr -d '\r')
     fi
 fi
 
@@ -132,7 +136,7 @@ if [[ "$mode" == "unregisteronly" ]] || [[ "$mode" == "clean" ]] ; then
 fi
 
 # ---------- Register -----------------------------------------------------------
-trustedTokenIssuer="https://sts.windows.net/$tenantId"
+trustedIssuer="https://sts.windows.net/$tenantId"
 authorityUri="https://login.microsoftonline.com"
 if ! tenantId=$(az account show --query tenantId -o tsv | tr -d '\r') ; then
     echo "ERROR: Failed to get tenant id."
@@ -431,7 +435,7 @@ if [[ -z "$config" ]] || [[ "$config" == "{}" ]] ; then
 else
     # parse config
               tenantId=$(jq -r ".tenantId? // empty" <<< $config)
-    trustedTokenIssuer=$(jq -r ".trustedTokenIssuer? // empty" <<< $config)
+    trustedIssuer=$(jq -r ".trustedIssuer? // empty" <<< $config)
           authorityUri=$(jq -r ".authorityUri? // empty" <<< $config)
           serviceAppId=$(jq -r ".serviceAppId? // empty" <<< $config)
       serviceAppSecret=$(jq -r ".serviceAppSecret? // empty" <<< $config)
@@ -466,7 +470,7 @@ if [[ -n "$keyVaultName" ]] ; then
                 --role b86a8fe4-44ce-4948-aee5-eccb2c155cd7 --scope $rgid \
                 --query principalName -o tsv | tr -d '\r')
             if [ $? -ne 0 ] ; then
-                echo "ERROR: Failed to assign secret offer to $name."
+                echo "ERROR: Failed to assign secret officer to $name."
                 exit 1
             fi
             echo "Assigned secret officer role to $name ($user) ..."
@@ -475,32 +479,55 @@ if [[ -n "$keyVaultName" ]] ; then
     
     # there can be a delay in permissions or otherwise - retry
     while ! az keyvault secret set --vault-name $keyVaultName \
-                     -n pcs-auth-required --value true ; do 
+                                         -n pcs-auth-required --value true ; do 
         echo "... retry in 30 seconds..."
         sleep 30s; 
     done
-
-    set -e
-    az keyvault secret set --vault-name $keyVaultName \
-                     -n pcs-auth-tenant --value "$tenantId"
-    az keyvault secret set --vault-name $keyVaultName \
-                     -n pcs-auth-issuer --value "$trustedTokenIssuer"
-    az keyvault secret set --vault-name $keyVaultName \
-                   -n pcs-auth-instance --value "$authorityUri"
-    az keyvault secret set --vault-name $keyVaultName \
-              -n pcs-auth-service-appid --value "$serviceAppId"
-    az keyvault secret set --vault-name $keyVaultName \
-             -n pcs-auth-service-secret --value "$serviceAppSecret"
-    az keyvault secret set --vault-name $keyVaultName \
-                   -n pcs-auth-audience --value "$serviceAudience"
-    az keyvault secret set --vault-name $keyVaultName \
-        -n pcs-auth-public-client-appid --value "$clientAppId"
-    az keyvault secret set --vault-name $keyVaultName \
-               -n pcs-auth-client-appid --value "$webappAppId"
-    az keyvault secret set --vault-name $keyVaultName \
-              -n pcs-auth-client-secret --value "$webappAppSecret"
-    set +e
-
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                                  -n pcs-auth-tenant --value "$tenantId" ; then
+                echo "ERROR: Failed to set pcs-auth-tenant to $tenantId"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                              -n pcs-auth-issuer --value "$trustedIssuer" ; then
+            echo "ERROR: Failed to set pcs-auth-issuer to $trustedIssuer"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                             -n pcs-auth-instance --value "$authorityUri" ; then
+           echo "ERROR: Failed to set pcs-auth-instance to $authorityUri"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                         -n pcs-auth-service-appid --value "$serviceAppId" ; then
+       echo "ERROR: Failed to set pcs-auth-service-appid to $serviceAppId"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                    -n pcs-auth-service-secret --value "$serviceAppSecret" ; then
+  echo "ERROR: Failed to set pcs-auth-service-secret to $serviceAppSecret"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                           -n pcs-auth-audience --value "$serviceAudience" ; then
+         echo "ERROR: Failed to set pcs-auth-audience to $serviceAudience"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                    -n pcs-auth-public-client-appid --value "$clientAppId" ; then
+  echo "ERROR: Failed to set pcs-auth-public-client-appid to $clientAppId"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                           -n pcs-auth-client-appid --value "$webappAppId" ; then
+         echo "ERROR: Failed to set pcs-auth-client-appid to $webappAppId"
+        exit 1
+    fi
+    if ! az keyvault secret set --vault-name $keyVaultName \
+                      -n pcs-auth-client-secret --value "$webappAppSecret" ; then
+    echo "ERROR: Failed to set pcs-auth-client-secret to $webappAppSecret"
+        exit 1
+    fi
     webappAppSecret=
     serviceAppSecret=
 fi
@@ -515,7 +542,7 @@ echo '
     "webappAppSecret": "'"$webappAppSecret"'",
     "clientAppId": "'"$clientAppId"'",
     "tenantId": "'"$tenantId"'",
-    "trustedTokenIssuer": "'"$trustedTokenIssuer"'",
+    "trustedIssuer": "'"$trustedIssuer"'",
     "authorityUri": "'"$authorityUri"'"
 }' | tee $AZ_SCRIPTS_OUTPUT_PATH
 # -------------------------------------------------------------------------
