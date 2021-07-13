@@ -542,7 +542,7 @@ echo '
     "webappAppSecret": "'"$webappAppSecret"'",
     "clientAppId": "'"$clientAppId"'",
     "tenantId": "'"$tenantId"'",
-    "trustedIssuer": "'"$trustedIssuer"'",
+    "trustedTokenIssuer": "'"$trustedIssuer"'",
     "authorityUri": "'"$authorityUri"'"
 }' | tee $AZ_SCRIPTS_OUTPUT_PATH
 # -------------------------------------------------------------------------
