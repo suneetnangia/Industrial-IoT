@@ -157,7 +157,8 @@
                 "capacity": "[if(empty(parameters('applicationName')), if(empty(parameters('serviceName')), '0', '1'), '2')]"
             },
             "properties": {
-                "name": "[parameters('hostingPlanName')]"
+                "name": "[parameters('hostingPlanName')]",
+                "reserved": true
             }
         },
         {
