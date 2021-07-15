@@ -554,7 +554,7 @@ releases=($(helm ls -f $controller_name -A -q))
 if [[ -z "$releases" ]]; then
     echo "Installing nginx-ingress $controller_name with class nginx-$namespace for $loadBalancerIp into $namespace..."
     helm install --atomic $controller_name ingress-nginx/ingress-nginx \
-        --namespace $namespace --version 3.20.1 --timeout 30m0s \
+        --namespace $namespace --version 3.34.0 --timeout 30m0s \
         --set controller.ingressClass=nginx-$namespace \
         --set controller.replicaCount=2 \
         --set controller.podLabels.aadpodidbinding=$managedIdentityName \
@@ -582,7 +582,7 @@ else
     if [[ "$ns" != "$namespace" ]] ; then 
         echo "Updating release $controller_name release in $ns with ingress class nginx-$namespace."
         helm upgrade--atomic $controller_name ingress-nginx/ingress-nginx \
-            --namespace $ns --version 3.20.1 --timeout 30m0s --reuse-values \
+            --namespace $ns --version 3.34.0 --timeout 30m0s --reuse-values \
             --set controller.ingressClass=nginx-$namespace \
             > /dev/null 2>&1
         if [ $? -eq 0 ]; then
