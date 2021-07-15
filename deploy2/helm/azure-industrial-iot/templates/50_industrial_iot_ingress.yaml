@@ -38,7 +38,7 @@ spec:
 {{- if and .Values.deployment.microServices.registry.enabled .Values.deployment.ingress.paths.registry }}
       - path: {{ .Values.deployment.ingress.paths.registry }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.registry.fullname" . }}
             port:
@@ -47,7 +47,7 @@ spec:
 {{- if and .Values.deployment.microServices.twin.enabled .Values.deployment.ingress.paths.twin }}
       - path: {{ .Values.deployment.ingress.paths.twin }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.twin.fullname" . }}
             port:
@@ -56,7 +56,7 @@ spec:
 {{- if and .Values.deployment.microServices.history.enabled .Values.deployment.ingress.paths.history }}
       - path: {{ .Values.deployment.ingress.paths.history }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.history.fullname" . }}
             port:
@@ -65,7 +65,7 @@ spec:
 {{- if and .Values.deployment.microServices.gateway.enabled .Values.deployment.ingress.paths.gateway }}
       - path: {{ .Values.deployment.ingress.paths.gateway }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.gateway.fullname" . }}
             port:
@@ -74,7 +74,7 @@ spec:
 {{- if and .Values.deployment.microServices.publisher.enabled .Values.deployment.ingress.paths.publisher }}
       - path: {{ .Values.deployment.ingress.paths.publisher }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.publisher.fullname" . }}
             port:
@@ -83,7 +83,7 @@ spec:
 {{- if and .Values.deployment.microServices.events.enabled .Values.deployment.ingress.paths.events }}
       - path: {{ .Values.deployment.ingress.paths.events }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.events.fullname" . }}
             port:
@@ -92,7 +92,7 @@ spec:
 {{- if and .Values.deployment.microServices.edgeJobs.enabled .Values.deployment.ingress.paths.edgeJobs }}
       - path: {{ .Values.deployment.ingress.paths.edgeJobs }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.edge-jobs.fullname" . }}
             port:
@@ -101,7 +101,7 @@ spec:
 {{- if and .Values.deployment.microServices.engineeringTool.enabled .Values.deployment.ingress.paths.engineeringTool }}
       - path: {{ .Values.deployment.ingress.paths.engineeringTool }}
         pathType: Prefix
-        defaultBackend:
+        backend:
           service:
             name: {{ template "azure-industrial-iot.engineering-tool.fullname" . }}
             port:

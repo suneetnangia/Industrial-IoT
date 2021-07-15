@@ -203,10 +203,10 @@ if [[ -n "$servicesAppId" ]]; then
     fi
 fi
 
+if [[ -z "$helmChartName" ]]; then
+    helmChartName="azure-industrial-iot"
+fi
 if [[ -n "$helmRepoUrl" ]]; then
-    if [[ -z "$helmChartName" ]]; then
-        helmChartName="azure-industrial-iot"
-    fi
     if [[ -z "$imagesTag" ]]; then
         imagesTag="2.8"
     fi
@@ -217,9 +217,6 @@ if [[ -n "$helmRepoUrl" ]]; then
         dockerServer="mcr.microsoft.com"
     fi
 else
-    if [[ -z "$helmChartName" ]]; then
-        helmChartName="iot/azure-industrial-iot"
-    fi
     if [[ -z "$dockerServer" ]]; then
         # See if there is a registry in the resource group 
         IFS=$'\n'; registry=($(az acr list -g $resourcegroup \
@@ -358,7 +355,7 @@ if [[ -z "$helmRepoUrl" ]] ; then
     export HELM_EXPERIMENTAL_OCI=1
     # docker server is the oci registry from where to consume the helm chart
     # the repo is the path and name of the chart
-    chart="$dockerServer/$helmChartName:$helmChartVersion"
+    chart="$dockerServer/iot/$helmChartName:$helmChartVersion"
     helm chart remove $chart > /dev/null 2>&1 && echo "No charts to remove."
     # lpg into the server
     if [[ -n "$dockerUser" ]] && [[ -n "$dockerPassword" ]] ; then
@@ -376,7 +373,11 @@ if [[ -z "$helmRepoUrl" ]] ; then
     fi
     helm chart export $chart --destination ./aiiot
     helmChartLocation="./aiiot/$helmChartName"
-    echo "Downloaded Helm chart $chart will be installed..."
+    if ! cat $helmChartLocation/Chart.yaml ; then
+        echo "ERROR: $chart downloaded is invalid."
+        exit 1
+    fi
+    echo "Downloaded Helm chart $helmChartLocation will be installed..."
 else
     # add the repo
     echo "Configure Helm chart repository configured..."
