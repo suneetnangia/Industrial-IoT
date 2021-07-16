@@ -172,7 +172,7 @@ if ((!$registryInfo) -and `
         $argumentList = @("acr", "create", 
             "-g", $script:ResourceGroupName, "-n", $script:Registry,
             "-l", $script:ResourceGroupLocation,
-            "--sku", "Basic", "--admin-enabled", "true", 
+            "--sku", "Standard", "--admin-enabled", "true", 
             "--subscription", $script:Subscription)
         $registryInfo = & az $argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {

@@ -78,14 +78,14 @@ Function Connect-ToAzure() {
     )
 
     $scriptDir = Split-Path $MyInvocation.MyCommand.Module.Path
-    $environment = Get-AzEnvironment -Name $EnvironmentName -ErrorAction SilentlyContinue
+    $environment = Get-AzEnvironment -Name $EnvironmentName `
+        -ErrorAction SilentlyContinue
     if (!$environment) {
         throw "Environment $EnvironmentName does not exist."
     }
     
     $rootDir = Get-RootFolder $scriptDir
     $contextFile = Join-Path $rootDir ".user"
-
     # Migrate .user file into root (next to .env)
     if (!(Test-Path $contextFile)) {
         $oldFile = Join-Path $scriptDir ".user"
@@ -99,7 +99,7 @@ Function Connect-ToAzure() {
                 -and ($null -ne $imported.Context) `
                 -and ($null -ne (Get-AzSubscription))) {
             $context = $imported.Context
-            if (!$script:SwitchSubscription.IsPresent) {
+            if (!$SwitchSubscription.IsPresent) {
                 return $context
             }
         }
@@ -172,7 +172,7 @@ Write-Host "Choose from the list using an index between 1 and $($subscriptions.C
             throw "Failed to get details for subscription $($SubscriptionId)"
         }
     }
-
+ 
     # Update context
     $writeProfile = $false
     if ($context.Subscription.Id -ne $subscriptionDetails.Id) {

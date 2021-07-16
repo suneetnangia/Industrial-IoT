@@ -112,8 +112,9 @@ throw "Timeout: Service principal did not replicate to graph in time."
             -ResourceId $($graphSp.Id)
         if (!$roleAssignment) {
             Write-Warning "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            Write-Warning "Failed assigning role.  You likely do not have "
-            Write-Warning "the necessary authorization to assign roles to "
+            Write-Warning "Failed assigning role $appRoleName. "
+            Write-Warning "You likely do not have the necessary "
+            Write-Warning "authorization to assign roles to "
             Write-Warning "Microsoft Graph."
             Write-Warning "The service principal cannot be used for Graph "
             Write-Warning "operations!"

@@ -27,14 +27,10 @@ location=
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --help)                usage ;;
-        --name)                name="$2" ;;
-        --resourcegroup)       resourcegroup="$2" ;;
-        --subscription)        subscription="$2" ;;
-        --location)            location="$2" ;;
-        -n)                    name="$2" ;;
-        -g)                    resourcegroup="$2" ;;
-        -s)                    subscription=="$2" ;;
-        -l)                    location="$2" ;;
+        --name|-n)             name="$2" ;;
+        --resourcegroup|-g)    resourcegroup="$2" ;;
+        --subscription|-s)     subscription="$2" ;;
+        --location|-l)         location="$2" ;;
     esac
     shift
 done
@@ -42,6 +38,9 @@ done
 # -------------------------------------------------------------------------
 if ! az account show > /dev/null 2>&1 ; then
     az login
+fi
+if [[ -n "$subscription" ]]; then 
+    az account set -s $subscription
 fi
 
 # -------------------------------------------------------------------------
@@ -66,9 +65,6 @@ else
     if [[ -z "$name" ]]; then 
         echo "Parameter is empty or missing: --name" >&2
         usage
-    fi
-    if [[ -n "$subscription" ]]; then 
-        az account set -s $subscription
     fi
     rg=$(az group show -g $resourcegroup \
         --query id -o tsv 2> /dev/null | tr -d '\r')
@@ -119,8 +115,10 @@ assign_app_role(){
         if [[ -z "$roleAssignmentId" ]]; then 
             echo ""
             echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            echo "Failed assigning role.  You likely do not have "
-            echo "the consent to assign roles to Microsoft Graph."
+            echo "Failed assigning role $3. "
+            echo "You likely do not have the necessary "
+            echo "authorization to assign roles to "
+            echo "Microsoft Graph."
             echo "The service principal cannot be used for Graph "
             echo "operations.!"
             echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
