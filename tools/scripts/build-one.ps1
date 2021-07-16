@@ -148,12 +148,7 @@ Write-Verbose "Publishing $($projName) ($($runtimeId)) to $($publishPath)..."
     }
 }
 
-# -------------------------------------------------------------------------
-$elapsedTime = $(Get-Date) - $startTime
-$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
-Write-Host "Building $($projName) took $($elapsedString)..." 
-# -------------------------------------------------------------------------
-return @{
+$project = @{
     Name = $metadata.name
     ProjectName = $projName
     ProjectPath = $projFile.FullName
@@ -163,3 +158,10 @@ return @{
     Metadata = $metadata
     Runtimes = $runtimeInfos
 }
+
+# -------------------------------------------------------------------------
+$elapsedTime = $(Get-Date) - $startTime
+$elapsedString = "$($elapsedTime.ToString("hh\:mm\:ss")) (hh:mm:ss)"
+Write-Host "Building $($projName) took $($elapsedString)..." 
+# -------------------------------------------------------------------------
+return $project

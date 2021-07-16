@@ -15,7 +15,11 @@ Usage: '"$0"'
             -y                 Perform actual deletion.
     
     --prefix                   Match and delete everything with prefix.
+
+    --kv-purge                 Purge all soft deleted key vaults in subscription.
+
     --help                     Shows this help.
+
 '
     exit 1
 }
@@ -25,14 +29,12 @@ subscription=
 delete=
 prefix=
 mark=
-legacy=
 purgekv=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --subscription|-s)     subscription="$2" ; shift ;;
         --kv-purge)            purgekv=1 ;;
-        --legacy)              legacy=1 ;;
         --mark|-m)             mark=1 ;;
         --prefix)              prefix="$2" ; shift ;;
         -y)                    delete=1 ;;
@@ -46,40 +48,42 @@ if ! az account show > /dev/null 2>&1 ; then
     az login
 fi
 if [[ -n "$subscription" ]]; then 
-    az account set -s $subscription
+    if ! az account set -s $subscription ; then
+		echo "Failed to change subscription!"
+		exit 1
+	fi
 fi
 
 # -------------------------------------------------------------------------------
 if [[ -n "$prefix" ]] ; then
-    # select groups with prefix
+    # select groups with prefix that are not production
     groups=$(az group list \
-        --query "[?starts_with(name, '$prefix') && tags.Production!='true'].name" \
-        -o tsv | tr -d '\r')
-elif [[ -n "$legacy" ]]; then
-    # select groups to mark for deletion
-    groups=$(az group list \
-        --query "[?tags.DoNotDelete!='true' && tags.Production!='true'].name" \
+        --query "[?starts_with(name, '$prefix') && tags.Production!=null].name" \
         -o tsv | tr -d '\r')
 elif [[ -n "$mark" ]]; then
     # select groups to mark for deletion
-    groups=$(az group list --query "[?tags.Production!='true'].name" \
+    groups=$(az group list --query "[?tags.Production==null].name" \
         -o tsv | tr -d '\r')
 else
     # select groups marked for deletion
-    groups=$(az group list --query "[?tags.ReadyToDelete=='true'].name" \
+    groups=$(az group list --query "[?tags.ReadyToDelete].name" \
         -o tsv | tr -d '\r')
 fi
 
 # remove groups 
 for group in $groups; do
     if [[ -n "$mark" ]]; then
-        echo "Marking group $group as ready to delete ..."
-        az group update -g $group --set tags.ReadyToDelete='true' > /dev/null
+        if [[ $group = MC_* ]] ; then
+			echo "skipping $group ..." > /dev/null
+        else
+			echo "Marking group $group as ready to delete ..."
+			az group update -g $group --set tags.ReadyToDelete='true' > /dev/null
+		fi
     else
         if [[ $group = MC_* ]] ; then
             echo "skipping $group ..." > /dev/null
         elif [[ -z "$delete" ]]; then 
-            echo "Would have deleted resourcegroup $group ..."
+            echo "$group up for deletion."
         else
             echo "Deleting resourcegroup $group ..."
             az group delete -g $group -y --no-wait

@@ -19,8 +19,6 @@
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
- .PARAMETER LinuxOnly
-    Build linux only (except for edge modules at this time)
 #>
 
 Param(

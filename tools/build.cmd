@@ -16,7 +16,8 @@ set _location=westus
 set _deploy=1
 set _build=1
 set _clean=
-set _full=1
+set _full=
+set _fast=
 set _version=
 set _sourceSubscription=IOT_GERMANY
 set _sourceRegistry=industrialiot
@@ -27,6 +28,8 @@ if "%1" equ "--clean" goto :arg-clean
 if "%1" equ  "-c" goto :arg-clean
 if "%1" equ "--fast" goto :arg-fast
 if "%1" equ  "-f" goto :arg-fast
+if "%1" equ "--all" goto :arg-all
+if "%1" equ  "-a" goto :arg-all
 if "%1" equ "--skip-deploy" goto :arg-no-deploy
 if "%1" equ "--skip-build" goto :arg-no-build
 if "%1" equ "--resourcegroup" goto :arg-resourcegroup
@@ -50,11 +53,13 @@ echo options:
 echo -g --resourcegroup Resource group name.
 echo -s --subscription  Subscription name.
 echo -l --location      Location to deploy to (%_location%).
-echo -v --version       Version to deploy (instead of build).
 echo -c --clean         Delete the resource group first.
+echo -a --all           Build all images not just Linux.
 echo -f --fast          Build only what is needed to deploy.
+echo                    All and Fast are mutually exclusive. 
+echo    --skip-build    Skip building.
+echo -v --version       Version to deploy (instead of build).
 echo    --skip-deploy   Do not deploy.
-echo    --skip-build    Skip building
 echo -h --help          This help.
 exit /b 1
 
@@ -62,9 +67,13 @@ exit /b 1
 set _clean=1
 goto :args-continue
 :arg-fast
+set _fast=1
 set _full=
 goto :args-continue
-
+:arg-all
+set _fast=
+set _full=1
+goto :args-continue
 :arg-no-deploy
 set _deploy=
 goto :args-continue
@@ -114,7 +123,8 @@ if "%_clean%" == "1" if exist %TEMP%\%_resourceGroup% rmdir /s /q %TEMP%\%_resou
 if not exist %TEMP%\%_resourceGroup% mkdir %TEMP%\%_resourceGroup%
 set __args=%__args% -Output %TEMP%\%_resourceGroup%
 :nooutput
-if "%_full%" == "" set __args=%__args% -Fast
+if not "%_full%" == "1" set __args=%__args% -LinuxOnly
+if "%_fast%" == "1" set __args=%__args% -Fast
 if "%_clean%" == "1" set __args=%__args% -Clean
 pushd %build_root%\tools\scripts
 powershell ./build.ps1 %__args%
@@ -165,7 +175,7 @@ set __args=%__args% -ResourceGroupLocation %_location%
 set __args=%__args% -ResourceGroupName %_resourceGroup% 
 set __args=%__args% -ApplicationName %_resourceGroup%
 set __args=%__args% -Subscription %_subscription%
-if "%_full%" == "" set __args=%__args% -NoCluster
+if "%_fast%" == "1" set __args=%__args% -NoCluster
 
 pushd %build_root%\deploy2
 powershell ./deploy.ps1 -type all %__args% 

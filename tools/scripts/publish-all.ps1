@@ -74,6 +74,10 @@ $rspool.Open()
 $jobs = @()
 Write-Host "Publishing $($script:Projects.Count) projects as artifacts..."
 foreach ($project in $script:Projects) {
+    if ($script:Project.Published) {
+        Write-Verbose"$($project.Name) already published."
+        continue
+    }
     if (!$script:Project.Runtimes -or ($script:Project.Runtimes.Count -eq 0)) {
         Write-Warning "No runtimes to publish for $($project.Name)."
         continue

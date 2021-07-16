@@ -56,8 +56,9 @@ if (!$script:Project) {
         return $null
     }
 }
-if (!$script:Project.Runtimes -or ($script:Project.Runtimes.Count -eq 0)) {
-    Write-Warning "Nothing found to publish - Skipping $($script:Project.Name)."
+if ($script:Project.Published -or `
+    !$script:Project.Runtimes -or ($script:Project.Runtimes.Count -eq 0)) {
+Write-Warning "Nothing found to publish - Skipping $($script:Project.Name)."
     return $null
 }
 
@@ -114,6 +115,10 @@ $created = $(Get-Date -Format "o")
 $argumentList = @("pull", "ghcr.io/oras-project/oras:v0.12.0")
 & docker $argumentList 2>&1 | Out-Null
 foreach ($runtime in $script:Project.Runtimes) {
+    if (![string]::IsNullOrEmpty($runtime.ociArtifact)) {
+Write-Warning "WARNING: Skipping. $($runtime.ociArtifact) already published."
+        continue
+    }
     $artifactId = "$($name)-$($runtime.runtimeId)$($tagPostfix)".ToLower()
     $workspace = Split-Path -Path $runtime.artifact -Parent
     $artifactFolder = Split-Path -Path $runtime.artifact -Leaf
@@ -124,7 +129,7 @@ foreach ($runtime in $script:Project.Runtimes) {
         $workspace = Join-Path (Join-Path $workspace "workspaces") `
             $artifactId
         $artifactFolder = $runtime.runtimeId
-    Write-Host "... copying artifacts to $artifactFolder in $workspace..."
+        Write-Host "... copying artifacts to $artifactFolder in $workspace..."
         Remove-Item $workspace -Recurse -Force `
             -ErrorAction SilentlyContinue
         New-Item -ItemType "directory" -Path $workspace `
@@ -187,6 +192,7 @@ throw "Error: Failed $($co). 'docker $cmd' 2nd attempt exited with $LastExitCode
     Write-Verbose "Completed $($co)."
     $runtime.ociArtifact = $artifact
 }
+$script:Project.Published = $true
 
 # -------------------------------------------------------------------------
 $elapsedTime = $(Get-Date) - $startTime

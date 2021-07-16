@@ -30,6 +30,8 @@
  .PARAMETER Fast
     Perform a fast build.  This will only build what is needed for 
     the system to run in its default deployment setup.
+ .PARAMETER LinuxOnly
+    Build linux only (except for edge modules at this time)
  .PARAMETER NoNamespace
     Do not publish with a namespace
 #>
@@ -44,6 +46,7 @@ Param(
     [switch] $Debug,
     [switch] $Clean,
     [switch] $NoNamespace,
+    [switch] $LinuxOnly,
     [switch] $Fast
 )
 
@@ -98,7 +101,7 @@ if ($projects.Count -eq 0) {
     [array]$projects = & (Join-Path $PSScriptRoot "build-all.ps1") `
         -Path $script:Path -Output $script:Output `
         -Debug:$script:Debug -Fast:$script:Fast -Clean:$script:Clean `
-        -LinuxOnly $script:NoNamespace
+        -LinuxOnly:$script:LinuxOnly
     if ((!$projects) -or ($LastExitCode -ne 0)) {
         throw "Failed to build projects."
     }
