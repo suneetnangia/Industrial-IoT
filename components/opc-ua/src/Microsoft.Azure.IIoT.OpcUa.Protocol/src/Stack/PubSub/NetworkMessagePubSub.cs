@@ -246,13 +246,21 @@ namespace Opc.Ua.PubSub {
             PayloadHeader = new List<ushort>();
             if (isChunkMessage) {
                 messageCount = 1;
-                PayloadHeader.Add(decoder.ReadUInt16("PayloadHeader"));
+                //  ignore the Payload header if the message is Discovery response
+                if (MessageType != NetworkMessageType.DiscoveryResponsePayload) {
+                    if (isPayloadHeaderEnbled) {
+                        PayloadHeader.Add(decoder.ReadUInt16("PayloadHeader"));
+                    }
+                }
             }
             else {
-                messageCount = isPayloadHeaderEnbled ? decoder.ReadByte("MessageCount") : (byte)0;
-                if (messageCount > 0) {
-                    for (var index = 0; index < messageCount; index++) {
-                        PayloadHeader.Add(decoder.ReadUInt16("PayloadHeader"));
+                //  ignore the Payload header if the message is Discovery response
+                if (MessageType != NetworkMessageType.DiscoveryResponsePayload) {
+                    messageCount = isPayloadHeaderEnbled ? decoder.ReadByte("MessageCount") : (byte)0;
+                    if (messageCount > 0) {
+                        for (var index = 0; index < messageCount; index++) {
+                            PayloadHeader.Add(decoder.ReadUInt16("PayloadHeader"));
+                        }
                     }
                 }
             }
