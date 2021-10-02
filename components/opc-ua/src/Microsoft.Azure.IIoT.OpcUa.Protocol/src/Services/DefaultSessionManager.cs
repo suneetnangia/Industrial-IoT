@@ -479,6 +479,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
                     if (StatusCode.IsGood(wrapper.ReportedStatus)) {
                         if (wrapper.Session.Connected &&
                             !wrapper.Session.KeepAliveStopped) {
+                            // Fetch namespaces in case, there was some new Uris added to the server
+                            wrapper.Session.FetchNamespaceTables();
                             foreach (var subscription in wrapper._subscriptions.Values) {
                                 if (!ct.IsCancellationRequested) {
                                     await subscription.ActivateAsync(wrapper.Session).ConfigureAwait(false);
@@ -554,7 +556,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
 
                 // Validate thumbprint
                 if (e.Certificate.RawData != null && !string.IsNullOrWhiteSpace(e.Certificate.Thumbprint)) {
-                    
+
                     if (_sessions.Keys.Any(id => id?.Connection?.Endpoint?.Certificate != null &&
                         e.Certificate.Thumbprint == id.Connection.Endpoint.Certificate)) {
                         e.Accept = true;
