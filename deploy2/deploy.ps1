@@ -50,8 +50,9 @@
  .PARAMETER ApplicationName
     Name of the application if deploying services.
  .PARAMETER AadPreConfiguration
-    The aad configuration object (use aad-register.ps1 to create object).
-    If not provided, calls graph-register.ps1 which can be found in the 
+    The aad configuration object (use graph-register.ps1 to create object).
+    If not provided and a service principal cannot be created using 
+    create-sp.ps1, calls graph-register.ps1 which can be found in the 
     the same folder as this script.
 
  .PARAMETER SimulationProfile
@@ -524,22 +525,45 @@ if (($script:Type -ne "local") -and ($script:Type -ne "services")) {
 }
 
 # Configure aad registration either with service principal or preconfiguration
+$performReplyUrlRegistration = $false
+$msg = ""
 if (!$script:AadPreConfiguration) {
-    $msi = & (Join-Path $script:ScriptDir "create-sp.ps1") -Context $context `
-        -Name "deploy_aad_msi" -ResourceGroup $script:ResourceGroupName  `
-        -Location $script:ResourceGroupLocation -Subscription $subscriptionId
-    if ([string]::IsNullOrWhiteSpace($msi.aadPrincipalId)) {
-        Write-Error `
-"Failed to create managed service identity for application registration."
-        throw $($msi | ConvertTo-Json)
+    try {
+        $msi = & (Join-Path $script:ScriptDir "create-sp.ps1") -Context $context `
+            -Name "deploy_aad_msi" -ResourceGroup $script:ResourceGroupName  `
+            -Location $script:ResourceGroupLocation -Subscription $subscriptionId
+        if ([string]::IsNullOrWhiteSpace($msi.aadPrincipalId)) {
+            $msi | ConvertTo-Json | Write-Warning
+    throw  "Error: Failed to create managed service identity for AAD registration."
+        }
+        $templateParameters.Add("aadPrincipalId", $msi.aadPrincipalId)
     }
-    $templateParameters.Add("aadPrincipalId", $msi.aadPrincipalId)
+    catch {
+        $msg = $_.Exception.Message
+        Write-Warning "Failed to create service principal for AAD registration."
+        Write-Warning $msg
+        Write-Warning "Trying to register applications outside of deployment."
+        # Attempt to register now
+        $script:AadPreConfiguration = `
+            & (Join-Path $script:ScriptDir "graph-register.ps1") -Context $context `
+            -Name $script:ApplicationName
+
+        if (!$script:AadPreConfiguration) {
+    throw "Failed to register applications in AAD outside of deployment ($msg)."
+        }
+        $performReplyUrlRegistration = $true
+    }
 }
 elseif (($script:AadPreConfiguration -is [string]) -and `
     (Test-Path $script:AadPreConfiguration)) {
     # read configuration from file
     $script:AadPreConfiguration = Get-Content -Raw `
          -Path $script:AadPreConfiguration | ConvertFrom-Json
+}
+
+if ($script:AadPreConfiguration) {
+    Write-Host `
+"... Using AAD pre-configuration values during deployment."
     $templateParameters.Add("aadPreConfiguration", $script:AadPreConfiguration)
 }
 
@@ -664,6 +688,14 @@ while ($true) {
         # Try to open the engineering tool in a web browser.
         if ($templateParameters["deployEngineeringTool"]) {
             $appUrl =  $deployment.Outputs["appUrl"].Value
+
+            # register reply url
+            if ($performReplyUrlRegistration) {
+                $script:AadPreConfiguration = & (Join-Path $script:ScriptDir `
+                    "graph-register.ps1") -Context $context -ReplyUrl $appUrl `
+                        | Out-Null
+            }
+
             if (![string]::IsNullOrEmpty($appUrl)) {
                 try {
                     Start-Process $appUrl -ErrorAction SilentlyContinue `

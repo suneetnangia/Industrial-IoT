@@ -8,16 +8,13 @@
 
  .PARAMETER Name
     The Name prefix under which to register the applications.
-
  .PARAMETER ReplyUrl
     A reply_url to register, e.g. https://<NAME>.azurewebsites.net/
 
  .PARAMETER SignInAudience
     The Sign In Audience to use (default: AzureADMyOrg)
-
  .PARAMETER EnvironmentName
     Azure cloud to use - defaults to Global cloud.
-
  .PARAMETER TenantId
     The Azure Active Directory tenant to use.
 

@@ -58,7 +58,7 @@ fi
 if [[ -n "$prefix" ]] ; then
     # select groups with prefix that are not production
     groups=$(az group list \
-        --query "[?starts_with(name, '$prefix') && tags.Production!=null].name" \
+        --query "[?starts_with(name, '$prefix') && tags.Production==null].name" \
         -o tsv | tr -d '\r')
 elif [[ -n "$mark" ]]; then
     # select groups to mark for deletion
