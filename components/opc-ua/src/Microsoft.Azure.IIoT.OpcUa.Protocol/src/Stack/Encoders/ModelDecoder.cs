@@ -18,16 +18,16 @@ namespace Opc.Ua.Encoders {
         public EncodingType EncodingType => _wrapped.EncodingType;
 
         /// <inheritdoc />
-        public ServiceMessageContext Context => _wrapped.Context;
+        public IServiceMessageContext Context => _wrapped.Context;
 
         /// <summary>
         /// Create wrapper
         /// </summary>
-        /// <param name="contentType"></param>
         /// <param name="stream"></param>
+        /// <param name="contentType"></param>
         /// <param name="context"></param>
         public ModelDecoder(Stream stream, string contentType,
-            ServiceMessageContext context = null) :
+            IServiceMessageContext context = null) :
             this(CreateDecoder(contentType, stream, context)) {
         }
 
@@ -181,8 +181,8 @@ namespace Opc.Ua.Encoders {
         }
 
         /// <inheritdoc />
-        public IEncodeable ReadEncodeable(string fieldName, Type systemType) {
-            return _wrapped.ReadEncodeable(fieldName, systemType);
+        public IEncodeable ReadEncodeable(string fieldName, Type systemType, ExpandedNodeId encodeableTypeId = null) {
+            return _wrapped.ReadEncodeable(fieldName, systemType, encodeableTypeId);
         }
 
         /// <inheritdoc />
@@ -316,8 +316,8 @@ namespace Opc.Ua.Encoders {
         }
 
         /// <inheritdoc />
-        public Array ReadEncodeableArray(string fieldName, Type systemType) {
-            return _wrapped.ReadEncodeableArray(fieldName, systemType);
+        public Array ReadEncodeableArray(string fieldName, Type systemType, ExpandedNodeId encodeableTypeId = null) {
+            return _wrapped.ReadEncodeableArray(fieldName, systemType, encodeableTypeId);
         }
 
         /// <inheritdoc />
@@ -332,6 +332,11 @@ namespace Opc.Ua.Encoders {
             }
         }
 
+        /// <inheritdoc />
+        public object ReadArray(string fieldName, int valueRank, BuiltInType builtInType, ExpandedNodeId nodeId) {
+            return _wrapped.ReadArray(fieldName, valueRank, builtInType);
+        }
+
         /// <summary>
         /// Create encoder for content type
         /// </summary>
@@ -340,7 +345,7 @@ namespace Opc.Ua.Encoders {
         /// <param name="context"></param>
         /// <returns></returns>
         private static IDecoder CreateDecoder(string contentType, Stream stream,
-            ServiceMessageContext context) {
+            IServiceMessageContext context) {
             if (stream == null) {
                 throw new ArgumentNullException(nameof(stream));
             }

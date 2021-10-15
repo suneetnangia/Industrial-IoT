@@ -93,12 +93,14 @@ namespace Microsoft.Azure.IIoT.Deployment.Infrastructure {
         /// </summary>
         /// <param name="resourceGroup"></param>
         /// <param name="signalRName"></param>
+        /// <param name="serviceMode"></param>
         /// <param name="tags"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public async Task<SignalRResource> CreateAsync(
             IResourceGroup resourceGroup,
             string signalRName,
+            ServiceMode serviceMode,
             IDictionary<string, string> tags = null,
             CancellationToken cancellationToken = default
         ) {
@@ -115,8 +117,8 @@ namespace Microsoft.Azure.IIoT.Deployment.Infrastructure {
                 Log.Information($"Creating SignalR Service: {signalRName} ...");
 
                 var serviceModeFeature = new SignalRFeature {
-                    Flag = ServiceMode.Serverless.Flag,
-                    Value = ServiceMode.Serverless.Value
+                    Flag = serviceMode.Flag,
+                    Value = serviceMode.Value
                 };
 
                 var signalRCreateParameters = new SignalRResource() {
@@ -327,7 +329,7 @@ namespace Microsoft.Azure.IIoT.Deployment.Infrastructure {
 
             var errorMessage = $"Failed to generate unique SignalR service name " +
                 $"after {NUM_OF_MAX_NAME_AVAILABILITY_CHECKS} retries";
-            
+
             Log.Error(errorMessage);
             throw new Exception(errorMessage);
         }

@@ -24,6 +24,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
         public string PublishedNodesFile { get; set; }
 
         /// <summary>
+        /// The published nodes schema file.
+        /// </summary>
+        public string PublishedNodesSchemaFile { get; set; }
+
+        /// <summary>
         /// The time to wait to connect a session.
         /// </summary>
         public TimeSpan? SessionConnectWait { get; set; }
@@ -165,6 +170,16 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models {
         /// Certificate store path
         /// </summary>
         public string ApplicationCertificateStorePath { get; set; }
+
+        /// <summary>
+        /// App cert subject name
+        /// </summary>
+        public string ApplicationCertificateSubjectName { get; set; }
+
+        /// <summary>
+        /// App  name
+        /// </summary>
+        public string ApplicationName { get; set; }
 
         /// <summary>
         /// Peer cert path

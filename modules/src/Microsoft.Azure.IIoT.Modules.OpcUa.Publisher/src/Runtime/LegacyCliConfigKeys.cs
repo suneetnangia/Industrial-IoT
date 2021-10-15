@@ -18,6 +18,11 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         public const string DefaultPublishedNodesFilename = "publishednodes.json";
 
         /// <summary>
+        /// Key for default published nodes schema file.
+        /// </summary>
+        public const string DefaultPublishedNodesSchemaFilename = "schemas/publishednodesschema.json";
+
+        /// <summary>
         /// Key for the publisher site.
         /// </summary>
         public const string PublisherSite = "Site";
@@ -25,7 +30,12 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// <summary>
         /// Key for the specified published nodes filename.
         /// </summary>
-        public const string PublisherNodeConfigurationFilename = "PublishedNodesFile";
+        public const string PublishedNodesConfigurationFilename = "PublishedNodesFile";
+
+        /// <summary>
+        /// Key for the specified published nodes schema filename.
+        /// </summary>
+        public const string PublishedNodesConfigurationSchemaFilename = "PublishedNodesSchemaFile";
 
         /// <summary>
         /// Key for the session connect time in seconds.
@@ -56,7 +66,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// Flag to demand full featured message creation from publisher
         /// </summary>
         public const string FullFeaturedMessage = "FullFeaturedMessage";
-        
+
         /// <summary>
         /// Key for the default sampling interval in milliseconds.
         /// </summary>
@@ -93,9 +103,9 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         public const string BatchTriggerInterval = "BatchTriggerInterval";
 
         /// <summary>
-        /// Key for the max (IoT Hub D2C)message size 
+        /// Key for the max (IoT Hub D2C)message size
         /// </summary>
-        public const string MaxMessageSize = "MaxMessageSize";
+        public const string IoTHubMaxMessageSize = "IoTHubMaxMessageSize";
 
         /// <summary>
         /// Key for the max (IoT Hub D2C) messages
@@ -171,6 +181,16 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
         /// Key for the Aplication Certificate Store path.
         /// </summary>
         public const string OpcOwnCertStorePath = SecurityConfig.ApplicationCertificateStorePathKey;
+
+        /// <summary>
+        /// Key for app cert subject name.
+        /// </summary>
+        public const string OpcApplicationCertificateSubjectName = SecurityConfig.ApplicationCertificateSubjectNameKey;
+
+        /// <summary>
+        /// Key for app name.
+        /// </summary>
+        public const string OpcApplicationName = SecurityConfig.ApplicationNameKey;
 
         /// <summary>
         /// Key for the trusted peer certificates path.

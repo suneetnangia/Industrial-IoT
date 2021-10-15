@@ -91,6 +91,9 @@ namespace Microsoft.Azure.IIoT {
         /// <summary> Instrumentation key </summary>
         public const string PCS_APPINSIGHTS_INSTRUMENTATIONKEY =
             "PCS_APPINSIGHTS_INSTRUMENTATIONKEY";
+        /// <summary> LogLevel for Application Insights </summary>
+        public const string PCS_APPINSIGHTS_LOGLEVEL =
+            "PCS_APPINSIGHTS_LOGLEVEL";
         /// <summary> Keyvault client application id </summary>
         public const string PCS_KEYVAULT_APPID =
             "PCS_KEYVAULT_APPID";
@@ -289,5 +292,8 @@ namespace Microsoft.Azure.IIoT {
         /// <summary> Log file path environment variable </summary>
         public const string PCS_LOGS_PATH =
             "PCS_LOGS_PATH";
+        /// <summary> The maximum size of the (IoT D2C) message outgress queue </summary>
+        public const string PCS_DEFAULT_PUBLISH_MAX_OUTGRESS_MESSAGES =
+            "PCS_DEFAULT_PUBLISH_MAX_OUTGRESS_MESSAGES";
     }
 }

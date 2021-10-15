@@ -11,9 +11,9 @@
         },
         "branchName": {
             "type": "string",
-            "defaultValue": "master",
+            "defaultValue": "main",
             "metadata": {
-                "description": "The branch from which to deploy deploy services and application.  Default to master."
+                "description": "The branch from which to deploy deploy services and application.  Default to main."
             }
         },
         "keyVaultName": {
@@ -450,15 +450,15 @@
                 "timeSeriesIdProperties": [
                     {
                         "type": "string",
-                        "name": "publisherId"
+                        "name": "PublisherId"
                     },
                     {
                         "type": "string",
-                        "name": "dataSetWriterId"
+                        "name": "DataSetWriterId"
                     },
                     {
                         "type": "string",
-                        "name": "nodeId"
+                        "name": "NodeId"
                     }
                 ]
             },
@@ -511,7 +511,7 @@
                 "consumerGroupName": "[variables('tsiEventHubConsumerGroup')]",
                 "keyName": "[parameters('tsiEventHubAuthorization')]",
                 "sharedAccessKey": "[listkeys(variables('tsiEventSourceAuthorizationRuleResourceId'), '2017-04-01').primaryKey]",
-                "timestampPropertyName": "TimeStamp"
+                "timestampPropertyName": "Timestamp"
             },
             "dependsOn": [
                 "[variables('tsiEnvironmentResourceId')]",
@@ -765,6 +765,9 @@
             "properties": {
                 "mode": "Incremental",
                 "parameters": {
+                    "appInsightsId": {
+                        "value": "[variables('appinsightsResourceId')]",
+                    },
                     "workbookSourceId": {
                         "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
                     },
@@ -781,6 +784,7 @@
                 }
             },
             "dependsOn": [
+                "[variables('appinsightsResourceId')]"
             ]
         }
     ],

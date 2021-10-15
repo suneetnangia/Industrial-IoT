@@ -150,13 +150,6 @@
             "type": "string",
             "defaultValue": "[guid(subscription().subscriptionId, resourceGroup().id, 'storageRbacGuid')]"
         },
-        "scriptFileUris": {
-            "type": "array",
-            "defaultValue": [],
-            "metadata": {
-                "description": "fileUris that should be set for VM setup step"
-            }
-        },
         "tags": {
             "type": "object",
             "defaultValue": {},
@@ -247,7 +240,7 @@
                     "imageReference": {
                         "publisher": "Canonical",
                         "offer": "UbuntuServer",
-                        "sku": "16.04-LTS",
+                        "sku": "18.04-LTS",
                         "version": "latest"
                     }
                 },
@@ -276,7 +269,8 @@
             "properties": {
                 "roleDefinitionId": "[variables(parameters('aksBuiltInRoleType'))]",
                 "principalId": "[reference(variables('virtualMachineId'), '2017-12-01', 'Full').identity.principalId]",
-                "scope": "[resourceGroup().id]"
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
             }
         },
         {
@@ -290,40 +284,8 @@
             "properties": {
                 "roleDefinitionId": "[variables(parameters('storageBuiltInRoleType'))]",
                 "principalId": "[reference(variables('virtualMachineId'), '2017-12-01', 'Full').identity.principalId]",
-                "scope": "[resourceGroup().id]"
-            }
-        },
-        {
-            "comments": "One time script execution to setup VM",
-            "type": "Microsoft.Compute/virtualMachines/extensions",
-            "name": "[concat(parameters('virtualMachineName'), '/scriptextensions_setup')]",
-            "apiVersion": "2019-03-01",
-            "tags": "[parameters('tags')]",
-            "dependsOn": [
-                "[variables('aksRoleAssignmentId')]",
-                "[variables('storageRoleAssignmentId')]"
-            ],
-            "location": "[variables('location')]",
-            "properties": {
-                "publisher": "Microsoft.Azure.Extensions",
-                "type": "CustomScript",
-                "typeHandlerVersion": "2.1",
-                "autoUpgradeMinorVersion": true,
-                "settings": {
-                    "timestamp": 1000000
-                },
-                "protectedSettings": {
-                    "managedIdentity" : {},
-                    "fileUris": "[parameters('scriptFileUris')]",
-                    "commandToExecute": "[concat(
-                        'sudo -H bash jumpbox.sh',
-                        ' --resource_group ', resourceGroup().name,
-                        ' --aks_cluster ', parameters('aksClusterName'),
-                        ' --role ', parameters('aksBuiltInRoleType'),
-                        ' --load_balancer_ip ', parameters('aksPublicIpAddress'),
-                        ' --public_ip_dns_label ', parameters('aksPublicIpDnsLabel')
-                    )]"
-                }
+                "scope": "[resourceGroup().id]",
+                "principalType": "ServicePrincipal"
             }
         }
     ],
