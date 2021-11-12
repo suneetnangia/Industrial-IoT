@@ -9,7 +9,7 @@
 
 try {
     # Try install tool
-    & dotnet @("tool", "install", "--tool-path", "./tools", "--framework", "netcoreapp3.1", "nbgv", "-v", "n", "--version", "3.4.244", "--ignore-failed-sources") 2>&1 
+    & dotnet @("tool", "install", "--tool-path", "./tools", "--framework", "netcoreapp3.1", "nbgv", "-v", "n", "--ignore-failed-sources", "--add-source", "https://api.nuget.org/v3/index.json") 2>&1 
 
     $props = (& ./tools/nbgv  @("get-version", "-f", "json")) | ConvertFrom-Json
     if ($LastExitCode -ne 0) {
