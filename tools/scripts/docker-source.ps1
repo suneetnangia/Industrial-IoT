@@ -127,7 +127,7 @@ if ($projFile) {
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN useradd -ms /bin/bash moduleuser
                 RUN mkdir /mount
-                RUN chown -R moduleuser /mount
+                RUN chown -R moduleuser /app
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
         }
@@ -138,7 +138,7 @@ if ($projFile) {
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
-                RUN chown -R moduleuser /mount
+                RUN chown -R moduleuser /app
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
         }
@@ -149,7 +149,7 @@ if ($projFile) {
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
-                RUN chown -R moduleuser /mount
+                RUN chown -R moduleuser /app
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
         }
