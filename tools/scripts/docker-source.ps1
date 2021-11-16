@@ -126,6 +126,7 @@ if ($projFile) {
             platformTag = "linux-arm32v7"
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN useradd -ms /bin/bash moduleuser
+                RUN mkdir /mount
                 RUN chown -R moduleuser /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -136,6 +137,7 @@ if ($projFile) {
             platformTag = "linux-arm64v8"
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN adduser -Ds /bin/bash moduleuser
+                RUN mkdir /mount
                 RUN chown -R moduleuser /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -146,6 +148,7 @@ if ($projFile) {
             platformTag = "linux-amd64"
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN adduser -Ds /bin/bash moduleuser
+                RUN mkdir /mount
                 RUN chown -R moduleuser /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
