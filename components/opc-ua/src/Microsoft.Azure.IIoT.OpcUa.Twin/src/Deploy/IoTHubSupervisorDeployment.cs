@@ -89,11 +89,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Twin.Deploy {
                 createOptions = _serializer.SerializeToString(new {
                     Hostname = "twin",
                     Cmd = new[] {
-                        "PkiRootPath=/mount/pki"
+                        "PkiRootPath=/app/mount/pki"
                     },
                     HostConfig = new {
                         Binds = new[] {
-                            "/mount:/mount"
+                            "/mount:/app/mount"
                         }
                     }
                 });
@@ -104,14 +104,14 @@ namespace Microsoft.Azure.IIoT.OpcUa.Twin.Deploy {
                     User = "ContainerAdministrator",
                     Hostname = "twin",
                     Cmd = new[] {
-                        "PkiRootPath=/mount/pki",
+                        "PkiRootPath=/app/mount/pki",
                     },
                     HostConfig = new {
                         Mounts = new[] {
                             new {
                                 Type = "bind",
                                 Source = "C:\\\\ProgramData\\\\iotedge",
-                                Target = "C:\\\\mount"
+                                Target = "C:\\\\app\\\\mount"
                             }
                         }
                     }

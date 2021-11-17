@@ -89,12 +89,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Deploy {
                 createOptions = _serializer.SerializeToString(new {
                     Hostname = "publisher",
                     Cmd = new[] {
-                        "PkiRootPath=/mount/pki",
+                        "PkiRootPath=/app/mount/pki",
                         "--aa"
                     },
                     HostConfig = new {
                         Binds = new [] {
-                            "/mount:/mount"
+                            "/mount:/app/mount"
                         }
                     }
                 }).Replace("\"", "\\\"");
@@ -104,7 +104,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Deploy {
                     User = "ContainerAdministrator",
                     Hostname = "publisher",
                     Cmd = new[] {
-                        "PkiRootPath=/mount/pki",
+                        "PkiRootPath=/app/mount/pki",
                         "--aa"
                     },
                     HostConfig = new {
@@ -112,7 +112,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Deploy {
                             new {
                                 Type = "bind",
                                 Source = "C:\\\\ProgramData\\\\iotedge",
-                                Target = "C:\\\\mount"
+                                Target = "C:\\\\app\\\\mount"
                             }
                         }
                     }
