@@ -93,7 +93,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Registry.Deploy {
                 createOptions = _serializer.SerializeToString(new {
                     Hostname = "discovery",
                     Cmd = new[] {
-                        "PkiRootPath=/mount/pki"
+                        "PkiRootPath=/app/mount/pki"
                     },
                     NetworkingConfig = new {
                         EndpointsConfig = new {
@@ -105,7 +105,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Registry.Deploy {
                         NetworkMode = "host",
                         CapAdd = new[] { "NET_ADMIN" },
                         Binds = new[] {
-                            "/mount:/mount"
+                            "/mount:/app/mount"
                         }
                     }
                 });
