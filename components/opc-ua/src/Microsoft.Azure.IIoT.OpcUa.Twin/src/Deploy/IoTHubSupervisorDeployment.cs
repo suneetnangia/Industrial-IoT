@@ -89,11 +89,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Twin.Deploy {
                 createOptions = _serializer.SerializeToString(new {
                     Hostname = "twin",
                     Cmd = new[] {
-                        "PkiRootPath=/app/mount/pki"
+                        "PkiRootPath=/mount/pki"
                     },
                     HostConfig = new {
                         Binds = new[] {
-                            "/mount:/app/mount"
+                            "/mount:/mount"
                         }
                     }
                 });

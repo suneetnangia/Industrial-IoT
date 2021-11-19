@@ -89,12 +89,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Deploy {
                 createOptions = _serializer.SerializeToString(new {
                     Hostname = "publisher",
                     Cmd = new[] {
-                        "PkiRootPath=/app/mount/pki",
+                        "PkiRootPath=/mount/pki",
                         "--aa"
                     },
                     HostConfig = new {
                         Binds = new [] {
-                            "/mount:/app/mount"
+                            "/mount:/mount"
                         }
                     }
                 }).Replace("\"", "\\\"");

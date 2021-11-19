@@ -135,10 +135,7 @@ if ($projFile) {
             image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine-arm64v8"
             platformTag = "linux-arm64v8"
             runtimeOnly = "RUN chmod +x $($assemblyName)
-            ARG USER_ID
-            ARG GROUP_ID
-            RUN addgroup --gid $GROUP_ID moduleuser
-            RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID moduleuser
+            RUN adduser -Ds /bin/bash moduleuser
                 RUN chown -R moduleuser /app
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -148,10 +145,7 @@ if ($projFile) {
             image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine"
             platformTag = "linux-amd64"
             runtimeOnly = "RUN chmod +x $($assemblyName)
-            ARG USER_ID
-            ARG GROUP_ID
-            RUN addgroup --gid $GROUP_ID moduleuser
-            RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID moduleuser
+            RUN adduser -Ds /bin/bash moduleuser
                 RUN chown -R moduleuser /app
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
