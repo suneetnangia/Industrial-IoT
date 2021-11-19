@@ -138,7 +138,7 @@ if ($projFile) {
             RUN adduser -Ds /bin/bash moduleuser
                 RUN chown -R moduleuser /app
                 RUN mkdir /mount
-                RUN chown moduleuser /mount
+                RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
         }
@@ -150,7 +150,7 @@ if ($projFile) {
             RUN adduser -Ds /bin/bash moduleuser
                 RUN chown -R moduleuser /app
                 RUN mkdir /mount
-                RUN chown moduleuser /mount
+                RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
         }
