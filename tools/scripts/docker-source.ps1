@@ -127,6 +127,7 @@ if ($projFile) {
             runtimeOnly = "RUN chmod +x $($assemblyName)
                 RUN useradd -ms /bin/bash moduleuser
                 RUN mkdir /mount
+                RUN mkdir /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -136,8 +137,9 @@ if ($projFile) {
             image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine-arm64v8"
             platformTag = "linux-arm64v8"
             runtimeOnly = "RUN chmod +x $($assemblyName)
-            RUN adduser -Ds /bin/bash moduleuser
+                RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
+                RUN mkdir /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -147,8 +149,9 @@ if ($projFile) {
             image = "mcr.microsoft.com/dotnet/core/runtime-deps:3.1-alpine"
             platformTag = "linux-amd64"
             runtimeOnly = "RUN chmod +x $($assemblyName)
-            RUN adduser -Ds /bin/bash moduleuser
+                RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
+                RUN mkdir /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
