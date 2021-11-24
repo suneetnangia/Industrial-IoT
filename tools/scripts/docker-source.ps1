@@ -128,6 +128,7 @@ if ($projFile) {
                 RUN useradd -ms /bin/bash moduleuser
                 RUN mkdir /mount
                 RUN mkdir /mountTest
+                RUN chmod 766 /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -140,6 +141,7 @@ if ($projFile) {
                 RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
                 RUN mkdir /mountTest
+                RUN chmod 766 /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
@@ -152,6 +154,7 @@ if ($projFile) {
                 RUN adduser -Ds /bin/bash moduleuser
                 RUN mkdir /mount
                 RUN mkdir /mountTest
+                RUN chmod 766 /mountTest
                 RUN chmod 766 /mount
                 USER moduleuser"
             entryPoint = "[`"./$($assemblyName)`"]"
