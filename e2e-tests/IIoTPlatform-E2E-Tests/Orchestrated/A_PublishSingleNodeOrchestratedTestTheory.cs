@@ -31,6 +31,7 @@ namespace IIoTPlatform_E2E_Tests.Orchestrated
             _output = output ?? throw new ArgumentNullException(nameof(output));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _context.OutputHelper = _output;
+            TestHelper.CreateFolderOnEdgeVM(TestConstants.PublishedNodesFolder, context);
         }
 
         [Fact, PriorityOrder(0)]
