@@ -371,7 +371,7 @@ namespace IIoTPlatform_E2E_Tests {
         /// </summary>
         /// <param name="folderPath">Name of the folder to create.</param>
         /// <param name="context">Shared Context for E2E testing Industrial IoT Platform</param>
-        public static void CreateFolderOnEdgeVM(string folderPath, IIoTPlatformTestContext context) {
+        private static void CreateFolderOnEdgeVM(string folderPath, IIoTPlatformTestContext context) {
             Assert.True(!string.IsNullOrWhiteSpace(folderPath), "folder does not exist");
 
             var isSuccessful = false;

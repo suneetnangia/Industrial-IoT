@@ -37,7 +37,6 @@ namespace IIoTPlatform_E2E_Tests.Orchestrated
         public async Task Test_SetUnmanagedTagFalse() {
             _context.Reset();
             await TestHelper.SwitchToOrchestratedModeAsync(_context);
-            TestHelper.CreateFolderOnEdgeVM(TestConstants.PublishedNodesFolder, _context);
         }
 
         [Fact, PriorityOrder(1)]
