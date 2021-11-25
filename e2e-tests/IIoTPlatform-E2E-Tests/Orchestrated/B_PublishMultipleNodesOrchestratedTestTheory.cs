@@ -32,13 +32,13 @@ namespace IIoTPlatform_E2E_Tests.Orchestrated
             _output = output ?? throw new ArgumentNullException(nameof(output));
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _context.OutputHelper = _output;
-            TestHelper.CreateFolderOnEdgeVM(TestConstants.PublishedNodesFolder, context);
         }
 
         [Fact, PriorityOrder(50)]
         public void Test_SetUnmanagedTagFalse() {
             _context.Reset();
             TestHelper.SwitchToOrchestratedModeAsync(_context).GetAwaiter().GetResult();
+            TestHelper.CreateFolderOnEdgeVM(TestConstants.PublishedNodesFolder, _context);
         }
 
         /// <summary>
