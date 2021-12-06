@@ -22,6 +22,8 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
     using System.Threading;
     using System.Diagnostics.Tracing;
     using Prometheus;
+    using System.Net.Http;
+    using Newtonsoft.Json;
 
     /// <summary>
     /// Injectable factory that creates clients from device sdk
@@ -212,8 +214,9 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                     throw new InvalidConfigurationException(
                         "No connection string for device client specified.");
                 }
-                return DeviceClientAdapter.CreateAsync(product, _cs, DeviceId,
-                    transportSetting, _timeout, RetryPolicy, onError, _logger);
+                //return DeviceClientAdapter.CreateAsync(product, _cs, DeviceId,
+                //    transportSetting, _timeout, RetryPolicy, onError, _logger);
+                return DaprClientAdapter.CreateAsync(_logger);
             }
             return ModuleClientAdapter.CreateAsync(product, _cs, DeviceId, ModuleId,
                 transportSetting, _timeout, RetryPolicy, onError, _logger);
@@ -634,6 +637,112 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                     new GaugeConfiguration {
                         LabelNames = new[] { "device", "timestamp_utc" }
                     });
+        }
+
+        /// <inheritdoc />
+        public sealed class DaprClientAdapter : IClient {
+            private readonly ILogger _logger;
+            private readonly HttpClient _httpClient;
+
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="logger"></param>
+            public DaprClientAdapter(ILogger logger) {
+                _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+                _httpClient = new HttpClient {
+                    BaseAddress = new Uri($"http://localhost:{3500}", UriKind.Absolute)
+                };
+            }
+
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="logger"></param>
+            /// <returns></returns>
+            public static Task<IClient> CreateAsync(ILogger logger) {
+                return Task.FromResult<IClient>(new DaprClientAdapter(logger));
+            }
+
+            /// <inheritdoc />
+            public Task CloseAsync() {
+                throw new NotImplementedException();
+            }
+
+            /// <inheritdoc />
+            public void Dispose() {
+                throw new NotImplementedException();
+            }
+
+            /// <inheritdoc />
+            public Task<Twin> GetTwinAsync() {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(GetTwinAsync)}");
+                return Task.FromResult<Twin>(null);
+            }
+
+            /// <inheritdoc />
+            public Task<MethodResponse> InvokeMethodAsync(string deviceId, string moduleId, MethodRequest methodRequest, CancellationToken cancellationToken = default) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(InvokeMethodAsync)}");
+                return Task.FromResult<MethodResponse>(null);
+            }
+
+            /// <inheritdoc />
+            public Task<MethodResponse> InvokeMethodAsync(string deviceId, MethodRequest methodRequest, CancellationToken cancellationToken = default) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(InvokeMethodAsync)}");
+                return Task.FromResult<MethodResponse>(null);
+            }
+
+            /// <inheritdoc />
+            public async Task SendEventAsync(Message message) {
+                try {
+                    var httpContent = new StreamContent(message.BodyStream);
+                    var httpResponse = await _httpClient.PostAsync($"/v1.0/publish/pubsub/opcua", httpContent);
+                    if (!httpResponse.IsSuccessStatusCode) {
+                        // TODO: Log.
+                        Console.WriteLine("Error: SendEventAsync");
+                    }
+                }
+                catch {
+                    // TODO: Log.
+                    Console.WriteLine("Error: SendEventAsync");
+                }
+                Console.WriteLine("Called: SendEventAsync");
+            }
+
+            /// <inheritdoc />
+            public Task SendEventBatchAsync(IEnumerable<Message> messages) {
+                return Task.WhenAll(messages.Select(x => SendEventAsync(x)));
+            }
+
+            /// <inheritdoc />
+            public Task SetDesiredPropertyUpdateCallbackAsync(DesiredPropertyUpdateCallback callback, object userContext) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(SetDesiredPropertyUpdateCallbackAsync)}");
+                return Task.CompletedTask;
+            }
+
+            /// <inheritdoc />
+            public Task SetMethodDefaultHandlerAsync(MethodCallback methodHandler, object userContext) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(SetMethodDefaultHandlerAsync)}");
+                return Task.CompletedTask;
+            }
+
+            /// <inheritdoc />
+            public Task SetMethodHandlerAsync(string methodName, MethodCallback methodHandler, object userContext) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(SetMethodDefaultHandlerAsync)}");
+                return Task.CompletedTask;
+            }
+
+            /// <inheritdoc />
+            public Task UpdateReportedPropertiesAsync(TwinCollection reportedProperties) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(UpdateReportedPropertiesAsync)}");
+                return Task.CompletedTask;
+            }
+
+            /// <inheritdoc />
+            public Task UploadToBlobAsync(string blobName, Stream source) {
+                _logger.Warning($"Unsupported call in {nameof(DaprClientAdapter)}: {nameof(UploadToBlobAsync)}");
+                return Task.CompletedTask;
+            }
         }
 
         /// <summary>
