@@ -265,6 +265,9 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Tests {
                 .ToString();
 
             /// <inheritdoc/>
+            public string DaprConnectionString => null;
+
+            /// <inheritdoc/>
             public bool BypassCertVerification => true;
 
             /// <inheritdoc/>

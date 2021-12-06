@@ -20,6 +20,8 @@ namespace Microsoft.Azure.IIoT.Modules.Discovery.Runtime {
         /// <inheritdoc/>
         public string EdgeHubConnectionString => _module.EdgeHubConnectionString;
         /// <inheritdoc/>
+        public string DaprConnectionString => _module.DaprConnectionString;
+        /// <inheritdoc/>
         public bool BypassCertVerification => _module.BypassCertVerification;
         /// <inheritdoc/>
         public bool EnableMetrics => _module.EnableMetrics;

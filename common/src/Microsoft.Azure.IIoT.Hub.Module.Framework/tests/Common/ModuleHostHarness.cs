@@ -95,6 +95,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                 ConnectionString.CreateModuleConnectionString("test.test.org",
                     _device.Id, _device.ModuleId, _device.Authentication.PrimaryKey)
                 .ToString();
+            public string DaprConnectionString => null;
 
             public bool BypassCertVerification => true;
 

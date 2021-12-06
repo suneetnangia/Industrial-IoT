@@ -86,11 +86,14 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                         _logger.Information($"Details of gateway host are added to IoT Hub connection string: " +
                             $"GatewayHostName={ehubHost}");
                     }
-
+                }
+                else if (!string.IsNullOrWhiteSpace(config.DaprConnectionString)) {
+                    deviceId = "dapr";
+                    _daprConnectionString = DaprConnectionString.Create(config.DaprConnectionString);
                 }
             }
             catch (Exception e) {
-                _logger.Error(e, "Bad configuration value in EdgeHubConnectionString config.");
+                _logger.Error(e, "Bad configuration value in connection string config.");
             }
 
             ModuleId = moduleId;
@@ -212,14 +215,16 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
         private Task<IClient> CreateAdapterAsync(string product, Action onError,
             ITransportSettings transportSetting = null) {
             if (string.IsNullOrEmpty(ModuleId)) {
-                if (_cs == null) {
+                if (_cs == null && _daprConnectionString == null) {
                     throw new InvalidConfigurationException(
                         "No connection string for device client specified.");
                 }
-                //return DeviceClientAdapter.CreateAsync(product, _cs, DeviceId,
-                //    transportSetting, _timeout, RetryPolicy, onError, _logger);
-                var connectionString = DaprConnectionString.Create("HttpEndpoint=http://localhost:3500;GrpcEndpoint=http://localhost:3501");
-                return DaprClientAdapter.CreateAsync(connectionString, _timeout, _logger);
+
+                if (_daprConnectionString != null) {
+                    return DaprClientAdapter.CreateAsync(_daprConnectionString, _timeout, _logger);
+                }
+                return DeviceClientAdapter.CreateAsync(product, _cs, DeviceId,
+                    transportSetting, _timeout, RetryPolicy, onError, _logger);
             }
             return ModuleClientAdapter.CreateAsync(product, _cs, DeviceId, ModuleId,
                 transportSetting, _timeout, RetryPolicy, onError, _logger);
@@ -651,18 +656,18 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
             private readonly string _topic;
 
             /// <summary>
-            /// 
+            /// Adapter ready state.
             /// </summary>
             public bool IsClosed { get; private set; } = true;
 
             /// <summary>
-            /// 
+            /// Constructor for the Dapr client adapter.
             /// </summary>
-            /// <param name="daprClient"></param>
-            /// <param name="pubsub"></param>
-            /// <param name="topic"></param>
-            /// <param name="timeout"></param>
-            /// <param name="logger"></param>
+            /// <param name="daprClient">Dapr client.</param>
+            /// <param name="pubsub">Name of the pubsub component.</param>
+            /// <param name="topic">Name of the topic.</param>
+            /// <param name="timeout">Default for operations.</param>
+            /// <param name="logger">Logger for the operations.</param>
             private DaprClientAdapter(DaprClient daprClient, string pubsub, string topic, TimeSpan timeout, ILogger logger) {
                 _daprClient = daprClient ?? throw new ArgumentNullException(nameof(daprClient));
                 _pubsub = pubsub ?? throw new ArgumentNullException(nameof(pubsub));
@@ -672,12 +677,12 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
             }
 
             /// <summary>
-            /// 
+            /// Create Dapr client adapter from a Dapr connection string.
             /// </summary>
-            /// <param name="daprConnectionString"></param>
-            /// <param name="timeout"></param>
-            /// <param name="logger"></param>
-            /// <returns></returns>
+            /// <param name="daprConnectionString">Dapr connection string.</param>
+            /// <param name="timeout">Default for operations.</param>
+            /// <param name="logger">Logger for the operations.</param>
+            /// <returns>A Dapr client adapter.</returns>
             public static async Task<IClient> CreateAsync(DaprConnectionString daprConnectionString, TimeSpan timeout, ILogger logger) {
                 var cancellationTokenSource = new CancellationTokenSource();
                 cancellationTokenSource.CancelAfter(timeout);
@@ -694,7 +699,13 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                     if (!await daprClient.CheckHealthAsync(cancellationTokenSource.Token)) {
                         throw new InvalidOperationException($"Sidecar is not available for {nameof(DaprClientAdapter)}.");
                     }
-                    logger.Information($"Sidecar is available for {nameof(DaprClientAdapter)}.");
+
+                    if (!string.IsNullOrWhiteSpace(daprConnectionString.HttpEndpoint)) {
+                        logger.Information($"Configured HTTP endpoint for {nameof(DaprClientAdapter)}: {{HttpEndpoint}}.", daprConnectionString.HttpEndpoint);
+                    }
+                    if (!string.IsNullOrWhiteSpace(daprConnectionString.GrpcEndpoint)) {
+                        logger.Information($"Configured gRPC endpoint for {nameof(DaprClientAdapter)}: {{GrpcEndpoint}}.", daprConnectionString.GrpcEndpoint);
+                    }
                 }
                 catch (Exception ex) {
                     logger.Error($"Sidecar is not available for {nameof(DaprClientAdapter)}: {ex}.");
@@ -762,7 +773,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                     await _daprClient.PublishEventAsync(_pubsub, _topic, content, cancellationTokenSource.Token);
                 }
                 catch (Exception ex) {
-                    _logger.Error($"{nameof(DaprClientAdapter)} is unable to publish message: {ex}");
+                    _logger.Error($"{nameof(DaprClientAdapter)} is unable to publish message: {ex}.");
                 }
             }
 
@@ -853,6 +864,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
         private readonly TimeSpan _timeout;
         private readonly TransportOption _transport;
         private readonly IotHubConnectionStringBuilder _cs;
+        private readonly DaprConnectionString _daprConnectionString;
         private readonly ILogger _logger;
         private readonly IDisposable _logHook;
         private readonly bool _bypassCertValidation;
