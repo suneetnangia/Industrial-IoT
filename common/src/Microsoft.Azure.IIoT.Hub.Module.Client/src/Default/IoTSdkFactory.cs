@@ -24,6 +24,8 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
     using Prometheus;
     using System.Net.Http;
     using Newtonsoft.Json;
+    using Dapr.Client;
+    using System.Text;
 
     /// <summary>
     /// Injectable factory that creates clients from device sdk
@@ -216,7 +218,8 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                 }
                 //return DeviceClientAdapter.CreateAsync(product, _cs, DeviceId,
                 //    transportSetting, _timeout, RetryPolicy, onError, _logger);
-                return DaprClientAdapter.CreateAsync(_logger);
+                var connectionString = DaprConnectionString.Create("HttpEndpoint=http://localhost:3500;GrpcEndpoint=http://localhost:3501");
+                return DaprClientAdapter.CreateAsync(connectionString, _timeout, _logger);
             }
             return ModuleClientAdapter.CreateAsync(product, _cs, DeviceId, ModuleId,
                 transportSetting, _timeout, RetryPolicy, onError, _logger);
@@ -641,37 +644,87 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
 
         /// <inheritdoc />
         public sealed class DaprClientAdapter : IClient {
+            private readonly TimeSpan _timeout;
             private readonly ILogger _logger;
-            private readonly HttpClient _httpClient;
+            private readonly DaprClient _daprClient;
+            private readonly string _pubsub;
+            private readonly string _topic;
 
             /// <summary>
             /// 
             /// </summary>
+            public bool IsClosed { get; private set; } = true;
+
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="daprClient"></param>
+            /// <param name="pubsub"></param>
+            /// <param name="topic"></param>
+            /// <param name="timeout"></param>
             /// <param name="logger"></param>
-            public DaprClientAdapter(ILogger logger) {
+            private DaprClientAdapter(DaprClient daprClient, string pubsub, string topic, TimeSpan timeout, ILogger logger) {
+                _daprClient = daprClient ?? throw new ArgumentNullException(nameof(daprClient));
+                _pubsub = pubsub ?? throw new ArgumentNullException(nameof(pubsub));
+                _topic = topic ?? throw new ArgumentNullException(nameof(topic));
+                _timeout = timeout;
                 _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-                _httpClient = new HttpClient {
-                    BaseAddress = new Uri($"http://localhost:{3500}", UriKind.Absolute)
-                };
             }
 
             /// <summary>
             /// 
             /// </summary>
+            /// <param name="daprConnectionString"></param>
+            /// <param name="timeout"></param>
             /// <param name="logger"></param>
             /// <returns></returns>
-            public static Task<IClient> CreateAsync(ILogger logger) {
-                return Task.FromResult<IClient>(new DaprClientAdapter(logger));
+            public static async Task<IClient> CreateAsync(DaprConnectionString daprConnectionString, TimeSpan timeout, ILogger logger) {
+                var cancellationTokenSource = new CancellationTokenSource();
+                cancellationTokenSource.CancelAfter(timeout);
+
+                // Create client and check sidecar health.
+                var daprClientBuilder = new DaprClientBuilder()
+                    .UseHttpEndpoint(daprConnectionString.HttpEndpoint)
+                    .UseGrpcEndpoint(daprConnectionString.GrpcEndpoint)
+                    .UseDaprApiToken(daprConnectionString.ApiToken);
+                var daprClient = daprClientBuilder.Build();
+                var daprClientAdapter = new DaprClientAdapter(daprClient, daprConnectionString.PubSub, daprConnectionString.Topic, timeout, logger);
+
+                try {
+                    if (!await daprClient.CheckHealthAsync(cancellationTokenSource.Token)) {
+                        throw new InvalidOperationException($"Sidecar is not available for {nameof(DaprClientAdapter)}.");
+                    }
+                    logger.Information($"Sidecar is available for {nameof(DaprClientAdapter)}.");
+                }
+                catch (Exception ex) {
+                    logger.Error($"Sidecar is not available for {nameof(DaprClientAdapter)}: {ex}.");
+                    throw;
+                }
+
+                daprClientAdapter.IsClosed = false;
+                return daprClientAdapter;
             }
 
             /// <inheritdoc />
             public Task CloseAsync() {
-                throw new NotImplementedException();
+                lock (this) {
+                    if (IsClosed) {
+                        _logger.Warning($"{nameof(DaprClientAdapter)} is already closed.");
+                    }
+                    else {
+                        IsClosed = true;
+                    }
+                }
+                return Task.CompletedTask;
             }
 
             /// <inheritdoc />
             public void Dispose() {
-                throw new NotImplementedException();
+                lock (this) {
+                    if (!IsClosed) {
+                        CloseAsync().Wait();
+                    }
+                }
             }
 
             /// <inheritdoc />
@@ -694,19 +747,23 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
 
             /// <inheritdoc />
             public async Task SendEventAsync(Message message) {
-                try {
-                    var httpContent = new StreamContent(message.BodyStream);
-                    var httpResponse = await _httpClient.PostAsync($"/v1.0/publish/pubsub/opcua", httpContent);
-                    if (!httpResponse.IsSuccessStatusCode) {
-                        // TODO: Log.
-                        Console.WriteLine("Error: SendEventAsync");
+                lock (this) {
+                    if (IsClosed) {
+                        _logger.Warning($"{nameof(DaprClientAdapter)} is closed.");
+                        return;
                     }
                 }
-                catch {
-                    // TODO: Log.
-                    Console.WriteLine("Error: SendEventAsync");
+
+                try {
+                    var cancellationTokenSource = new CancellationTokenSource();
+                    cancellationTokenSource.CancelAfter(_timeout);
+                    using var streamReader = new StreamReader(message.BodyStream, Encoding.UTF8);
+                    var content = await streamReader.ReadToEndAsync();
+                    await _daprClient.PublishEventAsync(_pubsub, _topic, content, cancellationTokenSource.Token);
                 }
-                Console.WriteLine("Called: SendEventAsync");
+                catch (Exception ex) {
+                    _logger.Error($"{nameof(DaprClientAdapter)} is unable to publish message: {ex}");
+                }
             }
 
             /// <inheritdoc />
