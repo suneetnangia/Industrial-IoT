@@ -1503,6 +1503,7 @@ namespace Microsoft.Azure.IIoT.Serializers {
                 case float _:
                 case double _:
                 case decimal _:
+                    return false;
                 case BigInteger b:
                     if (strict) {
                         return false;
