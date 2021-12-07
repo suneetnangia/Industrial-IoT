@@ -26,6 +26,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
     using Newtonsoft.Json;
     using Dapr.Client;
     using System.Text;
+    using Newtonsoft.Json.Linq;
 
     /// <summary>
     /// Injectable factory that creates clients from device sdk
@@ -649,6 +650,34 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
 
         /// <inheritdoc />
         public sealed class DaprClientAdapter : IClient {
+            /// <summary>
+            /// Message to be sent to the Dapr runtime.
+            /// </summary>
+            private sealed class DaprMessage {
+                /// <summary>
+                /// Body for the message.
+                /// </summary>
+                public string Body { get; }
+
+                /// <summary>
+                /// Metadata for the message.
+                /// </summary>
+                public IDictionary<string, string> Properties { get; }
+
+                /// <summary>
+                /// Constructor for the Dapr message.
+                /// </summary>
+                /// <param name="body"></param>
+                /// <param name="properties"></param>
+                public DaprMessage(string body, IDictionary<string, string> properties) {
+                    Body = body ?? throw new ArgumentNullException(nameof(body));
+                    Properties = properties ?? throw new ArgumentNullException(nameof(properties));
+                }
+            }
+
+            private const string kContentEncodingPropertyName = "iothub-content-encoding";
+            private const string kContentTypePropertyName = "iothub-content-type";
+
             private readonly TimeSpan _timeout;
             private readonly ILogger _logger;
             private readonly DaprClient _daprClient;
@@ -768,9 +797,20 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                 try {
                     var cancellationTokenSource = new CancellationTokenSource();
                     cancellationTokenSource.CancelAfter(_timeout);
+
                     using var streamReader = new StreamReader(message.BodyStream, Encoding.UTF8);
-                    var content = await streamReader.ReadToEndAsync();
-                    await _daprClient.PublishEventAsync(_pubsub, _topic, content, cancellationTokenSource.Token);
+                    var body = await streamReader.ReadToEndAsync();
+
+                    var properties = new Dictionary<string, string>(message.Properties);
+                    if (!string.IsNullOrWhiteSpace(message.ContentType)) {
+                        properties[kContentTypePropertyName] = message.ContentType;
+                    }
+                    if (!string.IsNullOrWhiteSpace(message.ContentEncoding)) {
+                        properties[kContentEncodingPropertyName] = message.ContentEncoding;
+                    }
+
+                    var daprMessage = new DaprMessage(body, properties);
+                    await _daprClient.PublishEventAsync(_pubsub, _topic, daprMessage, cancellationTokenSource.Token);
                 }
                 catch (Exception ex) {
                     _logger.Error($"{nameof(DaprClientAdapter)} is unable to publish message: {ex}.");
