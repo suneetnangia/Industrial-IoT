@@ -18,9 +18,6 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
         private const string kPubSubPropertyName = nameof(PubSub);
         private const string kTopicPropertyName = nameof(Topic);
 
-        private const string kDefaultHttpEndpoint = "http://localhost:{DAPR_HTTP_PORT}";
-        private const string kDefaultGrpcEndpoint = "http://localhost:{DAPR_GRPC_PORT}";
-        private const string kDefaultApiToken = null;
         private const string kDefaultPubSub = "pubsub";
         private const string kDefaultTopic = "opcua";
 
@@ -105,13 +102,18 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
 
             // Map properties.
             if (!properties.TryGetValue(kHttpEndpointPropertyName, out string httpEndpoint)) {
-                httpEndpoint = kDefaultHttpEndpoint;
+                var port = Environment.GetEnvironmentVariable("DAPR_HTTP_PORT");
+                port = string.IsNullOrEmpty(port) ? "3500" : port;
+                httpEndpoint = $"http://127.0.0.1:{port}";
             }
             if (!properties.TryGetValue(kGrpcEndpointPropertyName, out string grpcEndpoint)) {
-                grpcEndpoint = kDefaultGrpcEndpoint;
+                var port = Environment.GetEnvironmentVariable("DAPR_GRPC_PORT");
+                port = string.IsNullOrEmpty(port) ? "50001" : port;
+                grpcEndpoint = $"http://127.0.0.1:{port}";
             }
             if (!properties.TryGetValue(kApiTokenPropertyName, out string apiToken)) {
-                apiToken = kDefaultApiToken;
+                var value = Environment.GetEnvironmentVariable("DAPR_API_TOKEN");
+                apiToken = (value == string.Empty) ? null : value;
             }
             if (!properties.TryGetValue(kPubSubPropertyName, out string pubSub)) {
                 pubSub = kDefaultPubSub;
