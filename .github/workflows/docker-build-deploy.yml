@@ -12,10 +12,6 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.x
-    - name: Restore dependencies
-      run: dotnet restore ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src
-    - name: Build
-      run: dotnet build ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src --no-restore
-    - name: Test
-      run: dotnet test ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src --no-build --verbosity normal
-      
+    - name: Build Docker Image with Latest tag.
+      run:  .\tools\scripts\docker-build.ps1 -Path .\modules\src\Microsoft.Azure.IIoT.Modules.OpcUa.Publisher\src -ImageName suneetnangia/distributed-az-iot-edge-opcuapublisher
+  
