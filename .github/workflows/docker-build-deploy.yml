@@ -1,0 +1,21 @@
+name: Main Branch CI
+on: 
+  push:
+    branches: 
+      - main    
+jobs:
+  Build-Code:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.x
+    - name: Restore dependencies
+      run: dotnet restore iotedge/Distributed.IoT.Edge
+    - name: Build
+      run: dotnet build ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src --no-restore
+    - name: Test
+      run: dotnet test ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src --no-build --verbosity normal
+      
