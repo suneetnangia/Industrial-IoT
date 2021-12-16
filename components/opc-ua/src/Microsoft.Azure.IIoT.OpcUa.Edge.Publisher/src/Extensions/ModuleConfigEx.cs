@@ -36,6 +36,9 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
 
             /// <inheritdoc/>
             public string EdgeHubConnectionString { get; }
+
+            /// <inheritdoc/>
+            public string DaprConnectionString { get; }
             /// <inheritdoc/>
             public bool BypassCertVerification { get; }
             /// <inheritdoc/>

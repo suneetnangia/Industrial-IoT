@@ -74,6 +74,8 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Runtime {
                         dc => this[LegacyCliConfigKeys.EdgeHubConnectionString] = dc },
                     { "ec|edgehubconnectionstring=", "An edge module connection string to use",
                         dc => this[LegacyCliConfigKeys.EdgeHubConnectionString] = dc },
+                    { "dapr|daprconnectionstring=", "A Dapr connection string to use",
+                        dc => this[LegacyCliConfigKeys.DaprConnectionString] = dc },
 
                     { "hb|heartbeatinterval=", "The publisher is using this as default value in seconds " +
                         "for the heartbeat interval setting of nodes without a heartbeat interval setting.",
