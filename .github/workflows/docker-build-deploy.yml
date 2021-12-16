@@ -13,5 +13,5 @@ jobs:
       with:
         dotnet-version: 3.1.x
     - name: Build Docker Image with Latest tag.
-      run:  .\tools\scripts\docker-build.ps1 -Path .\modules\src\Microsoft.Azure.IIoT.Modules.OpcUa.Publisher\src -ImageName suneetnangia/distributed-az-iot-edge-opcuapublisher
+      run:  ./tools/scripts/docker-build.ps1 -Path ./modules/src/Microsoft.Azure.IIoT.Modules.OpcUa.Publisher/src -ImageName suneetnangia/distributed-az-iot-edge-opcuapublisher
   
