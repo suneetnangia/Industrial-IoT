@@ -40,7 +40,10 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Cli {
             var withServer = false;
             var verbose = false;
             string deviceId = null, moduleId = null;
-            Console.WriteLine("Publisher module command line interface.");
+
+            var logger = ConsoleLogger.Create(LogEventLevel.Error);
+
+            logger.Information("Publisher module command line interface.");
             var configuration = new ConfigurationBuilder()
                 .AddFromDotEnvFile()
                 .AddEnvironmentVariables()
@@ -54,6 +57,7 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Cli {
                 cs = configuration.GetValue<string>("_HUB_CS", null);
             }
             IIoTHubConfig config = null;
+            int instances = 1;
             var unknownArgs = new List<string>();
             try {
                 for (var i = 0; i < args.Length; i++) {
@@ -66,11 +70,19 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Cli {
                                 break;
                             }
                             throw new ArgumentException(
-                                "Missing arguments for connection string");
+                                "Missing argument for --connection-string");
                         case "-?":
                         case "-h":
                         case "--help":
                             throw new ArgumentException("Help");
+                        case "-n":
+                        case "--instances":
+                            i++;
+                            if (i < args.Length && int.TryParse(args[i], out instances)) {
+                                break;
+                            }
+                            throw new ArgumentException(
+                                "Missing argument for --instances");
                         case "-t":
                         case "--only-trusted":
                             checkTrust = true;
@@ -98,18 +110,18 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Cli {
 
                 if (deviceId == null) {
                     deviceId = Utils.GetHostName();
-                    Console.WriteLine($"Using <deviceId> '{deviceId}'");
+                    logger.Information($"Using <deviceId> '{deviceId}'");
                 }
                 if (moduleId == null) {
                     moduleId = "publisher";
-                    Console.WriteLine($"Using <moduleId> '{moduleId}'");
+                    logger.Information($"Using <moduleId> '{moduleId}'");
                 }
 
                 args = unknownArgs.ToArray();
             }
             catch (Exception e) {
-                Console.WriteLine(e.Message);
-                Console.WriteLine(
+                logger.Error(e.Message);
+                logger.Error(
                     @"
 Usage:       Microsoft.Azure.IIoT.Modules.OpcUa.Publisher.Cli [options]
 
@@ -127,22 +139,26 @@ Options:
                 return;
             }
 
-            var logger = ConsoleLogger.Create(LogEventLevel.Error);
             AppDomain.CurrentDomain.UnhandledException += (s, e) => {
                 logger.Fatal(e.ExceptionObject as Exception, "Exception");
-                Console.WriteLine(e);
             };
 
+            var tasks = new List<Task>(instances);
             try {
+                var enableEventBroker = instances == 1;
+                for (var i = 1; i < instances; i++) {
+                    tasks.Add(HostAsync(config, logger, deviceId + "_" + i, moduleId, args, verbose, !checkTrust));
+                }
                 if (!withServer) {
-                    HostAsync(config, logger, deviceId, moduleId, args, verbose, !checkTrust).Wait();
+                    tasks.Add(HostAsync(config, logger, deviceId, moduleId, args, verbose, !checkTrust, enableEventBroker));
                 }
                 else {
-                    WithServerAsync(config, logger, deviceId, moduleId, args, verbose).Wait();
+                    tasks.Add(WithServerAsync(config, logger, deviceId, moduleId, args, verbose));
                 }
+                Task.WaitAll(tasks.ToArray());
             }
             catch (Exception e) {
-                Console.WriteLine(e);
+                logger.Error(e, "Exception");
             }
         }
 
@@ -151,26 +167,38 @@ Options:
         /// </summary>
         private static async Task HostAsync(IIoTHubConfig config, ILogger logger,
             string deviceId, string moduleId, string[] args, bool verbose = false,
-            bool acceptAll = false) {
-            Console.WriteLine("Create or retrieve connection string...");
+            bool acceptAll = false, bool eventBroker = false) {
+            logger.Information("Create or retrieve connection string for {deviceId} {moduleId}...",
+                deviceId, moduleId);
 
             var cs = await Retry.WithExponentialBackoff(logger,
-                () => AddOrGetAsync(config, deviceId, moduleId));
+                () => AddOrGetAsync(config, deviceId, moduleId, logger));
 
             // Hook event source
-            using (var broker = new EventSourceBroker()) {
-                LogControl.Level.MinimumLevel = verbose ?
-                    LogEventLevel.Verbose : LogEventLevel.Information;
+            if (eventBroker) {
+                using (var broker = new EventSourceBroker()) {
+                    broker.Subscribe(IoTSdkLogger.EventSource, new IoTSdkLogger(logger));
+                    Run(logger, deviceId, moduleId, args, verbose, acceptAll, eventBroker, cs);
+                }
+            }
+            else {
+                Run(logger, deviceId, moduleId, args, verbose, acceptAll, eventBroker, cs);
+            }
 
-                Console.WriteLine("Starting publisher module...");
-                broker.Subscribe(IoTSdkLogger.EventSource, new IoTSdkLogger(logger));
+            static void Run(ILogger logger, string deviceId, string moduleId, string[] args,
+                bool verbose, bool acceptAll, bool eventBroker, ConnectionString cs) {
+                LogControl.Level.MinimumLevel = verbose ? LogEventLevel.Verbose : LogEventLevel.Information;
+
+                logger.Information("Starting publisher module {deviceId} {moduleId}...",
+                    deviceId, moduleId);
                 var arguments = args.ToList();
                 arguments.Add($"--ec={cs}");
                 if (acceptAll) {
                     arguments.Add("--aa");
                 }
                 Publisher.Program.Main(arguments.ToArray());
-                Console.WriteLine("Publisher module exited.");
+                logger.Information("Publisher module {deviceId} {moduleId} exited.",
+                    deviceId, moduleId);
             }
         }
 
@@ -202,8 +230,7 @@ Options:
         /// Add or get module identity
         /// </summary>
         private static async Task<ConnectionString> AddOrGetAsync(IIoTHubConfig config,
-            string deviceId, string moduleId) {
-            var logger = ConsoleLogger.Create(LogEventLevel.Error);
+            string deviceId, string moduleId, ILogger logger) {
             var registry = new IoTHubServiceHttpClient(new HttpClient(logger),
                 config, new NewtonSoftJsonSerializer(), logger);
             try {

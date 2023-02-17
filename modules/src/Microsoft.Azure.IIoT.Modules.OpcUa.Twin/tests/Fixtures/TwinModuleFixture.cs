@@ -34,7 +34,6 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Tests {
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
-    using System.Net;
     using System.Text;
     using System.Threading.Tasks;
     using Xunit;
@@ -265,6 +264,12 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Tests {
                 .ToString();
 
             /// <inheritdoc/>
+            public string MqttClientConnectionString => null;
+
+            /// <inheritdoc/>
+            public string TelemetryTopicTemplate => null;
+
+            /// <inheritdoc/>
             public bool BypassCertVerification => true;
 
             /// <inheritdoc/>
@@ -272,6 +277,8 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Tests {
 
             /// <inheritdoc/>
             public bool EnableMetrics => false;
+            /// <inheritdoc/>
+            public bool EnableOutputRouting => false;
 
             private readonly DeviceModel _device;
         }

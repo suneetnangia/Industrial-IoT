@@ -4,8 +4,8 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
-    using System.Runtime.Serialization;
     using System;
+    using System.Runtime.Serialization;
 
     /// <summary>
     /// Publisher processing engine configuration
@@ -27,7 +27,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
             EmitDefaultValue = false)]
         public TimeSpan? BatchTriggerInterval { get; set; }
 
-
         /// <summary>
         /// Interval for diagnostic messages
         /// </summary>
@@ -43,10 +42,17 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         public int? MaxMessageSize { get; set; }
 
         /// <summary>
-        /// Max IoT D2C outgress message buffer size
+        /// Max outgress message queue size
         /// </summary>
         [DataMember(Name = "maxOutgressMessages", Order = 4,
             EmitDefaultValue = false)]
         public int? MaxOutgressMessages { get; set; }
+
+        /// <summary>
+        /// Force strict UA compliant encoding for pub sub messages
+        /// </summary>
+        [DataMember(Name = "useStandardsCompliantEncoding", Order = 6,
+            EmitDefaultValue = false)]
+        public bool UseStandardsCompliantEncoding { get; set; }
     }
 }

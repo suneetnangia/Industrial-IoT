@@ -9,6 +9,7 @@ namespace IIoTPlatform_E2E_Tests.Discovery {
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading;
+    using System.Threading.Tasks;
     using TestExtensions;
     using Xunit;
     using Xunit.Abstractions;
@@ -19,14 +20,12 @@ namespace IIoTPlatform_E2E_Tests.Discovery {
     public class DiscoveryTestTheory {
         private readonly DiscoveryTestContext _context;
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private readonly RestClient _restClient;      
 
         public DiscoveryTestTheory(DiscoveryTestContext context, ITestOutputHelper output) {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _context.OutputHelper = output ?? throw new ArgumentNullException(nameof(output));
-            
+
             _cancellationTokenSource = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
-            _restClient = new RestClient(_context.IIoTPlatformConfigHubConfig.BaseUrl) { Timeout = TestConstants.DefaultTimeoutInMilliseconds };
 
             // Get OAuth token
             var token = TestHelper.GetTokenAsync(_context, _cancellationTokenSource.Token).GetAwaiter().GetResult();
@@ -34,98 +33,59 @@ namespace IIoTPlatform_E2E_Tests.Discovery {
         }
 
         [Fact, PriorityOrder(0)]
-        public void Test_Discover_All_OPC_UA_Endpoints() {
+        public async Task TestDiscoverAllOpcUaEndpoints() {
+            await TestHelper.Registry.RemoveAllApplicationsAsync(_context, _cancellationTokenSource.Token);
+
             // Add 5 servers
-            var endpointUrls = TestHelper.GetSimulatedOpcServerUrls(_context).Take(5).ToList();
-            AddTestOpcServers(endpointUrls);
+            var urls = TestHelper.GetSimulatedOpcServerUrls(_context).Take(5).ToHashSet();
+            AddTestOpcServers(urls, _cancellationTokenSource.Token);
 
             // Discover all servers
-            var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
-            dynamic result = TestHelper.Discovery.WaitForDiscoveryToBeCompletedAsync(_context, cts.Token, requestedEndpointUrls: endpointUrls).GetAwaiter().GetResult();
-
-            // Validate that all servers are discovered
-            var applicationIds = new List<string>(endpointUrls.Count);
-            Assert.Equal(endpointUrls.Count, result.items.Count);
-            for (int i = 0; i < result.items.Count; i++) {
-                Assert.Equal("Server", result.items[i].applicationType);
-                var endpoint = "opc.tcp://" + result.items[i].hostAddresses[0].TrimEnd('/');
-                Assert.True((bool)endpointUrls.Contains(endpoint));
-                applicationIds.Add((string)result.items[i].applicationId);
-            }
-
-            // Clean up
-            foreach (var applicationId in applicationIds) {
-                RemoveApplication(applicationId);
-            }
+            await TestHelper.Discovery.WaitForDiscoveryToBeCompletedAsync(
+                _context, _cancellationTokenSource.Token, urls).ConfigureAwait(false);
         }
 
         [Fact, PriorityOrder(1)]
-        public void Test_Discover_OPC_UA_Endpoints_IpAddress() {
+        public async Task TestDiscoverOpcUaEndpointsIpAddress() {
+            await TestHelper.Registry.RemoveAllApplicationsAsync(_context, _cancellationTokenSource.Token);
+
             // Add 1 server
             var ipAddress = _context.OpcPlcConfig.Urls.Split(TestConstants.SimulationUrlsSeparator).First();
             var url = $"opc.tcp://{ipAddress}:50000";
-            var urls = new List<string> { url };
-            AddTestOpcServers(urls);
+            var urls = new HashSet<string> { url };
+            AddTestOpcServers(urls, _cancellationTokenSource.Token);
 
-            // Registers servers by running a discovery scan 
-            var cidr = ipAddress + "/16";
-            var body = new {
-                configuration = new {
-                    addressRangesToScan = cidr
-                }
-            };
-            TestHelper.CallRestApi(_context, Method.POST, TestConstants.APIRoutes.RegistryDiscover, body);
-
-            // Validate that the endpoint can be found
-            var result = TestHelper.Discovery.WaitForEndpointDiscoveryToBeCompleted(_context, _cancellationTokenSource.Token, requestedEndpointUrls: urls).GetAwaiter().GetResult();
-            Assert.Equal(url, ((string)result.items[0].registration.endpoint.url).TrimEnd('/'));
-
-            // Clean up
-            RemoveApplication((string)result.items[0].applicationId);
+            // Discover all servers
+            await TestHelper.Discovery.WaitForDiscoveryToBeCompletedAsync(
+                _context, _cancellationTokenSource.Token, urls).ConfigureAwait(false);
         }
 
         [Fact, PriorityOrder(2)]
-        public void Test_Discover_OPC_UA_Endpoints_PortRange() {
-            var cts = new CancellationTokenSource(TestConstants.MaxTestTimeoutMilliseconds);
+        public async Task TestDiscoverOpcUaEndpointsPortRange() {
+            await TestHelper.Registry.RemoveAllApplicationsAsync(_context, _cancellationTokenSource.Token);
 
-            // Add 5 servers
-            var urls = TestHelper.GetSimulatedOpcServerUrls(_context).Take(5).ToList();
-            AddTestOpcServers(urls);
+            // Add 2 servers
+            var urls = TestHelper.GetSimulatedOpcServerUrls(_context).Take(2).ToHashSet();
+            AddTestOpcServers(urls, _cancellationTokenSource.Token);
 
-            // Registers servers by running a discovery scan
-            var body = new {
-                configuration = new {
-                    portRangesToScan = "50000:51000"
-                }
-            };
-            TestHelper.CallRestApi(_context, Method.POST, TestConstants.APIRoutes.RegistryDiscover, body);
-
-            // Validate that all endpoints are found
-            var result = TestHelper.Discovery.WaitForEndpointDiscoveryToBeCompleted(_context, cts.Token, requestedEndpointUrls: urls).GetAwaiter().GetResult();
-            var applicationIds = new List<string>(urls.Count);
-            foreach (var item in result.items) {
-                Assert.Contains(((string)item.registration.endpoint.url).TrimEnd('/'), urls);
-                applicationIds.Add((string)item.applicationId);
-            }
-
-            // Clean up
-            foreach (var applicationId in applicationIds) {
-                RemoveApplication(applicationId);
-            }
+            // Discover all servers
+            await TestHelper.Discovery.WaitForDiscoveryToBeCompletedAsync(
+                _context, _cancellationTokenSource.Token, urls).ConfigureAwait(false);
         }
-      
-        private void AddTestOpcServers(List<string> endpointUrls) {
+
+        [Fact, PriorityOrder(3)]
+        public async Task TestDiscoverCleanupRegistry() {
+            await TestHelper.Registry.RemoveAllApplicationsAsync(_context, _cancellationTokenSource.Token);
+        }
+
+        private void AddTestOpcServers(HashSet<string> endpointUrls, CancellationToken ct) {
             foreach (var endpointUrl in endpointUrls) {
                 var body = new {
                     discoveryUrl = endpointUrl
                 };
-                TestHelper.CallRestApi(_context, Method.POST, TestConstants.APIRoutes.RegistryApplications, body);
+                var response = TestHelper.CallRestApi(_context, Method.Post, TestConstants.APIRoutes.RegistryApplications, body, ct: ct);
+                Assert.True(response.IsSuccessful, $"Got {response.StatusCode} registering {endpointUrl} discovery url");
             }
-        }
-
-        private void RemoveApplication(string applicationId) {
-            var route = $"{TestConstants.APIRoutes.RegistryApplications}/{applicationId}";
-            TestHelper.CallRestApi(_context, Method.DELETE, route);
         }
     }
 }

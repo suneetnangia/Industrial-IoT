@@ -4,13 +4,13 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
-    using Microsoft.Azure.IIoT.OpcUa.Api.Registry.Models;
+    using Microsoft.Azure.IIoT.Agent.Framework.Models;
+    using Microsoft.Azure.IIoT.Auth.Models;
     using Microsoft.Azure.IIoT.OpcUa.Api.Core.Models;
+    using Microsoft.Azure.IIoT.OpcUa.Api.Registry.Models;
     using Microsoft.Azure.IIoT.OpcUa.Core.Models;
     using Microsoft.Azure.IIoT.OpcUa.Publisher.Models;
     using Microsoft.Azure.IIoT.OpcUa.Subscriber.Models;
-    using Microsoft.Azure.IIoT.Agent.Framework.Models;
-    using Microsoft.Azure.IIoT.Auth.Models;
     using System.Linq;
 
     /// <summary>
@@ -558,35 +558,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         /// Create api model from service model
         /// </summary>
         /// <param name="model"></param>
-        public static ConfigurationVersionApiModel ToApiModel(
-            this ConfigurationVersionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new ConfigurationVersionApiModel {
-                MajorVersion = model.MajorVersion,
-                MinorVersion = model.MinorVersion
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static ConfigurationVersionModel ToServiceModel(
-            this ConfigurationVersionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new ConfigurationVersionModel {
-                MajorVersion = model.MajorVersion,
-                MinorVersion = model.MinorVersion
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
         public static ConnectionApiModel ToApiModel(
             this ConnectionModel model) {
             if (model == null) {
@@ -718,22 +689,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
             }
             return new DataSetMetaDataApiModel {
                 Name = model.Name,
-                ConfigurationVersion = model.ConfigurationVersion.ToApiModel(),
                 DataSetClassId = model.DataSetClassId,
-                Description = model.Description.ToApiModel(),
-                Fields = model.Fields?
-                    .Select(f => f.ToApiModel())
-                    .ToList(),
-                EnumDataTypes = model.EnumDataTypes?
-                    .Select(f => f.ToApiModel())
-                    .ToList(),
-                StructureDataTypes = model.StructureDataTypes?
-                    .Select(f => f.ToApiModel())
-                    .ToList(),
-                SimpleDataTypes = model.SimpleDataTypes?
-                    .Select(f => f.ToApiModel())
-                    .ToList(),
-                Namespaces = model.Namespaces?.ToList()
+                Description = model.Description
             };
         }
 
@@ -747,22 +704,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
             }
             return new DataSetMetaDataModel {
                 Name = model.Name,
-                ConfigurationVersion = model.ConfigurationVersion.ToServiceModel(),
                 DataSetClassId = model.DataSetClassId,
-                Description = model.Description.ToServiceModel(),
-                Fields = model.Fields?
-                    .Select(f => f.ToServiceModel())
-                    .ToList(),
-                EnumDataTypes = model.EnumDataTypes?
-                    .Select(f => f.ToServiceModel())
-                    .ToList(),
-                StructureDataTypes = model.StructureDataTypes?
-                    .Select(f => f.ToServiceModel())
-                    .ToList(),
-                SimpleDataTypes = model.SimpleDataTypes?
-                    .Select(f => f.ToServiceModel())
-                    .ToList(),
-                Namespaces = model.Namespaces?.ToList()
+                Description = model.Description
             };
         }
 
@@ -776,12 +719,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 return null;
             }
             return new DataSetWriterApiModel {
-                DataSetWriterId = model.DataSetWriterId,
+                DataSetWriterName = model.DataSetWriterName,
                 DataSet = model.DataSet.ToApiModel(),
                 DataSetFieldContentMask = (Models.DataSetFieldContentMask?)model.DataSetFieldContentMask,
-                DataSetMetaDataSendInterval = model.DataSetMetaDataSendInterval,
+                MetaDataUpdateTime = model.MetaDataUpdateTime,
+                MetaDataQueueName = model.MetaDataQueueName,
                 KeyFrameCount = model.KeyFrameCount,
-                KeyFrameInterval = model.KeyFrameInterval,
                 MessageSettings = model.MessageSettings.ToApiModel()
             };
         }
@@ -795,12 +738,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 return null;
             }
             return new DataSetWriterModel {
-                DataSetWriterId = model.DataSetWriterId,
+                DataSetWriterName = model.DataSetWriterName,
                 DataSet = model.DataSet.ToServiceModel(),
                 DataSetFieldContentMask = (OpcUa.Publisher.Models.DataSetFieldContentMask?)model.DataSetFieldContentMask,
-                DataSetMetaDataSendInterval = model.DataSetMetaDataSendInterval,
+                MetaDataUpdateTime = model.MetaDataUpdateTime,
+                MetaDataQueueName = model.MetaDataQueueName,
                 KeyFrameCount = model.KeyFrameCount,
-                KeyFrameInterval = model.KeyFrameInterval,
                 MessageSettings = model.MessageSettings.ToServiceModel()
             };
         }
@@ -918,7 +861,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 BatchTriggerInterval = model.BatchTriggerInterval,
                 DiagnosticsInterval = model.DiagnosticsInterval,
                 MaxMessageSize = model.MaxMessageSize,
-                MaxOutgressMessages = model.MaxOutgressMessages
+                MaxOutgressMessages = model.MaxOutgressMessages,
+                UseStandardsCompliantEncoding = model.UseStandardsCompliantEncoding,
             };
         }
 
@@ -935,151 +879,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 BatchTriggerInterval = model.BatchTriggerInterval,
                 MaxMessageSize = model.MaxMessageSize,
                 DiagnosticsInterval = model.DiagnosticsInterval,
-                MaxOutgressMessages = model.MaxOutgressMessages
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static EnumDefinitionApiModel ToApiModel(
-            this EnumDefinitionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumDefinitionApiModel {
-                Fields = model.Fields?
-                    .Select(f => f.ToApiModel())
-                    .ToList()
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static EnumDefinitionModel ToServiceModel(
-            this EnumDefinitionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumDefinitionModel {
-                Fields = model.Fields?
-                    .Select(f => f.ToServiceModel())
-                    .ToList()
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static EnumDescriptionApiModel ToApiModel(
-            this EnumDescriptionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumDescriptionApiModel {
-                Name = model.Name,
-                BuiltInType = model.BuiltInType,
-                DataTypeId = model.DataTypeId,
-                EnumDefinition = model.EnumDefinition.ToApiModel()
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static EnumDescriptionModel ToServiceModel(
-            this EnumDescriptionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumDescriptionModel {
-                Name = model.Name,
-                BuiltInType = model.BuiltInType,
-                DataTypeId = model.DataTypeId,
-                EnumDefinition = model.EnumDefinition.ToServiceModel()
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static EnumFieldApiModel ToApiModel(
-            this EnumFieldModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumFieldApiModel {
-                Name = model.Name,
-                Description = model.Description.ToApiModel(),
-                DisplayName = model.DisplayName.ToApiModel(),
-                Value = model.Value
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static EnumFieldModel ToServiceModel(
-            this EnumFieldApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new EnumFieldModel {
-                Name = model.Name,
-                Description = model.Description.ToServiceModel(),
-                DisplayName = model.DisplayName.ToServiceModel(),
-                Value = model.Value
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static FieldMetaDataApiModel ToApiModel(
-            this FieldMetaDataModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new FieldMetaDataApiModel {
-                Description = model.Description.ToApiModel(),
-                ArrayDimensions = model.ArrayDimensions?.ToList(),
-                BuiltInType = model.BuiltInType,
-                DataSetFieldId = model.DataSetFieldId,
-                DataTypeId = model.DataTypeId,
-                FieldFlags = model.FieldFlags,
-                MaxStringLength = model.MaxStringLength,
-                Name = model.Name,
-                Properties = model.Properties?
-                    .ToDictionary(k => k.Key, v => v.Value),
-                ValueRank = model.ValueRank
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static FieldMetaDataModel ToServiceModel(
-            this FieldMetaDataApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new FieldMetaDataModel {
-                Description = model.Description.ToServiceModel(),
-                ArrayDimensions = model.ArrayDimensions?.ToList(),
-                BuiltInType = model.BuiltInType,
-                DataSetFieldId = model.DataSetFieldId,
-                DataTypeId = model.DataTypeId,
-                FieldFlags = model.FieldFlags,
-                MaxStringLength = model.MaxStringLength,
-                Name = model.Name,
-                Properties = model.Properties?
-                    .ToDictionary(k => k.Key, v => v.Value),
-                ValueRank = model.ValueRank
+                MaxOutgressMessages = model.MaxOutgressMessages,
+                UseStandardsCompliantEncoding = model.UseStandardsCompliantEncoding,
             };
         }
 
@@ -1154,7 +955,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
             };
         }
 
-
         /// <summary>
         /// Create api model from service model
         /// </summary>
@@ -1201,6 +1001,22 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         }
 
         /// <summary>
+        /// Create api model from service model
+        /// </summary>
+        /// <param name="model"></param>
+        public static PublishedEventItemsApiModel ToApiModel(
+            this PublishedEventItemsModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new PublishedEventItemsApiModel {
+                PublishedData = model.PublishedData?
+                    .Select(d => d.ToApiModel())
+                    .ToList()
+            };
+        }
+
+        /// <summary>
         /// Create service model from api model
         /// </summary>
         public static PublishedDataItemsModel ToServiceModel(
@@ -1209,6 +1025,21 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 return null;
             }
             return new PublishedDataItemsModel {
+                PublishedData = model.PublishedData?
+                    .Select(d => d.ToServiceModel())
+                    .ToList()
+            };
+        }
+
+        /// <summary>
+        /// Create service model from api model
+        /// </summary>
+        public static PublishedEventItemsModel ToServiceModel(
+            this PublishedEventItemsApiModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new PublishedEventItemsModel {
                 PublishedData = model.PublishedData?
                     .Select(d => d.ToServiceModel())
                     .ToList()
@@ -1254,49 +1085,115 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         /// Create api model from service model
         /// </summary>
         /// <param name="model"></param>
-        public static PublishedDataSetEventsApiModel ToApiModel(
-            this PublishedDataSetEventsModel model) {
+        public static PublishedDataSetEventApiModel ToApiModel(
+            this PublishedDataSetEventModel model) {
             if (model == null) {
                 return null;
             }
-            return new PublishedDataSetEventsApiModel {
+            return new PublishedDataSetEventApiModel {
                 Id = model.Id,
                 DiscardNew = model.DiscardNew,
                 EventNotifier = model.EventNotifier,
                 BrowsePath = model.BrowsePath,
-                Filter = model.Filter.ToApiModel(),
+                WhereClause = model.WhereClause.ToApiModel(),
                 QueueSize = model.QueueSize,
                 MonitoringMode = (Models.MonitoringMode?)model.MonitoringMode,
                 TriggerId = model.TriggerId,
-                SelectedFields = model.SelectedFields?
+                SelectClauses = model.SelectClauses?
                     .Select(f => f.ToApiModel())
-                    .ToList()
+                    .ToList(),
+                ConditionHandling = model.ConditionHandling.ToApiModel(),
+                TypeDefinitionId = model.TypeDefinitionId,
+            };
+        }
+
+        /// <summary>
+        /// Create api model
+        /// </summary>
+        public static EventFilterApiModel ToApiModel(
+            this EventFilterModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new EventFilterApiModel {
+                SelectClauses = model.SelectClauses?
+                    .Select(e => e.ToApiModel())
+                    .ToList(),
+                TypeDefinitionId = model.TypeDefinitionId,
+                WhereClause = model.WhereClause.ToApiModel()
             };
         }
 
         /// <summary>
         /// Create service model from api model
         /// </summary>
-        public static PublishedDataSetEventsModel ToServiceModel(
-            this PublishedDataSetEventsApiModel model) {
+        public static EventFilterModel ToServiceModel(
+            this EventFilterApiModel model) {
             if (model == null) {
                 return null;
             }
-            return new PublishedDataSetEventsModel {
+            return new EventFilterModel {
+                SelectClauses = model.SelectClauses?
+                    .Select(e => e.ToServiceModel())
+                    .ToList(),
+                TypeDefinitionId = model.TypeDefinitionId,
+                WhereClause = model.WhereClause.ToServiceModel()
+            };
+        }
+
+        /// <summary>
+        /// Create api model from service model
+        /// </summary>
+        /// <param name="model"></param>
+        public static ConditionHandlingOptionsApiModel ToApiModel(
+            this ConditionHandlingOptionsModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new ConditionHandlingOptionsApiModel {
+                UpdateInterval = model.UpdateInterval,
+                SnapshotInterval = model.SnapshotInterval,
+            };
+        }
+
+        /// <summary>
+        /// Create service model from api model
+        /// </summary>
+        public static ConditionHandlingOptionsModel ToServiceModel(
+            this ConditionHandlingOptionsApiModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new ConditionHandlingOptionsModel {
+                UpdateInterval = model.UpdateInterval,
+                SnapshotInterval = model.SnapshotInterval,
+            };
+        }
+
+        /// <summary>
+        /// Create service model from api model
+        /// </summary>
+        public static PublishedDataSetEventModel ToServiceModel(
+            this PublishedDataSetEventApiModel model) {
+            if (model == null) {
+                return null;
+            }
+            return new PublishedDataSetEventModel {
                 Id = model.Id,
                 DiscardNew = model.DiscardNew,
                 EventNotifier = model.EventNotifier,
                 BrowsePath = model.BrowsePath,
-                Filter = model.Filter.ToServiceModel(),
+                WhereClause = model.WhereClause.ToServiceModel(),
                 QueueSize = model.QueueSize,
                 MonitoringMode = (OpcUa.Publisher.Models.MonitoringMode?)model.MonitoringMode,
                 TriggerId = model.TriggerId,
-                SelectedFields = model.SelectedFields?
+                SelectClauses = model.SelectClauses?
                     .Select(f => f.ToServiceModel())
-                    .ToList()
+                    .ToList(),
+                ConditionHandling = model.ConditionHandling.ToServiceModel(),
+                TypeDefinitionId = model.TypeDefinitionId,
             };
         }
-
 
         /// <summary>
         /// Create api model from service model
@@ -1379,10 +1276,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
             }
             return new PublishedDataSetVariableApiModel {
                 Id = model.Id,
+                DataSetClassFieldId = model.DataSetClassFieldId,
                 PublishedVariableNodeId = model.PublishedVariableNodeId,
                 BrowsePath = model.BrowsePath,
                 Attribute = model.Attribute,
-                DataChangeFilter = (Models.DataChangeTriggerType?)model.DataChangeFilter,
+                DataChangeTrigger = (Models.DataChangeTriggerType?)model.DataChangeTrigger,
                 DeadbandType = (Models.DeadbandType?)model.DeadbandType,
                 DeadbandValue = model.DeadbandValue,
                 DiscardNew = model.DiscardNew,
@@ -1392,6 +1290,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 QueueSize = model.QueueSize,
                 SamplingInterval = model.SamplingInterval,
                 TriggerId = model.TriggerId,
+                SkipFirst = model.SkipFirst,
                 HeartbeatInterval = model.HeartbeatInterval,
                 PublishedVariableDisplayName = model.PublishedVariableDisplayName,
                 SubstituteValue = model.SubstituteValue?.Copy()
@@ -1410,8 +1309,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 Id = model.Id,
                 PublishedVariableNodeId = model.PublishedVariableNodeId,
                 BrowsePath = model.BrowsePath,
+                DataSetClassFieldId = model.DataSetClassFieldId,
                 Attribute = model.Attribute,
-                DataChangeFilter = (OpcUa.Publisher.Models.DataChangeTriggerType?)model.DataChangeFilter,
+                DataChangeTrigger = (OpcUa.Publisher.Models.DataChangeTriggerType?)model.DataChangeTrigger,
                 DeadbandType = (OpcUa.Publisher.Models.DeadbandType?)model.DeadbandType,
                 DeadbandValue = model.DeadbandValue,
                 DiscardNew = model.DiscardNew,
@@ -1420,6 +1320,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 MetaDataProperties = model.MetaDataProperties?
                     .ToList(),
                 QueueSize = model.QueueSize,
+                SkipFirst = model.SkipFirst,
                 SamplingInterval = model.SamplingInterval,
                 TriggerId = model.TriggerId,
                 HeartbeatInterval = model.HeartbeatInterval,
@@ -1477,10 +1378,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 return null;
             }
             return new SimpleAttributeOperandApiModel {
-                NodeId = model.NodeId,
+                TypeDefinitionId = model.TypeDefinitionId,
                 AttributeId = (Core.Models.NodeAttribute?)model.AttributeId,
                 BrowsePath = model.BrowsePath,
-                IndexRange = model.IndexRange
+                IndexRange = model.IndexRange,
+                DataSetClassFieldId = model.DataSetClassFieldId,
+                DisplayName = model.DisplayName
             };
         }
 
@@ -1493,151 +1396,15 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 return null;
             }
             return new SimpleAttributeOperandModel {
-                NodeId = model.NodeId,
+                TypeDefinitionId = model.TypeDefinitionId,
                 AttributeId = (OpcUa.Core.Models.NodeAttribute?)model.AttributeId,
                 BrowsePath = model.BrowsePath,
-                IndexRange = model.IndexRange
+                IndexRange = model.IndexRange,
+                DataSetClassFieldId = model.DataSetClassFieldId,
+                DisplayName = model.DisplayName
             };
         }
 
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static SimpleTypeDescriptionApiModel ToApiModel(
-            this SimpleTypeDescriptionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new SimpleTypeDescriptionApiModel {
-                BaseDataTypeId = model.BaseDataTypeId,
-                Name = model.Name,
-                DataTypeId = model.DataTypeId,
-                BuiltInType = model.BuiltInType
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static SimpleTypeDescriptionModel ToServiceModel(
-            this SimpleTypeDescriptionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new SimpleTypeDescriptionModel {
-                BaseDataTypeId = model.BaseDataTypeId,
-                Name = model.Name,
-                DataTypeId = model.DataTypeId,
-                BuiltInType = model.BuiltInType
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static StructureDefinitionApiModel ToApiModel(
-            this StructureDefinitionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureDefinitionApiModel {
-                BaseDataTypeId = model.BaseDataTypeId,
-                Fields = model.Fields?
-                    .Select(f => f.ToApiModel())
-                    .ToList(),
-                StructureType = (Core.Models.StructureType)model.StructureType
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static StructureDefinitionModel ToServiceModel(
-            this StructureDefinitionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureDefinitionModel {
-                BaseDataTypeId = model.BaseDataTypeId,
-                Fields = model.Fields?
-                    .Select(f => f.ToServiceModel())
-                    .ToList(),
-                StructureType = (OpcUa.Core.Models.StructureType)model.StructureType
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static StructureDescriptionApiModel ToApiModel(
-            this StructureDescriptionModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureDescriptionApiModel {
-                DataTypeId = model.DataTypeId,
-                Name = model.Name,
-                StructureDefinition = model.StructureDefinition.ToApiModel()
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static StructureDescriptionModel ToServiceModel(
-            this StructureDescriptionApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureDescriptionModel {
-                DataTypeId = model.DataTypeId,
-                Name = model.Name,
-                StructureDefinition = model.StructureDefinition.ToServiceModel()
-            };
-        }
-
-        /// <summary>
-        /// Create api model from service model
-        /// </summary>
-        /// <param name="model"></param>
-        public static StructureFieldApiModel ToApiModel(
-            this StructureFieldModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureFieldApiModel {
-                ArrayDimensions = model.ArrayDimensions?.ToList(),
-                DataTypeId = model.DataTypeId,
-                Description = model.Description.ToApiModel(),
-                IsOptional = model.IsOptional,
-                MaxStringLength = model.MaxStringLength,
-                Name = model.Name,
-                ValueRank = (Core.Models.NodeValueRank?)model.ValueRank
-            };
-        }
-
-        /// <summary>
-        /// Create service model from api model
-        /// </summary>
-        public static StructureFieldModel ToServiceModel(
-            this StructureFieldApiModel model) {
-            if (model == null) {
-                return null;
-            }
-            return new StructureFieldModel {
-                ArrayDimensions = model.ArrayDimensions?.ToList(),
-                DataTypeId = model.DataTypeId,
-                Description = model.Description.ToServiceModel(),
-                IsOptional = model.IsOptional,
-                MaxStringLength = model.MaxStringLength,
-                Name = model.Name,
-                ValueRank = (OpcUa.Core.Models.NodeValueRank?)model.ValueRank
-            };
-        }
         /// <summary>
         /// Create api model from service model
         /// </summary>
@@ -1746,6 +1513,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 DataSetOrdering = (Models.DataSetOrderingType?)model.DataSetOrdering,
                 GroupVersion = model.GroupVersion,
                 PublishingOffset = model.PublishingOffset,
+                MaxMessagesPerPublish = model.MaxMessagesPerPublish,
                 SamplingOffset = model.SamplingOffset
             };
         }
@@ -1763,6 +1531,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
                 DataSetOrdering = (OpcUa.Publisher.Models.DataSetOrderingType?)model.DataSetOrdering,
                 GroupVersion = model.GroupVersion,
                 PublishingOffset = model.PublishingOffset,
+                MaxMessagesPerPublish = model.MaxMessagesPerPublish,
                 SamplingOffset = model.SamplingOffset
             };
         }

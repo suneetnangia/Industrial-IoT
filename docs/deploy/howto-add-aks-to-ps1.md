@@ -180,7 +180,7 @@ defaultBackend:
 Install `ingress-nginx/ingress-nginx` Helm chart using `ingress-nginx.yaml` file created above.
 
 ```bash
-helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --version 4.0.6 -f ingress-nginx.yaml
+helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --version 4.0.19 -f ingress-nginx.yaml
 ```
 
 Documentation for `ingress-nginx/ingress-nginx` Helm chart can be found [here](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx).
@@ -203,7 +203,7 @@ helm repo update
 Install `jetstack/cert-manager` Helm chart:
 
 ```bash
-helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.6.1 --set installCRDs=true
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.8.0 --set installCRDs=true
 ```
 
 Documentation for `jetstack/cert-manager` Helm chart can be found [here](https://artifacthub.io/packages/helm/jetstack/cert-manager).
@@ -309,7 +309,7 @@ Note the following values in the YAML file:
 
 ```yaml
 image:
-  tag: 2.8.1
+  tag: 2.8.4
 
 loadConfFromKeyVault: true
 
@@ -341,6 +341,7 @@ deployment:
       nginx.ingress.kubernetes.io/session-cookie-max-age: "14400"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
       cert-manager.io/cluster-issuer: letsencrypt-prod
     tls:
     - hosts:
@@ -349,8 +350,8 @@ deployment:
     hostName: aks-cluster-ip.westeurope.cloudapp.azure.com
 ```
 
-> **NOTE**: Please note that we have used `2.8.1` as the value of `image:tag` configuration parameter
-> above. That will result in `2.8.1` version of microservices and edge modules to be deployed. If you want
+> **NOTE**: Please note that we have used `2.8.4` as the value of `image:tag` configuration parameter
+> above. That will result in `2.8.4` version of microservices and edge modules to be deployed. If you want
 > to deploy a different version of the platform, please specify it as the value of `image:tag` parameter.
 
 #### Passing Azure resource details through YAML file
@@ -360,7 +361,7 @@ If you decide to pass all Azure resource details through YAML file, please follo
 to get the parameters. In the end, `aiiot.yaml` value file would look something like the one below.
 
 In this case as well, we will have to set up Access Policies for service principal of `service` App
-Registration in Azure Key Vault so that Engineering Tool and OPC-Vault microservices are able to fetch the
+Registration in Azure Key Vault so that Engineering Tool microservice is able to fetch the
 `dataprotection` key from  Azure Key Vault. That is required for proper functionality of
 [ASP.NET Core Data Protection](https://docs.microsoft.com/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-3.1#protectkeyswithazurekeyvault)
 feature.
@@ -391,7 +392,7 @@ Note the following values in the YAML file:
 
 ```yaml
 image:
-  tag: 2.8.1
+  tag: 2.8.4
 
 azure:
   tenantId: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
@@ -472,6 +473,7 @@ deployment:
       nginx.ingress.kubernetes.io/session-cookie-max-age: "14400"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
       cert-manager.io/cluster-issuer: letsencrypt-prod
     tls:
     - hosts:
@@ -480,8 +482,8 @@ deployment:
     hostName: aks-cluster-ip.westeurope.cloudapp.azure.com
 ```
 
-> **NOTE**: Please note that we have used `2.8.1` as the value of `image:tag` configuration parameter
-> above. That will result in `2.8.1` version of microservices and edge modules to be deployed. If you want
+> **NOTE**: Please note that we have used `2.8.4` as the value of `image:tag` configuration parameter
+> above. That will result in `2.8.4` version of microservices and edge modules to be deployed. If you want
 > to deploy a different version of the platform, please specify it as the value of `image:tag` parameter.
 
 #### Installing `azure-industrial-iot` Helm chart
@@ -511,7 +513,7 @@ For that you would first add Helm repository and then install the chart from the
 ```bash
 helm repo add azure-iiot https://azure.github.io/Industrial-IoT/helm
 helm repo update
-helm install aiiot azure-iiot/azure-industrial-iot --namespace aiiot --version 0.3.2 -f aiiot.yaml
+helm install aiiot azure-iiot/azure-industrial-iot --namespace aiiot --version 0.4.4 -f aiiot.yaml
 ```
 
 Please note that the version of the chart in GitHub repo will be ahead of chart versions that we publish

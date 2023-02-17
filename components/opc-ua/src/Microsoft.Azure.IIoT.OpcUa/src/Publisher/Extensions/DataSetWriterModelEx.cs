@@ -21,10 +21,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
             return new DataSetWriterModel {
                 DataSet = model.DataSet.Clone(),
                 DataSetFieldContentMask = model.DataSetFieldContentMask,
-                DataSetMetaDataSendInterval = model.DataSetMetaDataSendInterval,
-                DataSetWriterId = model.DataSetWriterId,
+                MetaDataUpdateTime = model.MetaDataUpdateTime,
+                MetaDataQueueName = model.MetaDataQueueName,
+                DataSetWriterName = model.DataSetWriterName,
                 KeyFrameCount = model.KeyFrameCount,
-                KeyFrameInterval = model.KeyFrameInterval,
                 MessageSettings = model.MessageSettings.Clone()
             };
         }

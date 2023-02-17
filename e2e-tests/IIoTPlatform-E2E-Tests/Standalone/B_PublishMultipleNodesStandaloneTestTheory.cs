@@ -20,7 +20,7 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
     /// </summary>
     [TestCaseOrderer(TestCaseOrderer.FullName, TestConstants.TestAssemblyName)]
     [Collection("IIoT Standalone Test Collection")]
-    [Trait(TestConstants.TraitConstants.PublisherModeTraitName, TestConstants.TraitConstants.PublisherModeStandaloneTraitValue)]
+    [Trait(TestConstants.TraitConstants.PublisherModeTraitName, TestConstants.TraitConstants.PublisherModeTraitValue)]
     public class B_PublishMultipleNodesStandaloneTestTheory {
 
         private readonly ITestOutputHelper _output;
@@ -38,7 +38,7 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
         [Theory]
         [InlineData(MessagingMode.Samples)]
         [InlineData(MessagingMode.PubSub)]
-        async Task SubscribeUnsubscribeTest(MessagingMode messagingMode) {
+        public async Task SubscribeUnsubscribeTest(MessagingMode messagingMode) {
             var ioTHubEdgeBaseDeployment = new IoTHubEdgeBaseDeployment(_context);
             var ioTHubPublisherDeployment = new IoTHubPublisherDeployment(_context, messagingMode);
 
@@ -51,7 +51,7 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
             await TestHelper.StopMonitoringIncomingMessagesAsync(_context, cts.Token);
 
             // Clean publishednodes.json.
-            await TestHelper.PublishNodesAsync(Array.Empty<PublishedNodesEntryModel>(), _context);
+            await TestHelper.CleanPublishedNodesJsonFilesAsync(_context).ConfigureAwait(false);
 
             // Create base edge deployment.
             var baseDeploymentResult = await ioTHubEdgeBaseDeployment.CreateOrUpdateLayeredDeploymentAsync(cts.Token);
@@ -63,85 +63,54 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
             Assert.True(layeredDeploymentResult, "Failed to create/update layered deployment for publisher module.");
             _output.WriteLine("Created/Updated layered deployment for publisher module.");
 
-            await _context.LoadSimulatedPublishedNodes(cts.Token);
+            var nodesToPublish = await TestHelper.CreateMultipleNodesModelAsync(_context, cts.Token);
 
-            PublishedNodesEntryModel nodesToPublish;
-            if (_context.SimulatedPublishedNodes.Count > 1) {
-                var testPlc = _context.SimulatedPublishedNodes.Skip(2).First().Value;
-                nodesToPublish = _context.GetEntryModelWithoutNodes(testPlc);
+            await TestHelper.PublishNodesAsync(
+                _context,
+                new[] { nodesToPublish }
+            ).ConfigureAwait(false);
 
-                // We want to take several slow and fast nodes.
-                // To make sure that we will not have missing values because of timing issues,
-                // we will set publishing and sampling intervals to a lower value than the publishing
-                // interval of the simulated OPC PLC. This will eliminate false-positives.
-                nodesToPublish.OpcNodes = testPlc.OpcNodes
-                    .Where(node => !node.Id.Contains("bad", StringComparison.OrdinalIgnoreCase))
-                    .Where(node => node.Id.Contains("slow", StringComparison.OrdinalIgnoreCase)
-                        || node.Id.Contains("fast", StringComparison.OrdinalIgnoreCase))
-                    .Take(250)
-                    .Select(opcNode => {
-                        var opcPlcPublishingInterval = opcNode.OpcPublishingInterval;
-                        opcNode.OpcPublishingInterval = opcPlcPublishingInterval / 2;
-                        opcNode.OpcSamplingInterval = opcPlcPublishingInterval / 4;
-                        return opcNode;
-                    })
-                    .ToArray();
-
-                _context.ConsumedOpcUaNodes.Add(testPlc.EndpointUrl, nodesToPublish);
-            }
-            else {
-                var opcPlcIp = _context.OpcPlcConfig.Urls.Split(TestConstants.SimulationUrlsSeparator)[2];
-                nodesToPublish = new PublishedNodesEntryModel {
-                    EndpointUrl = $"opc.tcp://{opcPlcIp}:50000",
-                    UseSecurity = false
-                };
-
-                var nodes = new List<OpcUaNodesModel>();
-                for (int i = 0; i < 250; i++) {
-                    nodes.Add(new OpcUaNodesModel {
-                        Id = $"ns=2;s=SlowUInt{i+1}",
-                        OpcPublishingInterval = 10000/2,
-                        OpcSamplingInterval = 10000/4
-                    });
-                }
-
-                nodesToPublish.OpcNodes = nodes.ToArray();
-                _context.ConsumedOpcUaNodes.Add(opcPlcIp, nodesToPublish);
-            }
-
-            TestHelper.PublishNodesAsync(new[] { nodesToPublish }, _context).GetAwaiter().GetResult();
+            await TestHelper.SwitchToStandaloneModeAsync(_context, cts.Token).ConfigureAwait(false);
 
             // We will wait for module to be deployed.
-            var exception = Record.Exception(() => _context.RegistryHelper.WaitForIIoTModulesConnectedAsync(
+            await _context.RegistryHelper.WaitForSuccessfulDeploymentAsync(
+                ioTHubPublisherDeployment.GetDeploymentConfiguration(),
+                cts.Token
+            ).ConfigureAwait(false);
+
+            await _context.RegistryHelper.WaitForIIoTModulesConnectedAsync(
                 _context.DeviceConfig.DeviceId,
                 cts.Token,
-                new string[] { "publisher_standalone" }
-            ).GetAwaiter().GetResult());
-            Assert.Null(exception);
+                new string[] { ioTHubPublisherDeployment.ModuleName }
+            ).ConfigureAwait(false);
 
             // Wait some time till the updated pn.json is reflected.
-            await Task.Delay(3 * TestConstants.DefaultTimeoutInMilliseconds);
+            await Task.Delay(TestConstants.DefaultTimeoutInMilliseconds);
 
             // Use test event processor to verify data send to IoT Hub (expected* set to zero
             // as data gap analysis is not part of this test case)
-            await TestHelper.StartMonitoringIncomingMessagesAsync(_context, 250, 10_000, 90_000_000, cts.Token);
+            await TestHelper.StartMonitoringIncomingMessagesAsync(_context, 250, 1000, 90_000_000, cts.Token);
 
             // Wait some time to generate events to process.
             await Task.Delay(TestConstants.DefaultTimeoutInMilliseconds, cts.Token);
 
             // Stop monitoring and get the result.
             var publishingMonitoringResultJson = await TestHelper.StopMonitoringIncomingMessagesAsync(_context, cts.Token);
-            Assert.True((int)publishingMonitoringResultJson.totalValueChangesCount > 0, "No messages received at IoT Hub");
-            Assert.True((uint)publishingMonitoringResultJson.droppedValueCount == 0,
-                $"Dropped messages detected: {(uint)publishingMonitoringResultJson.droppedValueCount}");
-            Assert.True((uint)publishingMonitoringResultJson.duplicateValueCount == 0,
-                $"Duplicate values detected: {(uint)publishingMonitoringResultJson.duplicateValueCount}");
+            Assert.True(publishingMonitoringResultJson.TotalValueChangesCount > 0, "No messages received at IoT Hub");
+            Assert.True(publishingMonitoringResultJson.DroppedValueCount == 0,
+                $"Dropped messages detected: {publishingMonitoringResultJson.DroppedValueCount}");
+            Assert.True(publishingMonitoringResultJson.DuplicateValueCount == 0,
+                $"Duplicate values detected: {publishingMonitoringResultJson.DuplicateValueCount}");
+            Assert.Equal(0U, publishingMonitoringResultJson.DroppedSequenceCount);
+            // Uncomment once bug generating duplicate sequence numbers is resolved.
+            //Assert.Equal(0U, publishingMonitoringResultJson.DuplicateSequenceCount);
+            Assert.Equal(0U, publishingMonitoringResultJson.ResetSequenceCount);
 
             // Check that every published node is sending data.
             if (_context.ConsumedOpcUaNodes != null) {
                 var expectedNodes = _context.ConsumedOpcUaNodes.First().Value.OpcNodes.Select(n => n.Id).ToList();
-                foreach (dynamic property in publishingMonitoringResultJson.valueChangesByNodeId) {
-                    var propertyName = (string)property.Name;
+                foreach (var property in publishingMonitoringResultJson.ValueChangesByNodeId) {
+                    var propertyName = property.Key;
                     var nodeId = propertyName.Split('#').Last();
                     var expected = expectedNodes.FirstOrDefault(n => n.EndsWith(nodeId));
                     Assert.True(expected != null, $"Publishing from unexpected node: {propertyName}");
@@ -153,8 +122,10 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
             }
 
             // Stop publishing nodes.
-            await TestHelper.PublishNodesAsync(Array.Empty<PublishedNodesEntryModel>(), _context);
-            await TestHelper.SwitchToStandaloneModeAsync(_context, cts.Token);
+            await TestHelper.PublishNodesAsync(
+                _context,
+                Array.Empty<PublishedNodesEntryModel>()
+            ).ConfigureAwait(false);
 
             // Wait till the publishing has stopped.
             await Task.Delay(TestConstants.DefaultTimeoutInMilliseconds, cts.Token);
@@ -168,8 +139,8 @@ namespace IIoTPlatform_E2E_Tests.Standalone {
 
             // Stop monitoring and get the result.
             var unpublishingMonitoringResultJson = await TestHelper.StopMonitoringIncomingMessagesAsync(_context, cts.Token);
-            Assert.True((int)unpublishingMonitoringResultJson.totalValueChangesCount == 0,
-                $"Messages received at IoT Hub: {(int)unpublishingMonitoringResultJson.totalValueChangesCount}");
+            Assert.True(unpublishingMonitoringResultJson.TotalValueChangesCount == 0,
+                $"Messages received at IoT Hub: {unpublishingMonitoringResultJson.TotalValueChangesCount}");
         }
     }
 }

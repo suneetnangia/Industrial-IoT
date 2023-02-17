@@ -36,6 +36,10 @@
     Release as latest image
  .PARAMETER IsMajorUpdate
     Release as major update
+ .PARAMETER IsPrerelease
+    Release as -ReleaseVersion (without any prerelease tags) only. This
+    will not update rolling tags like latest and major version and allow
+    customers to test the releae image ahead of full release.
  .PARAMETER RemoveNamespaceOnRelease
     Remove namespace (e.g. public) on release.
 #>
@@ -51,6 +55,7 @@ Param(
     [Parameter(Mandatory = $true)] [string] $ReleaseVersion,
     [switch] $IsLatest,
     [switch] $IsMajorUpdate,
+    [switch] $IsPrerelease,
     [switch] $RemoveNamespaceOnRelease
 )
 
@@ -58,12 +63,12 @@ if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
     # check if release registry exists and if not create it
     $argumentList = @("acr", "show", "--name", $script:ReleaseRegistry, 
         "--subscription", $script:ReleaseSubscription)
-    $registry = & "az" $argumentList | ConvertFrom-Json
+    $registry = & "az" @argumentList | ConvertFrom-Json
     if (!$registry) {
         # create registry - check if group exists and if not create it.
         $argumentList = @("group", "show", "-g", $script:ResourceGroupName, 
             "--subscription", $script:ReleaseSubscription)
-        $group = & "az" $argumentList 2>$null | ConvertFrom-Json
+        $group = & "az" @argumentList 2>$null | ConvertFrom-Json
         if (!$group) {
             if ([string]::IsNullOrEmpty($script:ResourceGroupLocation)) {
                 throw "Need a resource group location to create the resource group."
@@ -71,7 +76,7 @@ if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
             $argumentList = @("group", "create", "-g", $script:ResourceGroupName, `
                 "-l", $script:ResourceGroupLocation, 
                 "--subscription", $script:ReleaseSubscription)
-            $group = & "az" $argumentList | ConvertFrom-Json
+            $group = & "az" @argumentList | ConvertFrom-Json
             if ($LastExitCode -ne 0) {
                 throw "az $($argumentList) failed with $($LastExitCode)."
             }
@@ -85,7 +90,7 @@ if (![string]::IsNullOrEmpty($script:ResourceGroupName)) {
             $script:ReleaseRegistry, "-l", $script:ResourceGroupLocation, `
             "--sku", "Basic", "--admin-enabled", "true", 
             "--subscription", $script:ReleaseSubscription)
-        $registry = & "az" $argumentList | ConvertFrom-Json
+        $registry = & "az" @argumentList | ConvertFrom-Json
         if ($LastExitCode -ne 0) {
             throw "az $($argumentList) failed with $($LastExitCode)."
         }
@@ -98,7 +103,7 @@ if (![string]::IsNullOrEmpty($script:BuildSubscription)) {
     Write-Debug "Setting subscription to $($script:BuildSubscription)"
     $argumentList = @("account", "set", 
         "--subscription", $script:BuildSubscription, "-ojson")
-    & "az" $argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
+    & "az" @argumentList 2>&1 | ForEach-Object { Write-Host "$_" }
     if ($LastExitCode -ne 0) {
         throw "az $($argumentList) failed with $($LastExitCode)."
     }
@@ -108,7 +113,7 @@ if (![string]::IsNullOrEmpty($script:BuildSubscription)) {
 $argumentList = @("acr", "repository", "list",
     "--name", $script:BuildRegistry, "-ojson", 
     "--subscription", $script:BuildSubscription)
-$result = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" })
+$result = (& "az" @argumentList 2>&1 | ForEach-Object { "$_" })
 if ($LastExitCode -ne 0) {
     throw "az $($argumentList) failed with $($LastExitCode)."
 }
@@ -131,7 +136,7 @@ foreach ($Repository in $BuildRepositories) {
         "-t", $BuildTag,
         "-ojson"
     )
-    $result = (& "az" $argumentList 2>&1 | ForEach-Object { "$_" })
+    $result = (& "az" @argumentList 2>&1 | ForEach-Object { "$_" })
     if ($LastExitCode -ne 0) {
         Write-Host "Image $BuildTag not found..."
         continue
@@ -143,20 +148,29 @@ foreach ($Repository in $BuildRepositories) {
     }
 
     $ReleaseTags = @()
-    if ($script:IsLatest.IsPresent) {
-        $ReleaseTags += "latest"
-    }
-
-    # Example: if release version is 2.8.1, then base image tags are "2", "2.8", "2.8.1"
-    $versionParts = $script:ReleaseVersion.Split('-')[0].Split('.')
-    if ($versionParts.Count -gt 0) {
-        $versionTag = $versionParts[0]
+    if ($script:IsPrerelease.IsPresent) {
         if ($script:IsMajorUpdate.IsPresent -or $script:IsLatest.IsPresent) {
-            $ReleaseTags += $versionTag
+            throw "IsMajorUpdate and IsLatest is not allowed when IsPrerelease is specified."
         }
-        for ($i = 1; $i -lt ($versionParts.Count); $i++) {
-            $versionTag = ("$($versionTag).{0}" -f $versionParts[$i])
-            $ReleaseTags += $versionTag
+        $versionTag = $script:ReleaseVersion.Split('-')[0]
+        $ReleaseTags += $versionTag
+    }
+    else {
+        if ($script:IsLatest.IsPresent) {
+            $ReleaseTags += "latest"
+        }
+
+        # Example: if release version is 2.8.1, then base image tags are "2", "2.8", "2.8.1"
+        $versionParts = $script:ReleaseVersion.Split('-')[0].Split('.')
+        if ($versionParts.Count -gt 0) {
+            $versionTag = $versionParts[0]
+            if ($script:IsMajorUpdate.IsPresent -or $script:IsLatest.IsPresent) {
+                $ReleaseTags += $versionTag
+            }
+            for ($i = 1; $i -lt ($versionParts.Count); $i++) {
+                $versionTag = ("$($versionTag).{0}" -f $versionParts[$i])
+                $ReleaseTags += $versionTag
+            }
         }
     }
 
@@ -198,10 +212,10 @@ foreach ($Repository in $BuildRepositories) {
         $argumentList = $args[0]
         $ConsoleOutput = $args[1]
         Write-Host "$($ConsoleOutput)..."
-        & az $argumentList 2>&1 | ForEach-Object { "$_" }
+        & az @argumentList 2>&1 | ForEach-Object { "$_" }
         if ($LastExitCode -ne 0) {
             Write-Warning "$($ConsoleOutput) failed with $($LastExitCode) - 2nd attempt..."
-            & "az" $argumentList 2>&1 | ForEach-Object { "$_" }
+            & "az" @argumentList 2>&1 | ForEach-Object { "$_" }
             if ($LastExitCode -ne 0) {
                 throw "Error: $($ConsoleOutput) - 2nd attempt failed with $($LastExitCode)."
             }

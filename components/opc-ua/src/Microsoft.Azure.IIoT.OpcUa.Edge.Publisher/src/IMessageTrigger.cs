@@ -4,7 +4,8 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher {
-    using Microsoft.Azure.IIoT.OpcUa.Edge.Publisher.Models;
+    using Microsoft.Azure.IIoT.OpcUa.Protocol.Models;
+    using Microsoft.Azure.IIoT.OpcUa.Publisher.Config.Models;
     using System;
     using System.Threading;
     using System.Threading.Tasks;
@@ -51,6 +52,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher {
         ulong ValueChangesCountLastMinute { get; }
 
         /// <summary>
+        /// The number of all eventChange Notifications
+        /// that have been invoked by this message source.
+        /// </summary>
+        ulong EventCount { get; }
+
+        /// <summary>
         /// The number of all dataChange Notifications
         /// that have been invoked by this message source.
         /// </summary>
@@ -62,9 +69,15 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher {
         ulong DataChangesCountLastMinute { get; }
 
         /// <summary>
-        /// Writer events
+        /// The number of all monitored items event value changes
+        /// that have been invoked by this message source.
         /// </summary>
-        event EventHandler<DataSetMessageModel> OnMessage;
+        ulong EventNotificationCount { get; }
+
+        /// <summary>
+        /// Subscribe to writer messages
+        /// </summary>
+        event EventHandler<SubscriptionNotificationModel> OnMessage;
 
         /// <summary>
         /// Called when ValueChangesCount or DataChangesCount are resetted
@@ -74,8 +87,36 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Publisher {
         /// <summary>
         /// Run the group triggering
         /// </summary>
-        /// <param name="ct"></param>
-        /// <returns></returns>
         Task RunAsync(CancellationToken ct);
+
+        /// <summary>
+        /// Allow takeover of newly configured subscriptions
+        /// </summary>
+        void Reconfigure(object config);
+
+        /// <summary>
+        /// EndpointUrl
+        /// </summary>
+        Uri EndpointUrl { get; }
+
+        /// <summary>
+        /// DataSetWriterGroup
+        /// </summary>
+        string DataSetWriterGroup { get; }
+
+        /// <summary>
+        /// UseSecurity
+        /// </summary>
+        bool UseSecurity { get; }
+
+        /// <summary>
+        /// AuthenticationMode
+        /// </summary>
+        OpcAuthenticationMode AuthenticationMode { get; }
+
+        /// <summary>
+        /// AuthenticationUsername
+        /// </summary>
+        string AuthenticationUsername { get; }
     }
 }

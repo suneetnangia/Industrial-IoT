@@ -6,6 +6,7 @@
 namespace Serilog {
     using Microsoft.Azure.IIoT;
     using Microsoft.Azure.IIoT.Diagnostics;
+    using Serilog.Events;
     using System;
     using System.Diagnostics;
     using System.IO;
@@ -66,6 +67,6 @@ namespace Serilog {
         }
 
         private const string kDefaultTemplate =
-            "[{Timestamp:HH:mm:ss} {Level:u3} {SourceContext:lj}] {Message:lj} {NewLine}{Exception}";
+            "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3} {SourceContext:lj}] {Message:lj} {NewLine}{Exception}";
     }
 }

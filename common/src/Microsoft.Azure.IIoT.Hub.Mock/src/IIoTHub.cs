@@ -4,6 +4,8 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.Hub.Mock {
+    using Microsoft.Azure.IIoT.Messaging;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
 
     /// <summary>
@@ -25,6 +27,11 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
         /// List of modules for module queries
         /// </summary>
         IEnumerable<IIoTHubDevice> Modules { get; }
+
+        /// <summary>
+        /// Event endpoint
+        /// </summary>
+        BlockingCollection<ITelemetryEvent> Events { get; }
 
         /// <summary>
         /// Connect device/module to hub

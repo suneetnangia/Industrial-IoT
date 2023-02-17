@@ -15,10 +15,15 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Runtime {
     /// <summary>
     /// Wraps a configuration root
     /// </summary>
-    public class Config : DiagnosticsConfig, IModuleConfig, IClientServicesConfig{
-
+    public class Config : DiagnosticsConfig, IModuleConfig, IClientServicesConfig {
         /// <inheritdoc/>
         public string EdgeHubConnectionString => _module.EdgeHubConnectionString;
+        /// <inheritdoc/>
+        public string MqttClientConnectionString => _module.MqttClientConnectionString;
+        /// <inheritdoc/>
+        public string TelemetryTopicTemplate => _module.TelemetryTopicTemplate;
+        /// <inheritdoc/>
+        public bool EnableOutputRouting => _module.EnableOutputRouting;
         /// <inheritdoc/>
         public bool BypassCertVerification => _module.BypassCertVerification;
         /// <inheritdoc/>
@@ -53,6 +58,8 @@ namespace Microsoft.Azure.IIoT.Modules.OpcUa.Twin.Runtime {
         public bool RejectSha1SignedCertificates => _opc.RejectSha1SignedCertificates;
         /// <inheritdoc/>
         public bool AddAppCertToTrustedStore => _opc.AddAppCertToTrustedStore;
+        /// <inheritdoc/>
+        public bool RejectUnknownRevocationStatus => _opc.RejectUnknownRevocationStatus;
         /// <inheritdoc/>
         public CertificateStore TrustedIssuerCertificates => _opc.TrustedIssuerCertificates;
         /// <inheritdoc/>

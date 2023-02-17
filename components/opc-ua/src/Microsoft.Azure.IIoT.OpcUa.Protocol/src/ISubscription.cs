@@ -17,19 +17,34 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
     public interface ISubscription : IDisposable {
 
         /// <summary>
-        /// Subscription change events
+        /// Subscription data change events
         /// </summary>
-        event EventHandler<SubscriptionNotificationModel> OnSubscriptionChange;
+        event EventHandler<SubscriptionNotificationModel> OnSubscriptionDataChange;
 
         /// <summary>
-        /// Item change events
+        /// Subscription event change events
         /// </summary>
-        event EventHandler<SubscriptionNotificationModel> OnMonitoredItemChange;
+        event EventHandler<SubscriptionNotificationModel> OnSubscriptionEventChange;
+
+        /// <summary>
+        /// Subscription data change diagnostics events
+        /// </summary>
+        event EventHandler<int> OnSubscriptionDataDiagnosticsChange;
+
+        /// <summary>
+        /// Subscription event change diagnostics events
+        /// </summary>
+        event EventHandler<int> OnSubscriptionEventDiagnosticsChange;
 
         /// <summary>
         /// Identifier of the subscription
         /// </summary>
-        string Id { get; }
+        string Name { get; }
+
+        /// <summary>
+        /// Index inside the publisher
+        /// </summary>
+        ushort Id { get; }
 
         /// <summary>
         /// Enabled - successfully created on server
@@ -67,10 +82,16 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         int NumberOfBadNodes { get; }
 
         /// <summary>
-        /// Create snapshot
+        /// Create a keep alive notification
         /// </summary>
         /// <returns></returns>
-        Task<SubscriptionNotificationModel> GetSnapshotAsync();
+        SubscriptionNotificationModel CreateKeepAlive();
+
+        /// <summary>
+        /// Adds a snapshot of all values to the notification
+        /// </summary>
+        /// <returns></returns>
+        bool TryUpgradeToKeyFrame(SubscriptionNotificationModel notification);
 
         /// <summary>
         /// Apply desired state
@@ -78,7 +99,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         /// <param name="monitoredItems"></param>
         /// <param name="configuration"></param>
         /// <returns>enabled</returns>
-        Task ApplyAsync(IEnumerable<MonitoredItemModel> monitoredItems,
+        Task ApplyAsync(IEnumerable<BaseMonitoredItemModel> monitoredItems,
             SubscriptionConfigurationModel configuration);
 
         /// <summary>
@@ -108,5 +129,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         /// </summary>
         /// <returns></returns>
         Task CloseAsync();
+
+        /// <summary>
+        /// Function that gets called when subscription state changes between online/offline
+        /// </summary>
+        void OnSubscriptionStateChanged(bool online);
     }
 }

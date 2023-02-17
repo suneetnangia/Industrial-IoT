@@ -24,5 +24,12 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Core.Models {
         /// </summary>
         [DataMember(Name = "whereClause", Order = 1)]
         public ContentFilterApiModel WhereClause { get; set; }
+
+        /// <summary>
+        /// Simple event Type definition node id
+        /// </summary>
+        [DataMember(Name = "typeDefinitionId", Order = 3,
+            EmitDefaultValue = false)]
+        public string TypeDefinitionId { get; set; }
     }
 }

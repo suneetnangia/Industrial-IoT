@@ -5,14 +5,6 @@ parameters:
   type: string
 
 steps:
-- task: UseDotNet@2
-  displayName: 'Install .NET Core SDK'
-  inputs:
-    packageType: sdk
-    version: 3.1.x
-    includePreviewVersions: false
-    installationPath: $(Agent.ToolsDirectory)/dotnet
-
 - task: AzureCLI@2
   displayName: 'Set Service Principal Environment Variables'
   name: promoteserviceprincipal
@@ -24,6 +16,8 @@ steps:
     addSpnToEnvironment: true
     inlineScript: |
       Write-Host "##vso[task.setvariable variable=ServicePrincipalId]$($env:servicePrincipalId)"
+      Write-Host "##vso[task.setvariable variable=ServicePrincipalKey]$($env:servicePrincipalKey)"
+      Write-Host "##vso[task.setvariable variable=pcs-auth-tenant]$($env:tenantId)"
 
 - task: AzurePowerShell@5
   displayName: 'Set KeyVaultName-Variable'
@@ -53,24 +47,15 @@ steps:
   inputs:
     azureSubscription: '$(AzureSubscription)'
     KeyVaultName: '$(KeyVaultName)'
-    SecretsFilter: 'PCS-IOTHUB-CONNSTRING,plc-simulation-urls,iot-edge-vm-username,iot-edge-vm-publickey,iot-edge-vm-privatekey,iot-edge-device-id,iot-edge-device-dnsname,testeventprocessor-baseurl,testeventprocessor-username,testeventprocessor-password,iothub-eventhub-connectionstring,storageaccount-iothubcheckpoint-connectionstring'
+    SecretsFilter: 'PCS-IOTHUB-CONNSTRING,plc-simulation-urls,iot-edge-vm-username,iot-edge-vm-publickey,iot-edge-vm-privatekey,iot-edge-device-id,iot-edge-device-dnsname,testeventprocessor-baseurl,testeventprocessor-username,testeventprocessor-password,iothub-eventhub-connectionstring,storageaccount-iothubcheckpoint-connectionstring,PCS-SUBSCRIPTION-ID'
 
 - task: AzureKeyVault@1
   displayName: 'Retrieve KeyVault secrets for API tests'
-  condition: ne( '${{ parameters.ModeValue }}', 'standalone')
+  condition: notIn( '${{ parameters.ModeValue }}', 'standalone', 'AE')
   inputs:
     azureSubscription: '$(AzureSubscription)'
     KeyVaultName: '$(KeyVaultName)'
     SecretsFilter: 'PCS-SERVICE-URL,PCS-AUTH-TENANT,PCS-AUTH-CLIENT-APPID,PCS-AUTH-CLIENT-SECRET'
-
-- task: AzureKeyVault@1
-  displayName: 'Load secrets from Key Vault as variables by default'
-  condition: and(eq(variables['ContainerRegistryServer'], ''), eq(variables['ContainerRegistryUsername'], ''), eq(variables['ContainerRegistryPassword'], ''))
-  inputs:
-    azureSubscription: '$(AzureSubscription)'
-    KeyVaultName: '$(DevAcrCredentialsKeyVaultName)'
-    SecretsFilter: 'ContainerRegistryPassword,ContainerRegistryServer,ContainerRegistryUsername'
-    RunAsPreJob: true
 
 - task: PowerShell@2
   displayName: Versioning
@@ -80,25 +65,46 @@ steps:
     targetType: filePath
     filePath: $(BasePath)\..\scripts\set-version.ps1
 
-- task: AzureCLI@2
-  displayName: 'Override platform version if necessary'
-  condition: eq(variables['PlatformVersion'], '')
+- task: AzurePowerShell@5
+  displayName: 'Auto-Set Variables'
   inputs:
     azureSubscription: '$(AzureSubscription)'
     azurePowerShellVersion: 'latestVersion'
-    scriptLocation: 'InlineScript'
-    scriptType: 'ps'
-    addSpnToEnvironment: true
-    inlineScript: |
-      Write-Host "##vso[task.setvariable variable=PlatformVersion]$(setVersionInfo.Version_Prefix)$(setVersionInfo.Version_Prerelease)"
+    scriptType: filePath
+    scriptPath: '$(BasePath)\SetVariables.ps1'
+    scriptArguments: >
+      -BranchName "$(BranchName)"
+      -Region "$(Region)"
+      -ImageTag "$(PlatformVersion)"
+      -ImageNamespace "$(ImageNamespace)"
+      -ContainerRegistryServer "$(ContainerRegistryServer)"
 
+- task: UseDotNet@2
+  displayName: 'Install .NET Core SDK'
+  inputs:
+    packageType: sdk
+    version: 6.0.x
+    includePreviewVersions: false
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+- task: DotNetCoreCLI@2
+  displayName: 'Restore xUnit tests'
+  inputs:
+    command: restore
+    projects: '$(TestPath)\IIoTPlatform-E2E-Tests.sln'
+- task: DotNetCoreCLI@2
+  displayName: 'Build xUnit tests'
+  inputs:
+    command: build
+    projects: '$(TestPath)\IIoTPlatform-E2E-Tests.sln'
+    arguments: '--configuration Release'
 - task: DotNetCoreCLI@2
   displayName: 'Executing xUnit tests (with ${{ parameters.ModeName }}=${{ parameters.ModeValue }})'
-  timeoutInMinutes: 90
+  timeoutInMinutes: 180
+  retryCountOnTaskFailure: 1
   inputs:
     command: test
-    projects: '$(TestPath)\IIoTPlatform-E2E-Tests.csproj'
-    arguments: '--configuration Release --filter ${{ parameters.ModeName }}=${{ parameters.ModeValue }} --verbosity=normal'
+    projects: '$(TestPath)\IIoTPlatform-E2E-Tests.sln'
+    arguments: '--configuration Release --filter ${{ parameters.ModeName }}=${{ parameters.ModeValue }} --verbosity=normal --logger "console;verbosity=detailed" --logger trx'
   env:
     PCS_SERVICE_URL: '$(pcs-service-url)'
     PCS_AUTH_TENANT: '$(pcs-auth-tenant)'
@@ -117,11 +123,16 @@ steps:
     TESTEVENTPROCESSOR_BASEURL: '$(testeventprocessor-baseurl)'
     TESTEVENTPROCESSOR_USERNAME: '$(testeventprocessor-username)'
     TESTEVENTPROCESSOR_PASSWORD: '$(testeventprocessor-password)'
-    PCS_IMAGES_TAG: '$(PlatformVersion)'
-    PCS_CONTAINER_REGISTRY_SERVER: "$(ContainerRegistryServer)"
-    PCS_CONTAINER_REGISTRY_USER: "$(ContainerRegistryUsername)"
-    PCS_CONTAINER_REGISTRY_PASSWORD: "$(ContainerRegistryPassword)"
+    PCS_IMAGES_TAG: '$(ImageTag)'
+    PCS_DOCKER_SERVER: "$(ContainerRegistryServer)"
+    PCS_DOCKER_USER: "$(ContainerRegistryUsername)"
+    PCS_DOCKER_PASSWORD: "$(ContainerRegistryPassword)"
     PCS_IMAGES_NAMESPACE: "$(ImageNamespace)"
     IOT_EDGE_VERSION: "$(EdgeVersion)"
     NESTED_EDGE_FLAG: "$(NestedEdgeFlag)"
     NESTED_EDGE_SSH_CONNECTIONS: "$(NestedEdgeSshConnection)"
+    PCS_SUBSCRIPTION_ID: '$(PCS-SUBSCRIPTION-ID)'
+    PCS_RESOURCE_GROUP: '$(ResourceGroupName)'
+    AZURE_CLIENT_ID: "$(ServicePrincipalId)"
+    AZURE_CLIENT_SECRET: "$(ServicePrincipalKey)"
+    AZURE_TENANT_ID: "$(pcs-auth-tenant)"

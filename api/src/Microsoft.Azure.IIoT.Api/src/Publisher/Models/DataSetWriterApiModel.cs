@@ -8,16 +8,16 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
     using System;
 
     /// <summary>
-    /// PubSub job description
+    /// Data set writer description
     /// </summary>
     [DataContract]
     public class DataSetWriterApiModel {
 
         /// <summary>
-        /// Dataset writer id
+        /// Dataset writer name.
         /// </summary>
-        [DataMember(Name = "dataSetWriterId", Order = 0)]
-        public string DataSetWriterId { get; set; }
+        [DataMember(Name = "dataSetWriterName", Order = 0)]
+        public string DataSetWriterName { get; set; }
 
         /// <summary>
         /// Published dataset inline definition
@@ -48,17 +48,17 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         public uint? KeyFrameCount { get; set; }
 
         /// <summary>
-        /// Or keyframe timer interval (publisher extension)
+        /// Metadata message sending interval
         /// </summary>
-        [DataMember(Name = "keyFrameInterval", Order = 5,
+        [DataMember(Name = "metaDataUpdateTime", Order = 6,
             EmitDefaultValue = false)]
-        public TimeSpan? KeyFrameInterval { get; set; }
+        public TimeSpan? MetaDataUpdateTime { get; set; }
 
         /// <summary>
-        /// Metadata message sending interval (publisher extension)
+        /// Metadata queue name
         /// </summary>
-        [DataMember(Name = "dataSetMetaDataSendInterval", Order = 6,
+        [DataMember(Name = "metaDataQueueName", Order = 7,
             EmitDefaultValue = false)]
-        public TimeSpan? DataSetMetaDataSendInterval { get; set; }
+        public string MetaDataQueueName { get; set; }
     }
 }

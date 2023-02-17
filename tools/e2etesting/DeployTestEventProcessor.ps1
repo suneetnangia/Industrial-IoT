@@ -6,7 +6,8 @@ Param(
     $StorageAccountName,
     $IoTHubName,
     $TenantId,
-    $StorageContainerName
+    $StorageContainerName,
+    $StorageFileShareName = "acishare"
 )
 
 # Stop execution when an error occurs.
@@ -142,6 +143,15 @@ if (!$storageContainer) {
     $storageContainer = New-AzStorageContainer -Name $StorageContainerName -Context $storageContext -Permission Container | Out-Null
 }
 
+## Ensure file share for ACI mount and files to be able to support dynamic ACI:s in test
+
+$storageShare = Get-AzStorageShare -Context $storageContext.Context -Name $StorageFileShareName -ErrorAction SilentlyContinue 
+
+if (!$storageShare) {
+    Write-Host "Creating storage share '$($StorageFileShareName )' in storage account '$($storageAccount.StorageAccountName)'..."
+    $storageShare = New-AzStorageShare -Context $storageContext.Context -Name $StorageFileShareName | Out-Null
+}
+
 ## Ensure AppServicePlan ##
 
 $appServicePlan = Get-AzAppServicePlan -ResourceGroupName $resourceGroup.ResourceGroupName -Name $AppServicePlanName -ErrorAction SilentlyContinue
@@ -169,6 +179,8 @@ Compress-Archive -Path ($PackageDirectory.TrimEnd("\\") + "\\*") -DestinationPat
 
 Write-Host "Publishing Archive from '$($packageFilename)'to WebApp '$($WebAppName)'..."
 $webApp = Publish-AzWebApp -ResourceGroupName $resourceGroup.ResourceGroupName -Name $WebAppName -ArchivePath $packageFilename -Force
+
+Write-Host "Published Archive to WebApp '$($WebAppName)'..."
 
 Get-Item $temp.FullName | Remove-Item -Force -Recurse
 

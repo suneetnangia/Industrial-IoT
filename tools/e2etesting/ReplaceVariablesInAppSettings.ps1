@@ -70,11 +70,11 @@ if (!$ImageTag) {
 }
 
 if (!$ImageNamespace) {
-   $ImageNamespace="main"
+   $ImageNamespace = ""
 }
 
 if (!$ContainerRegistryServer) {
-   $ContainerRegistryServer="mcr.microsoft.com"
+   $ContainerRegistryServer = "mcr.microsoft.com"
 }
 
 Write-Host "##[group]Parameter values"
@@ -107,3 +107,5 @@ $fileContent = $fileContent -replace "{{ContainerRegistryServer}}", $ContainerRe
 $fileContent = $fileContent -replace "{{ContainerRegistryUsername}}", $ContainerRegistryUsername
 $fileContent = $fileContent -replace "{{ContainerRegistryPassword}}", $ContainerRegistryPassword
 $fileContent | Out-File $AppSettingsFilename -Force -Encoding utf8
+$fileContent | Out-Host
+

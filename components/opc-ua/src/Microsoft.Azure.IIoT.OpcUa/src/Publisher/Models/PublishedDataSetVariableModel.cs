@@ -15,9 +15,14 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
     public class PublishedDataSetVariableModel {
 
         /// <summary>
-        /// Identifier of variable in the dataset.
+        /// Name of variable in the dataset.
         /// </summary>
         public string Id { get; set; }
+
+        /// <summary>
+        /// Identifier of variable in the dataset class.
+        /// </summary>
+        public Guid DataSetClassFieldId { get; set; }
 
         /// <summary>
         /// Node id of the variable
@@ -54,7 +59,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
         /// <summary>
         /// Data change filter
         /// </summary>
-        public DataChangeTriggerType? DataChangeFilter { get; set; }
+        public DataChangeTriggerType? DataChangeTrigger { get; set; }
 
         /// <summary>
         /// Deadband type
@@ -103,5 +108,10 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
         /// (Publisher extension)
         /// </summary>
         public TimeSpan? HeartbeatInterval { get; set; }
+
+        /// <summary>
+        /// Instruct the monitored item to skip the first received value
+        /// </summary>
+        public bool? SkipFirst { get; set; }
     }
 }

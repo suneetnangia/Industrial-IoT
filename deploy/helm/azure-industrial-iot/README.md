@@ -457,7 +457,7 @@ The following details of the Azure Log Analytics Workspace would be required:
 
 ## Installing the Chart
 
-This chart installs `2.8.1` version of components by default.
+This chart installs `2.8.4` version of components by default.
 
 To install the chart first ensure that you have added `azure-iiot` repository:
 
@@ -519,7 +519,7 @@ values.
 | Parameter           | Description                              | Default             |
 |---------------------|------------------------------------------|---------------------|
 | `image.registry`    | URL of Docker Image Registry             | `mcr.microsoft.com` |
-| `image.tag`         | Image tag                                | `2.8.1`             |
+| `image.tag`         | Image tag                                | `2.8.4`             |
 | `image.pullPolicy`  | Image pull policy                        | `IfNotPresent`      |
 | `image.pullSecrets` | docker-registry secret names as an array | `[]`                |
 
@@ -812,6 +812,7 @@ deployment:
       nginx.ingress.kubernetes.io/session-cookie-max-age: "14400"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
 ```
 
 ### Prometheus
@@ -1028,6 +1029,7 @@ deployment:
       nginx.ingress.kubernetes.io/session-cookie-max-age: "14400"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
 ```
 
 These annotations make sure that:
@@ -1045,6 +1047,7 @@ These annotations make sure that:
 * WebSocket connection is kept alive. For this we set [adequate timeout values](https://kubernetes.github.io/ingress-nginx/user-guide/miscellaneous/#websockets) for:
   * [`nginx.ingress.kubernetes.io/proxy-read-timeout`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-timeouts)
   * [`nginx.ingress.kubernetes.io/proxy-send-timeout`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-timeouts)
+  * [`nginx.ingress.kubernetes.io/proxy-connect-timeout`](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-timeouts)
 
   Here are general NGINX Ingress Controller
   [recommendations for WebSocket](https://kubernetes.github.io/ingress-nginx/user-guide/miscellaneous/#websockets).

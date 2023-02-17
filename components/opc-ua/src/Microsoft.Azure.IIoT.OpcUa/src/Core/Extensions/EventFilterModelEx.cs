@@ -25,7 +25,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Core.Models {
                 SelectClauses = model.SelectClauses?
                     .Select(a => a.Clone())
                     .ToList(),
-                WhereClause = model.WhereClause.Clone()
+                WhereClause = model.WhereClause.Clone(),
+                TypeDefinitionId = model.TypeDefinitionId
             };
         }
 
@@ -47,6 +48,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Core.Models {
                 return false;
             }
             if (!model.WhereClause.IsSameAs(other.WhereClause)) {
+                return false;
+            }
+            if (model.TypeDefinitionId != other.TypeDefinitionId) {
                 return false;
             }
             return true;

@@ -4,8 +4,8 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
-    using Microsoft.Azure.IIoT.OpcUa.Protocol.Models;
     using Microsoft.Azure.IIoT.OpcUa.Core.Models;
+    using Microsoft.Azure.IIoT.OpcUa.Protocol.Models;
     using System;
 
     /// <summary>
@@ -16,15 +16,13 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
         /// <summary>
         /// Create subscription info model from message trigger configuration.
         /// </summary>
-        /// <param name="dataSetWriter"></param>
-        /// <returns></returns>
         public static SubscriptionModel ToSubscriptionModel(
-            this DataSetWriterModel dataSetWriter) {
+            this DataSetWriterModel dataSetWriter, IWriterGroupConfig groupConfig) {
             if (dataSetWriter == null) {
                 return null;
             }
-            if (dataSetWriter.DataSetWriterId == null) {
-                throw new ArgumentNullException(nameof(dataSetWriter.DataSetWriterId));
+            if (dataSetWriter.DataSetWriterName == null) {
+                throw new ArgumentNullException(nameof(dataSetWriter.DataSetWriterName));
             }
             if (dataSetWriter.DataSet == null) {
                 throw new ArgumentNullException(nameof(dataSetWriter.DataSet));
@@ -40,14 +38,17 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
             if (monitoredItems.Count == 0) {
                 throw new ArgumentException(nameof(dataSetWriter.DataSet.DataSetSource));
             }
-            return new SubscriptionModel {
+            var model = new SubscriptionModel {
                 Connection = dataSetWriter.DataSet.DataSetSource.Connection.Clone(),
-                Id = dataSetWriter.DataSetWriterId,
+                Id = dataSetWriter.DataSetWriterName,
                 MonitoredItems = monitoredItems,
                 ExtensionFields = dataSetWriter.DataSet.ExtensionFields,
                 Configuration = dataSetWriter.DataSet.DataSetSource
-                    .ToSubscriptionConfigurationModel()
+                    .ToSubscriptionConfigurationModel(dataSetWriter.DataSet.DataSetMetaData)
             };
+
+            model.Connection.Group ??= groupConfig?.WriterGroup?.WriterGroupId;
+            return model;
         }
     }
 }

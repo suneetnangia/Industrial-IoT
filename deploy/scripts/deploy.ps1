@@ -56,6 +56,9 @@
  .PARAMETER acrSubscriptionName
     The subscription of the container registry, if different from the specified subscription.
 
+ .PARAMETER acrTenantId
+    The tenant where the container registry resides. If not provided uses all.
+
  .PARAMETER environmentName
     The cloud environment to use, defaults to AzureCloud.
 
@@ -70,6 +73,16 @@
 
  .PARAMETER numberOfWindowsGateways
     Number of Windows gateways to deploy into the simulation.
+
+ .PARAMETER gatewayVmSku
+    Virtual machine SKU size that hosts simulated edge gateway.
+    Suggestion: use VM with at least 2 cores and 8 GB of memory.
+    Must Support Generation 1.
+
+ .PARAMETER opcPlcVmSku
+    Virtual machine SKU size that hosts simulated OPC UA PLC.
+    Suggestion: use VM with at least 1 core and 2 GB of memory.
+    Must Support Generation 1.
 #>
 
 param(
@@ -88,10 +101,13 @@ param(
     [string] $aadApplicationName,
     [string] $acrRegistryName,
     [string] $acrSubscriptionName,
+    [string] $acrTenantId,
     [string] $simulationProfile,
-    [int] $numberOfLinuxGateways = 0,
-    [int] $numberOfWindowsGateways = 0,
-    [int] $numberOfSimulationsPerEdge = 0,
+    [string] $gatewayVmSku,
+    [string] $opcPlcVmSku,
+    [int] $numberOfLinuxGateways = 1,
+    [int] $numberOfWindowsGateways = 1,
+    [int] $numberOfSimulationsPerEdge = 1,
     $aadConfig,
     $context = $null,
     [switch] $testAllDeploymentOptions,
@@ -247,13 +263,13 @@ Function Select-RepositoryAndBranch() {
         if ([string]::IsNullOrEmpty($script:branchName)) {
             try {
                 $argumentList = @("rev-parse", "--abbrev-ref", "@{upstream}")
-                $symbolic = (& "git" $argumentList 2>&1 | ForEach-Object { "$_" });
+                $symbolic = (& "git" @argumentList 2>&1 | ForEach-Object { "$_" });
                 if ($LastExitCode -ne 0) {
                     throw "git $($argumentList) failed with $($LastExitCode)."
                 }
                 $remote = $symbolic.Split('/')[0]
                 $argumentList = @("remote", "get-url", $remote)
-                $giturl = (& "git" $argumentList 2>&1 | ForEach-Object { "$_" });
+                $giturl = (& "git" @argumentList 2>&1 | ForEach-Object { "$_" });
                 if ($LastExitCode -ne 0) {
                     throw "git $($argumentList) failed with $($LastExitCode)."
                 }
@@ -297,9 +313,9 @@ Function Select-RegistryCredentials() {
     if (![string]::IsNullOrEmpty($script:acrSubscriptionName) `
             -and ($context.Subscription.Name -ne $script:acrSubscriptionName)) {
         $tenantIdArg = @{}
-        if (![string]::IsNullOrEmpty($script:tenantId)) {
+        if (![string]::IsNullOrEmpty($script:acrTenantId)) {
             $tenantIdArg = @{
-                TenantId = $script:tenantId
+                TenantId = $script:acrTenantId
             }
         }
         $acrSubscription = Get-AzSubscription -SubscriptionName $script:acrSubscriptionName @tenantIdArg
@@ -602,6 +618,9 @@ Function Get-EnvironmentVariables() {
     if (![string]::IsNullOrEmpty($var)) {
         Write-Output "PCS_APP_URL=$($var)"
     }
+    if (![string]::IsNullOrEmpty($script:version)) {
+        Write-Output "PCS_IMAGES_TAG=$($script:version)"
+    }
 }
 
 #******************************************************************************
@@ -759,6 +778,7 @@ Function New-Deployment() {
             $creds = Select-RegistryCredentials
         }
         catch {
+            Write-Warning $_.Exception.Message
             $creds = $null
         }
 
@@ -799,18 +819,6 @@ Function New-Deployment() {
         else {
             $templateParameters.Add("simulationProfile", $script:simulationProfile)
         }
-        if ((-not $script:numberOfLinuxGateways) -or ($script:numberOfLinuxGateways -eq 0)) {
-            $templateParameters.Add("numberOfLinuxGateways", 1)
-        }
-        else {
-            $templateParameters.Add("numberOfLinuxGateways", $script:numberOfLinuxGateways)
-        }
-        if ((-not $script:numberOfWindowsGateways) -or ($script:numberOfWindowsGateways -eq 0)) {
-            $templateParameters.Add("numberOfWindowsGateways", 1)
-        }
-        else {
-            $templateParameters.Add("numberOfWindowsGateways", $script:numberOfWindowsGateways)
-        }
         if ((-not $script:numberOfSimulationsPerEdge) -or ($script:numberOfSimulationsPerEdge -eq 0)) {
             $templateParameters.Add("numberOfSimulations", 1)
         }
@@ -818,36 +826,64 @@ Function New-Deployment() {
             $templateParameters.Add("numberOfSimulations", $script:numberOfSimulationsPerEdge)
         }
 
-        # Get all vm skus available in the location and in the account
-        $availableVms = Get-AzComputeResourceSku | Where-Object {
-            ($_.ResourceType.Contains("virtualMachines")) -and `
-            ($_.Locations -icontains $script:resourceGroupLocation) -and `
-            ($_.Restrictions.Count -eq 0)
-        }
-        # Sort based on sizes and filter minimum requirements
-        $availableVmNames = $availableVms `
-            | Select-Object -ExpandProperty Name -Unique
+        # To be refactored: it's necessary to filter out the unsupported SKU sizes.
+        # It still there isn't a API to identify the generations supported by the SKU sizes.
+        if ([string]::IsNullOrEmpty($script:gatewayVmSku)) {
+            
+            # Get all vm skus available in the location and in the account
+            $availableVms = Get-AzComputeResourceSku | Where-Object {
+                ($_.ResourceType.Contains("virtualMachines")) -and `
+                ($_.Locations -icontains $script:resourceGroupLocation) -and `
+                ($_.Restrictions.Count -eq 0)
+            }
+            # Sort based on sizes and filter minimum requirements
+            $availableVmNames = $availableVms `
+                | Select-Object -ExpandProperty Name -Unique
 
-        # We will use VM with at least 2 cores and 8 GB of memory as gateway host.
-        $edgeVmSizes = Get-AzVMSize $script:resourceGroupLocation `
-            | Where-Object { $availableVmNames -icontains $_.Name } `
-            | Where-Object {
-                ($_.NumberOfCores -ge 2) -and `
-                ($_.MemoryInMB -ge 8192) -and `
-                ($_.OSDiskSizeInMB -ge 1047552) -and `
-                ($_.ResourceDiskSizeInMB -gt 8192)
-            } `
-            | Sort-Object -Property `
-                NumberOfCores,MemoryInMB,ResourceDiskSizeInMB,Name
-        # Pick top
-        if ($edgeVmSizes.Count -ne 0) {
-            $edgeVmSize = $edgeVmSizes[0].Name
-            Write-Host "Using $($edgeVmSize) as VM size for all edge simulation gateway hosts..."
-            $templateParameters.Add("edgeVmSize", $edgeVmSize)
+            if (($script:numberOfWindowsGateways -gt 0) -and ($availableVmNames -inotcontains "Standard_D4s_v4")) {
+Write-Warning "Standard_D4s_v4 VM with Nested virtualization for IoT Edge Eflow simulation not available in selected region or your subscription."
+                $script:numberOfWindowsGateways = 0
+            }
+
+            # We will use VM with at least 2 cores and 8 GB of memory as gateway host.
+            $edgeVmSizes = Get-AzVMSize $script:resourceGroupLocation `
+                | Where-Object { $availableVmNames -icontains $_.Name } `
+                | Where-Object {
+                    ($_.NumberOfCores -ge 2) -and `
+                    ($_.MemoryInMB -ge 8192) -and `
+                    ($_.OSDiskSizeInMB -ge 1047552) -and `
+                    ($_.ResourceDiskSizeInMB -gt 8192)
+                } `
+                | Sort-Object -Property `
+                    NumberOfCores,MemoryInMB,ResourceDiskSizeInMB,Name
+            # Pick top
+            if ($edgeVmSizes.Count -ne 0) {
+                $edgeVmSize = $edgeVmSizes[0].Name
+                Write-Host "Using $($edgeVmSize) as VM size for Linux IoT Edge gateway simulations..."
+                $templateParameters.Add("edgeVmSize", $edgeVmSize)
+            }
+        }
+        else {
+            $templateParameters.Add("edgeVmSize", $script:gatewayVmSku)
         }
 
-        # We will use VM with at least 1 core and 2 GB of memory for hosting OPC PLC simulation containers.
-        $simulationVmSizes = Get-AzVMSize $script:resourceGroupLocation `
+        if ((-not $script:numberOfLinuxGateways) -or ($script:numberOfLinuxGateways -eq 0)) {
+            $templateParameters.Add("numberOfLinuxGateways", 1)
+        }
+        else {
+            $templateParameters.Add("numberOfLinuxGateways", $script:numberOfLinuxGateways)
+        }
+        if (-not $script:numberOfWindowsGateways) {
+            $templateParameters.Add("numberOfWindowsGateways", 0)
+        }
+        else {
+            $templateParameters.Add("numberOfWindowsGateways", $script:numberOfWindowsGateways)
+        }
+
+        if ([string]::IsNullOrEmpty($script:opcPlcVmSku)) {
+
+            # We will use VM with at least 1 core and 2 GB of memory for hosting OPC PLC simulation containers.
+            $simulationVmSizes = Get-AzVMSize $script:resourceGroupLocation `
             | Where-Object { $availableVmNames -icontains $_.Name } `
             | Where-Object {
                 ($_.NumberOfCores -ge 1) -and `
@@ -857,11 +893,15 @@ Function New-Deployment() {
             } `
             | Sort-Object -Property `
                 NumberOfCores,MemoryInMB,ResourceDiskSizeInMB,Name
-        # Pick top
-        if ($simulationVmSizes.Count -ne 0) {
-            $simulationVmSize = $simulationVmSizes[0].Name
-            Write-Host "Using $($simulationVmSize) as VM size for all edge simulation hosts..."
-            $templateParameters.Add("simulationVmSize", $simulationVmSize)
+            # Pick top
+            if ($simulationVmSizes.Count -ne 0) {
+                $simulationVmSize = $simulationVmSizes[0].Name
+                Write-Host "Using $($simulationVmSize) as VM size for all OPC PLC simulation host machines..."
+                $templateParameters.Add("simulationVmSize", $simulationVmSize)
+            }
+        }    
+        else {
+            $templateParameters.Add("simulationVmSize", $script:opcPlcVmSku)
         }
 
         $adminUser = "sandboxuser"

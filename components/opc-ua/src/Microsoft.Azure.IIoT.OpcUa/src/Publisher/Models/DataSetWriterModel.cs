@@ -9,12 +9,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
     /// <summary>
     /// Data set writer
     /// </summary>
-    public class DataSetWriterModel
-    {
+    public class DataSetWriterModel {
         /// <summary>
-        /// Dataset writer id
+        /// Dataset writer name
         /// </summary>
-        public string DataSetWriterId { get; set; }
+        public string DataSetWriterName { get; set; }
 
         /// <summary>
         /// Published dataset inline definition
@@ -37,13 +36,19 @@ namespace Microsoft.Azure.IIoT.OpcUa.Publisher.Models {
         public uint? KeyFrameCount { get; set; }
 
         /// <summary>
-        /// Or keyframe timer interval (publisher extension)
+        /// Metadata message sending interval
         /// </summary>
-        public TimeSpan? KeyFrameInterval { get; set; }
+        public TimeSpan? MetaDataUpdateTime { get; set; }
 
         /// <summary>
-        /// Metadata message sending interval (publisher extension)
+        /// Metadata queue name
         /// </summary>
-        public TimeSpan? DataSetMetaDataSendInterval { get; set; }
+        public string MetaDataQueueName { get; set; }
+
+        /// <summary>
+        /// Dataset writer id property for backwards compatibility.
+        /// TODO: Remove when removing orchestrated mode
+        /// </summary>
+        public string DataSetWriterId { set => DataSetWriterName = value; }
     }
 }

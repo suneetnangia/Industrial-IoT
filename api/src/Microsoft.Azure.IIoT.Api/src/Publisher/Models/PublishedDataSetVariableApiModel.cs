@@ -68,11 +68,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         public TimeSpan? SamplingInterval { get; set; }
 
         /// <summary>
-        /// Data change filter
+        /// Data change trigger
         /// </summary>
-        [DataMember(Name = "dataChangeFilter", Order = 7,
+        [DataMember(Name = "dataChangeTrigger", Order = 7,
             EmitDefaultValue = false)]
-        public DataChangeTriggerType? DataChangeFilter { get; set; }
+        public DataChangeTriggerType? DataChangeTrigger { get; set; }
 
         /// <summary>
         /// Deadband type
@@ -137,5 +137,19 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Publisher.Models {
         [DataMember(Name = "heartbeatInterval", Order = 16,
             EmitDefaultValue = false)]
         public TimeSpan? HeartbeatInterval { get; set; }
+
+        /// <summary>
+        /// Instruct the monitored item to skip the first received value
+        /// </summary>
+        [DataMember(Name = "skipFirst", Order = 17,
+            EmitDefaultValue = false)]
+        public bool? SkipFirst { get; set; }
+
+        /// <summary>
+        /// Identifier of field in the dataset class.
+        /// </summary>
+        [DataMember(Name = "dataSetClassFieldId", Order = 11,
+            EmitDefaultValue = false)]
+        public Guid DataSetClassFieldId { get; set; }
     }
 }

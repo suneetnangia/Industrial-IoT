@@ -29,6 +29,11 @@ namespace Microsoft.Azure.IIoT.Validators {
 
             var schema = JsonSchema.FromText(schemaReader.ReadToEnd());
 
+            var jsonString = Encoding.UTF8.GetString(jsonBuffer);
+
+            // Remove BOM characters from the string if present.
+            var jsonStringWithoutBom = jsonString.Trim(new char[] { '\uFEFF', '\u200B' });
+
             // Use "Basic" output as that will only generate
             // two levels of validation results (Root and one level down)
             // see the API documentation for Json Everything for further details
@@ -40,11 +45,15 @@ namespace Microsoft.Azure.IIoT.Validators {
             // Run validation ensuring that trailing commas are supported
             // as it appears trailing commas have been allowable in the
             // configuration files for some time.
+            // Allow but Skip Commends
             var validationResults =  schema.Validate(
                                         JsonDocument.Parse(
-                                        Encoding.UTF8.GetString(jsonBuffer),
-                                        new JsonDocumentOptions() { AllowTrailingCommas = true, }
-                                        ).RootElement,
+                                        jsonStringWithoutBom,
+                                        new JsonDocumentOptions() 
+                                        { 
+                                            AllowTrailingCommas = true, 
+                                            CommentHandling = JsonCommentHandling.Skip 
+                                        }).RootElement,
                                         validationOptions);
 
             var jsonSchemaValidationResultCollection = new List<JsonSchemaValidationResult>();

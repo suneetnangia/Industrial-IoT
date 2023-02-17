@@ -10,6 +10,7 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
     using Microsoft.Azure.IIoT.Hub.Mock.SqlParser;
     using Microsoft.Azure.IIoT.Hub.Client;
     using Microsoft.Azure.IIoT.Hub.Models;
+    using Microsoft.Azure.IIoT.Module.Framework.Client;
     using Microsoft.Azure.IIoT.Utils;
     using Microsoft.Azure.IIoT.Messaging;
     using Microsoft.Azure.IIoT.Serializers;
@@ -40,8 +41,8 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
             _devices.Where(d => d.Device.ModuleId != null);
 
         /// <inheritdoc/>
-        public BlockingCollection<EventMessage> Events { get; } =
-            new BlockingCollection<EventMessage>();
+        public BlockingCollection<ITelemetryEvent> Events { get; } =
+            new BlockingCollection<ITelemetryEvent>();
 
         /// <summary>
         /// Create iot hub services
@@ -112,12 +113,10 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
             var ev = new EventMessage {
                 DeviceId = deviceId,
                 ModuleId = moduleId,
-                EnqueuedTimeUtc = DateTime.UtcNow,
-                Message = new Message(payload)
+                Timestamp = DateTime.UtcNow,
+                Buffers = new[] { payload },
+                Properties = message.Properties
             };
-            foreach (var item in message.Properties) {
-                ev.Message.Properties.Add(item.Key, item.Value);
-            }
             Events.TryAdd(ev);
             return Task.CompletedTask;
         }
@@ -236,7 +235,7 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
                     pageSize = int.MaxValue;
                 }
 
-                int.TryParse(continuation, out var index);
+                _ = int.TryParse(continuation, out var index);
                 var count = Math.Max(0, Math.Min(pageSize.Value, result.Count - index));
 
                 return Task.FromResult(new QueryResultModel {
@@ -374,19 +373,14 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
                     Blob = blob,
                     EnqueuedTimeUtc = DateTime.UtcNow
                 })) {
-                    throw new CommunicationException("Failed to upload blob");
+                    throw new CommunicationException("Failed to upload blob.");
                 }
             }
 
             /// <inheritdoc/>
-            public void SendEvent(Message message) {
-                if (!_outer.Events.TryAdd(new EventMessage {
-                    DeviceId = Device.Id,
-                    ModuleId = Device.ModuleId,
-                    Message = message,
-                    EnqueuedTimeUtc = DateTime.UtcNow
-                })) {
-                    throw new CommunicationException("Failed to upload blob");
+            public void SendEvent(ITelemetryEvent message) {
+                if (!_outer.Events.TryAdd(new EventMessage(message, Device))) {
+                    throw new CommunicationException("Failed to send event.");
                 }
             }
 
@@ -462,7 +456,7 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
             /// </summary>
             /// <param name="target"></param>
             /// <param name="source"></param>
-            private Dictionary<string, VariantValue> Merge(
+            private static Dictionary<string, VariantValue> Merge(
                 Dictionary<string, VariantValue> target,
                 Dictionary<string, VariantValue> source) {
 
@@ -511,15 +505,64 @@ namespace Microsoft.Azure.IIoT.Hub.Mock {
         /// <summary>
         /// Event messages
         /// </summary>
-        public class EventMessage {
-            /// <summary/>
+        public class EventMessage : ITelemetryEvent {
+
+            /// <summary>
+            /// Default constructor
+            /// </summary>
+            public EventMessage() {
+            }
+
+            /// <summary>
+            /// Create event
+            /// </summary>
+            /// <param name="message"></param>
+            /// <param name="device"></param>
+            public EventMessage(ITelemetryEvent message,
+                DeviceModel device) {
+                Timestamp = message.Timestamp;
+                ContentType = message.ContentType;
+                MessageSchema = message.MessageSchema;
+                RoutingInfo = message.RoutingInfo;
+                OutputName = message.OutputName;
+                Buffers = message.Buffers;
+                DeviceId = device.Id;
+                ModuleId = device.ModuleId;
+                Retain = message.Retain;
+                Ttl = message.Ttl;
+            }
+
+            /// <inheritdoc/>
+            public DateTime Timestamp { get; set; }
+            /// <inheritdoc/>
+            public string ContentType { get; set; }
+            /// <inheritdoc/>
+            public string ContentEncoding { get; set; }
+            /// <inheritdoc/>
+            public string MessageSchema { get; set; }
+            /// <inheritdoc/>
             public string DeviceId { get; set; }
-            /// <summary/>
+            /// <inheritdoc/>
             public string ModuleId { get; set; }
-            /// <summary/>
-            public DateTime EnqueuedTimeUtc { get; set; }
-            /// <summary/>
-            public Message Message { get; set; }
+            /// <inheritdoc/>
+            public string RoutingInfo { get; set; }
+            /// <inheritdoc/>
+            public string OutputName { get; set; }
+            /// <inheritdoc/>
+            public bool Retain { get; set; }
+            /// <inheritdoc/>
+            public TimeSpan Ttl { get; set; }
+            /// <inheritdoc/>
+            public IReadOnlyList<byte[]> Buffers { get; set; }
+
+            /// <summary>
+            /// Event properties
+            /// </summary>
+            public Dictionary<string, string> Properties { get; internal set; }
+
+            /// <inheritdoc/>
+            public void Dispose() {
+            }
         }
 
         private readonly SqlQuery _query;

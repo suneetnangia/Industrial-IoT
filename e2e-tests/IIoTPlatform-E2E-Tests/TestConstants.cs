@@ -4,7 +4,6 @@
 // ------------------------------------------------------------
 
 namespace IIoTPlatform_E2E_Tests {
-    using System;
 
     /// <summary>
     /// Contains constants using for End 2 End testing
@@ -19,6 +18,21 @@ namespace IIoTPlatform_E2E_Tests {
         /// Name of the test assembly
         /// </summary>
         public const string TestAssemblyName = "IIoTPlatform-E2E-Tests";
+
+        /// <summary>
+        /// Await time for initialization/setup or no data expected.
+        /// </summary>
+        public const int AwaitInitInMilliseconds = 30 * 1000;
+
+        /// <summary>
+        /// Await time for waiting new data
+        /// </summary>
+        public const int AwaitDataInMilliseconds = 90 * 1000;
+
+        /// <summary>
+        /// Await time for cleanup or no data expected.
+        /// </summary>
+        public const int AwaitCleanupInMilliseconds = 20 * 1000;
 
         /// <summary>
         /// Default timeout of web calls
@@ -43,7 +57,7 @@ namespace IIoTPlatform_E2E_Tests {
         /// <summary>
         /// Folder to store published_nodes.json file
         /// </summary>
-        public const string PublishedNodesFolder = "/mount";
+        public const string PublishedNodesFolder = "/mount/opc_publisher";
 
         /// <summary>
         /// The full name of the publishednodes.json on the Edge
@@ -264,17 +278,17 @@ namespace IIoTPlatform_E2E_Tests {
             /// <summary>
             /// Container Registry server
             /// </summary>
-            public const string PCS_CONTAINER_REGISTRY_SERVER = "PCS_CONTAINER_REGISTRY_SERVER";
+            public const string PCS_DOCKER_SERVER = "PCS_DOCKER_SERVER";
 
             /// <summary>
             /// Container Registry user name
             /// </summary>
-            public const string PCS_CONTAINER_REGISTRY_USER = "PCS_CONTAINER_REGISTRY_USER";
+            public const string PCS_DOCKER_USER = "PCS_DOCKER_USER";
 
             /// <summary>
             /// Container Registry password
             /// </summary>
-            public const string PCS_CONTAINER_REGISTRY_PASSWORD = "PCS_CONTAINER_REGISTRY_PASSWORD";
+            public const string PCS_DOCKER_PASSWORD = "PCS_DOCKER_PASSWORD";
 
             /// <summary>
             ///Images namespace
@@ -304,7 +318,7 @@ namespace IIoTPlatform_E2E_Tests {
             /// <summary>
             /// The trait value for PublisherMode = standalone
             /// </summary>
-            public const string PublisherModeStandaloneTraitValue = "standalone";
+            public const string PublisherModeTraitValue = "standalone";
 
             /// <summary>
             /// The trait name of the Twin Mode
@@ -345,7 +359,46 @@ namespace IIoTPlatform_E2E_Tests {
             /// Endpoint state Disconnected
             /// </summary>
             public const string Disconnected = "Disconnected";
+        }
 
+        /// <summary>
+        /// Direct Method names
+        /// </summary>
+        internal static class DirectMethodNames {
+            /// <summary>
+            /// Publish Nodes
+            /// </summary>
+            public const string PublishNodes = "PublishNodes_V1";
+
+            /// <summary>
+            /// Unpublish Nodes
+            /// </summary>
+            public const string UnpublishNodes = "UnpublishNodes_V1";
+
+            /// <summary>
+            /// GetConfiguredNodesOnEndpoint
+            /// </summary>
+            public const string GetConfiguredNodesOnEndpoint = "GetConfiguredNodesOnEndpoint_V1";
+
+            /// <summary>
+            /// GetConfiguredEndpoints
+            /// </summary>
+            public const string GetConfiguredEndpoints = "GetConfiguredEndpoints_V1";
+
+            /// <summary>
+            /// UnpublishAllNodes
+            /// </summary>
+            public const string UnpublishAllNodes = "UnpublishAllNodes_V1";
+
+            /// <summary>
+            /// GetDiagnosticInfo
+            /// </summary>
+            public const string GetDiagnosticInfo = "GetDiagnosticInfo_V1";
+
+            /// <summary>
+            /// AddOrUpdateEndpoints
+            /// </summary>
+            public const string AddOrUpdateEndpoints = "AddOrUpdateEndpoints_V1";
         }
     }
 }

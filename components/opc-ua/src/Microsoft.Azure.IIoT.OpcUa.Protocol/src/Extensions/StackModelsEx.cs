@@ -139,8 +139,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
                 return null;
             }
             return new DataChangeFilter {
-                DeadbandValue = model.DeadBandValue ?? 0.0,
-                DeadbandType = (uint)model.DeadBandType.ToStackType(),
+                DeadbandValue = model.DeadbandValue ?? 0.0,
+                DeadbandType = (uint)model.DeadbandType.ToStackType(),
                 Trigger = model.DataChangeTrigger.ToStackType()
             };
         }
@@ -155,9 +155,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
                 return null;
             }
             return new DataChangeFilterModel {
-                DeadBandValue = (int)model.DeadbandValue == 0 ? (double?)null :
+                DeadbandValue = (int)model.DeadbandValue == 0 ? (double?)null :
                     model.DeadbandValue,
-                DeadBandType = ((DeadbandType)model.DeadbandType).ToServiceType(),
+                DeadbandType = ((DeadbandType)model.DeadbandType).ToServiceType(),
                 DataChangeTrigger = model.Trigger.ToServiceType()
             };
         }
@@ -257,30 +257,11 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
                 return null;
             }
             return new SimpleAttributeOperand {
-                TypeDefinitionId = model.NodeId.ToNodeId(context),
+                TypeDefinitionId = model.TypeDefinitionId.ToNodeId(context),
                 AttributeId = (uint)(model.AttributeId ?? NodeAttribute.Value),
                 BrowsePath = new QualifiedNameCollection(model.BrowsePath == null ?
                     Enumerable.Empty<QualifiedName>() :
                     model.BrowsePath?.Select(n => n.ToQualifiedName(context))),
-                IndexRange = model.IndexRange
-            };
-        }
-
-        /// <summary>
-        /// Convert to service model
-        /// </summary>
-        /// <param name="model"></param>
-        /// <param name="context"></param>
-        /// <returns></returns>
-        public static SimpleAttributeOperandModel ToServiceModel(this SimpleAttributeOperand model,
-            IServiceMessageContext context) {
-            if (model == null) {
-                return null;
-            }
-            return new SimpleAttributeOperandModel {
-                NodeId = model.TypeDefinitionId.AsString(context),
-                AttributeId = (NodeAttribute)model.AttributeId,
-                BrowsePath = model.BrowsePath?.Select(p => p.AsString(context)).ToArray(),
                 IndexRange = model.IndexRange
             };
         }
@@ -422,7 +403,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         public static IUserIdentity ToStackModel(this CredentialModel authentication) {
             switch (authentication?.Type ?? CredentialType.None) {
                 case CredentialType.UserName:
-                    if (authentication.Value.IsObject &&
+                    if (authentication.Value != null &&
+                        authentication.Value.IsObject &&
                         authentication.Value.TryGetProperty("user", out var user) &&
                             user.IsString &&
                         authentication.Value.TryGetProperty("password", out var password) &&

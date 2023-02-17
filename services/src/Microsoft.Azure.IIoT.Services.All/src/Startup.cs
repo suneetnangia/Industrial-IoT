@@ -78,7 +78,9 @@ namespace Microsoft.Azure.IIoT.Services.All {
             services.AddApiVersioning();
 
             // Enable Application Insights telemetry collection.
+#pragma warning disable CS0618 // Type or member is obsolete
             services.AddApplicationInsightsTelemetry(Config.InstrumentationKey);
+#pragma warning restore CS0618 // Type or member is obsolete
             services.AddSingleton<ITelemetryInitializer, ApplicationInsightsTelemetryInitializer>();
         }
 
@@ -105,7 +107,6 @@ namespace Microsoft.Azure.IIoT.Services.All {
             app.AddStartupBranch<OpcUa.Events.Startup>("/events");
 
             if (!Config.IsMinimumDeployment) {
-                app.AddStartupBranch<OpcUa.Twin.Gateway.Startup>("/ua");
                 app.AddStartupBranch<OpcUa.Twin.History.Startup>("/history");
             }
 
@@ -153,21 +154,15 @@ namespace Microsoft.Azure.IIoT.Services.All {
             public void Start() {
                 _cts = new CancellationTokenSource();
 
-                var args = new string[0];
+                var args = Array.Empty<string>();
 
                 // Minimal processes
                 var processes = new List<Task> {
                     Task.Run(() => OpcUa.Registry.Sync.Program.Main(args), _cts.Token),
                     Task.Run(() => Processor.Onboarding.Program.Main(args), _cts.Token),
-                    Task.Run(() => Processor.Tunnel.Program.Main(args), _cts.Token),
                     Task.Run(() => Processor.Events.Program.Main(args), _cts.Token),
                     Task.Run(() => Processor.Telemetry.Program.Main(args), _cts.Token),
                 };
-
-                if (!_config.IsMinimumDeployment) {
-                    processes.Add(Task.Run(() => Processor.Telemetry.Cdm.Program.Main(args),
-                        _cts.Token));
-                }
                 _runner = Task.WhenAll(processes.ToArray());
             }
 

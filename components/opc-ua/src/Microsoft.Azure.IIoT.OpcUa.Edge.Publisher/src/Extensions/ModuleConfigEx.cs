@@ -37,11 +37,18 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
             /// <inheritdoc/>
             public string EdgeHubConnectionString { get; }
             /// <inheritdoc/>
+            public string MqttClientConnectionString { get; }
+            /// <inheritdoc/>
             public bool BypassCertVerification { get; }
             /// <inheritdoc/>
             public bool EnableMetrics { get; }
             /// <inheritdoc/>
+            public bool EnableOutputRouting { get; }
+            /// <inheritdoc/>
             public TransportOption Transport { get; }
+
+            /// <inheritdoc/>
+            public string TelemetryTopicTemplate { get; }
 
             /// <summary>
             /// Create clone
@@ -52,6 +59,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Client {
                 EdgeHubConnectionString = GetEdgeHubConnectionString(config, connectionString);
                 BypassCertVerification = config.BypassCertVerification;
                 Transport = config.Transport;
+                EnableOutputRouting = config.EnableOutputRouting;
             }
 
             /// <summary>

@@ -99,7 +99,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
         /// <param name="target"></param>
         private void AddToCallTable(object target) {
             var versions = target.GetType().GetCustomAttributes<VersionAttribute>(true)
-                .Select(v => "_v" + v.Value)
+                .Select(v => v.Value)
                 .ToList();
             if (versions.Count == 0) {
                 versions.Add(string.Empty);
@@ -251,7 +251,7 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                 try {
                     object[] inputs;
                     if (_methodParams.Length == 0) {
-                        inputs = new object[0];
+                        inputs = Array.Empty<object>();
                     }
                     else if (_methodParams.Length == 1) {
                         var data = _serializer.Deserialize(payload, _methodParams[0].ParameterType);
@@ -300,6 +300,9 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                         }
                         _logger.Verbose(ex, "Method call error");
                         ex = _ef.Filter(ex, out var status);
+                        if (ex is MethodCallStatusException) {
+                            throw ex;
+                        }
                         throw new MethodCallStatusException(ex != null ?
                            _serializer.SerializeToString(ex) : null, status);
                     }
@@ -322,10 +325,13 @@ namespace Microsoft.Azure.IIoT.Module.Framework.Hosting {
                         }
                         _logger.Verbose(ex, "Method call error");
                         ex = _ef.Filter(ex, out var status);
+                        if (ex is MethodCallStatusException) {
+                            throw ex;
+                        }
                         throw new MethodCallStatusException(ex != null ?
                             _serializer.SerializeToString(ex) : null, status);
                     }
-                    return new byte[0];
+                    return Array.Empty<byte>();
                 });
             }
 

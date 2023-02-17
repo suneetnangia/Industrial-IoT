@@ -4,6 +4,7 @@
 // ------------------------------------------------------------
 
 namespace Microsoft.Azure.IIoT.OpcUa.Api.Core.Models {
+    using System;
     using System.Runtime.Serialization;
 
     /// <summary>
@@ -16,8 +17,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Core.Models {
         /// Type definition node id if operand is
         /// simple or full attribute operand.
         /// </summary>
-        [DataMember(Name = "nodeId", Order = 0)]
-        public string NodeId { get; set; }
+        [DataMember(Name = "typeDefinitionId", Order = 0)]
+        public string TypeDefinitionId { get; set; }
 
         /// <summary>
         /// Browse path of attribute operand
@@ -39,5 +40,19 @@ namespace Microsoft.Azure.IIoT.OpcUa.Api.Core.Models {
         [DataMember(Name = "indexRange", Order = 3,
             EmitDefaultValue = false)]
         public string IndexRange { get; set; }
+
+        /// <summary>
+        /// Optional display name (Publisher extension)
+        /// </summary>
+        [DataMember(Name = "displayName", Order = 4,
+            EmitDefaultValue = false)]
+        public string DisplayName { get; set; }
+
+        /// <summary>
+        /// Optional data set class field id (Publisher extension)
+        /// </summary>
+        [DataMember(Name = "dataSetClassFieldId", Order = 5,
+            EmitDefaultValue = false)]
+        public Guid DataSetClassFieldId { get; set; }
     }
 }

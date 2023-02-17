@@ -66,6 +66,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Twin.Deploy {
         /// <summary>
         /// Get base edge configuration
         /// </summary>
+        /// <param name="isLinux"></param>
         /// <returns></returns>
         private IDictionary<string, IDictionary<string, object>> CreateLayeredDeployment(bool isLinux) {
 
@@ -94,25 +95,28 @@ namespace Microsoft.Azure.IIoT.OpcUa.Twin.Deploy {
                     HostConfig = new {
                         Binds = new[] {
                             "/mount:/mount"
+                        },
+                        CapDrop = new[] {
+                            "CHOWN",
+                            "SETUID"
                         }
                     }
                 });
             }
             else {
-                // Windows
+                // Eflow
                 createOptions = _serializer.SerializeToString(new {
-                    User = "ContainerAdministrator",
                     Hostname = "twin",
                     Cmd = new[] {
                         "PkiRootPath=/mount/pki",
                     },
                     HostConfig = new {
-                        Mounts = new[] {
-                            new {
-                                Type = "bind",
-                                Source = "C:\\\\ProgramData\\\\iotedge",
-                                Target = "C:\\\\mount"
-                            }
+                        Binds = new[] {
+                            "/home/iotedge:/mount"
+                        },
+                        CapDrop = new[] {
+                            "CHOWN",
+                            "SETUID"
                         }
                     }
                 });

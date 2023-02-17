@@ -7,6 +7,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
     using Microsoft.Azure.IIoT.OpcUa.Core.Models;
     using System.Threading.Tasks;
     using Opc.Ua.Client;
+    using Opc.Ua.Client.ComplexTypes;
 
     /// <summary>
     /// Session manager
@@ -36,9 +37,16 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         /// Get or create session for subscription
         /// </summary>
         /// <param name="connection"></param>
-        /// <param name="createIfNotExists"></param>
+        /// <param name="ensureWorkingSession"></param>
         /// <returns></returns>
-        Session GetOrCreateSession(ConnectionModel connection, bool createIfNotExists);
+        ISession GetOrCreateSession(ConnectionModel connection, bool ensureWorkingSession);
+
+        /// <summary>
+        /// Get complex type system from session
+        /// </summary>
+        /// <param name="session"></param>
+        /// <returns></returns>
+        ComplexTypeSystem GetComplexTypeSystem(ISession session);
 
         /// <summary>
         /// Remove session if empty

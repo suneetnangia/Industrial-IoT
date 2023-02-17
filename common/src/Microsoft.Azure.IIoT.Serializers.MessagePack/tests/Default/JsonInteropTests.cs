@@ -22,7 +22,7 @@ namespace Microsoft.Azure.IIoT.Serializers.NewtonSoft {
             yield return ("", "");
             yield return ("str ing", "str ing");
             yield return ("{}", "{}");
-            yield return (new byte[0], new byte[0]);
+            yield return (Array.Empty<byte>(), Array.Empty<byte>());
             yield return (new byte[1000], new byte[1000]);
             yield return (new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 });
             yield return (Encoding.UTF8.GetBytes("utf-8-string"), Encoding.UTF8.GetBytes("utf-8-string"));
@@ -103,9 +103,7 @@ namespace Microsoft.Azure.IIoT.Serializers.NewtonSoft {
             var now1 = DateTime.UtcNow;
             yield return (now1, now1);
             yield return (DateTime.MinValue, DateTime.MinValue);
-#if MessagePack2
-            yield return (DateTime.MaxValue, DateTime.MaxValue); // TODO: Works in 2.0
-#endif
+            yield return (DateTime.MaxValue, DateTime.MaxValue); 
             yield return ((DateTime?)null, (DateTime?)null);
             var now2 = DateTimeOffset.UtcNow;
             yield return (now2, now2);

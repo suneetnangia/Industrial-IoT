@@ -240,9 +240,17 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Supervisor.Services {
             /// <inheritdoc/>
             public string EdgeHubConnectionString { get; }
             /// <inheritdoc/>
+            public string MqttClientConnectionString { get; }
+
+            /// <inheritdoc/>
+            public string TelemetryTopicTemplate { get; }
+
+            /// <inheritdoc/>
             public bool BypassCertVerification { get; }
             /// <inheritdoc/>
             public bool EnableMetrics { get; }
+            /// <inheritdoc/>
+            public bool EnableOutputRouting { get; }
             /// <inheritdoc/>
             public TransportOption Transport { get; }
 
@@ -265,6 +273,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Edge.Supervisor.Services {
                 EdgeHubConnectionString = GetEdgeHubConnectionString(config,
                     endpointId, secret);
                 EnableMetrics = config.EnableMetrics;
+                EnableOutputRouting = config.EnableOutputRouting;
 
                 // Create twin scoped component context for the host
                 _container = outer._factory.Create(builder => {

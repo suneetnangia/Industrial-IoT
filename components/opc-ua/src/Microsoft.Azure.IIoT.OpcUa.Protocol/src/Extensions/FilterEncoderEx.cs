@@ -62,24 +62,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
         /// </summary>
         /// <param name="encoder"></param>
         /// <param name="model"></param>
-        /// <returns></returns>
-        public static EventFilterModel Encode(this IVariantEncoder encoder, EventFilter model) {
-            if (model == null) {
-                return null;
-            }
-            return new EventFilterModel {
-                SelectClauses = model.SelectClauses?
-                    .Select(c => c.ToServiceModel(encoder.Context))
-                    .ToList(),
-                WhereClause = encoder.Encode(model.WhereClause)
-            };
-        }
-
-        /// <summary>
-        /// Convert to stack model
-        /// </summary>
-        /// <param name="encoder"></param>
-        /// <param name="model"></param>
         /// <param name="onlySimpleAttributeOperands"></param>
         /// <returns></returns>
         public static ContentFilter Decode(this IVariantEncoder encoder, ContentFilterModel model,
@@ -171,9 +153,18 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol {
                 };
             }
             if (model.Value != null) {
-                return new LiteralOperand {
-                    Value = encoder.Decode(model.Value, null)
-                };
+                var typeInfo = new TypeInfo(BuiltInType.NodeId, ValueRanks.Scalar);
+                try {
+                    // assume it's a node and try to parse it into correct namespace index
+                    // if it fails, it's ok it will go to the default route
+                    var nodeId = encoder.Decode(model.Value, null);
+                    var typeDefinitionId = nodeId.ToString().ToNodeId(encoder.Context);
+                    if (typeDefinitionId != null) {
+                        return new LiteralOperand(TypeInfo.Cast(typeDefinitionId, typeInfo.BuiltInType));
+                    }
+                }
+                catch { };
+                return new LiteralOperand(TypeInfo.Cast(encoder.Decode(model.Value, null), typeInfo.BuiltInType));
             }
             if (model.Alias != null && !onlySimpleAttributeOperands) {
                 return new AttributeOperand {

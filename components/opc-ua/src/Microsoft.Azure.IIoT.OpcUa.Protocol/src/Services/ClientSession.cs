@@ -20,7 +20,6 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using Microsoft.Azure.IIoT.Diagnostics;
 
     /// <summary>
     /// Wraps a session object to provide serialized access and connection and
@@ -33,7 +32,8 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
             DateTime.UtcNow > _lastActivity + _timeout;
 
         /// <inheritdoc/>
-        public int Pending => _queue.Count + (_curOperation == null ? 0 : 1);
+        public int Pending => _queue.Count
+            + (_curOperation is null || _curOperation is KeepAlive ? 0 : 1);
 
         private ClientSession(ApplicationConfiguration config, ConnectionModel connection,
             ILogger logger, Func<ConnectionModel, EndpointConnectivityState, Task> statusCb,
@@ -60,7 +60,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
             _session = null;
             _acquired = new TaskCompletionSource<Session>();
             _urlQueue = new ConcurrentQueue<string>(_connection.Endpoint.GetAllUrls());
-            _queue = new PriorityQueue<int, SessionOperation>();
+            _queue = new System.Collections.Concurrent.PriorityQueue<int, SessionOperation>();
             _enqueueEvent = new TaskCompletionSource<bool>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
 #pragma warning disable RECS0002 // Convert anonymous method to method group
@@ -356,7 +356,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
                     }
                     try {
                         if (_curOperation is KeepAlive) {
-                            _logger.Verbose("Sending keep alive message...");
+                            _logger.Debug("Sending keep alive message...");
                         }
                         else {
                             // Check if the desired user identity is the same as the current one
@@ -382,11 +382,18 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
                             }
                         }
                         await Task.Run(() => _curOperation.Complete(_session), _cts.Token);
-                        _lastActivity = DateTime.UtcNow;
-                        if (!(_curOperation is KeepAlive) || _lastState != EndpointConnectivityState.Unauthorized) {
+                        var isKeepAlive = _curOperation is KeepAlive;
+                        if (!isKeepAlive) {
+                            //
+                            // Only mark completed non keep alives as activity.
+                            // Close this session if there was no activity for
+                            // the duration of inactivity timeout.
+                            //
+                            _lastActivity = DateTime.UtcNow;
+                        }
+                        if (!isKeepAlive || _lastState != EndpointConnectivityState.Unauthorized) {
                             await NotifyConnectivityStateChangeAsync(EndpointConnectivityState.Ready);
                         }
-                        _logger.Verbose("Session operation completed.");
                         _curOperation = null;
                     }
                     catch (Exception e) {
@@ -833,7 +840,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
                                 NodeId = Variables.Server_ServerStatus_State,
                                 AttributeId = Attributes.Value
                             }
-                        });
+                        }, CancellationToken.None);
                     _failures = 0;
                 }
                 catch {
@@ -1010,7 +1017,7 @@ namespace Microsoft.Azure.IIoT.OpcUa.Protocol.Services {
         private readonly Task _processor;
         private readonly CancellationTokenSource _cts;
         private readonly ConcurrentQueue<string> _urlQueue;
-        private readonly PriorityQueue<int, SessionOperation> _queue;
+        private readonly System.Collections.Concurrent.PriorityQueue<int, SessionOperation> _queue;
         private volatile TaskCompletionSource<bool> _enqueueEvent;
         private readonly Func<ConnectionModel, EndpointConnectivityState, Task> _statusCb;
     }

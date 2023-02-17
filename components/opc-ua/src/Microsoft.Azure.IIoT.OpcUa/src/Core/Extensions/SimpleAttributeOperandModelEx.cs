@@ -24,7 +24,9 @@ namespace Microsoft.Azure.IIoT.OpcUa.Core.Models {
                 AttributeId = model.AttributeId,
                 BrowsePath = model.BrowsePath,
                 IndexRange = model.IndexRange,
-                NodeId = model.NodeId
+                TypeDefinitionId = model.TypeDefinitionId,
+                DisplayName = model.DisplayName,
+                DataSetClassFieldId = model.DataSetClassFieldId
             };
         }
 
@@ -50,11 +52,16 @@ namespace Microsoft.Azure.IIoT.OpcUa.Core.Models {
             if (model.IndexRange != other.IndexRange) {
                 return false;
             }
-            if (model.NodeId != other.NodeId) {
+            if (model.TypeDefinitionId != other.TypeDefinitionId) {
+                return false;
+            }
+            if (model.DisplayName != other.DisplayName) {
+                return false;
+            }
+            if (model.DataSetClassFieldId != other.DataSetClassFieldId) {
                 return false;
             }
             return true;
         }
-
     }
 }
